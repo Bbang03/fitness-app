@@ -8,28 +8,13 @@ import type { MealType } from '@/lib/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface FsFood {
+interface UsdaFood {
   id: string;
   name: string;
-  description: string;
-  type: string;
-}
-
-interface FsServing {
-  id: string;
-  description: string;
-  metric_amount: number;
-  metric_unit: string;
-  kcal: number;
-  carbs_g: number;
-  protein_g: number;
-  fat_g: number;
-}
-
-interface FsDetail {
-  id: string;
-  name: string;
-  servings: FsServing[];
+  brand: string;
+  dataType: string;
+  servingG: number;
+  per100g: { kcal: number; carbs_g: number; protein_g: number; fat_g: number };
 }
 
 type AddItem = {
@@ -183,126 +168,64 @@ function FoodRow({ food, onAdd }: { food: FoodItem; onAdd: (item: AddItem) => vo
   );
 }
 
-// ── FatSecret food row ─────────────────────────────────────────────────────
+// ── USDA food row ──────────────────────────────────────────────────────────
 
-function FatsecretFoodRow({ food, onAdd }: { food: FsFood; onAdd: (item: AddItem) => void }) {
+function UsdaFoodRow({ food, onAdd }: { food: UsdaFood; onAdd: (item: AddItem) => void }) {
   const [expanded, setExpanded] = useState(false);
-  const [detail, setDetail] = useState<FsDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [fetchFailed, setFetchFailed] = useState(false);
-  const [servingIdx, setServingIdx] = useState(0);
-  const [count, setCount] = useState('1');
+  const [grams, setGrams] = useState(String(food.servingG));
 
-  const fetchDetail = useCallback(async () => {
-    setLoading(true);
-    setFetchFailed(false);
-    try {
-      const res = await fetch(`/api/fatsecret/food?id=${food.id}`);
-      if (!res.ok) throw new Error('failed');
-      const data: FsDetail = await res.json();
-      if (!data.servings?.length) throw new Error('no servings');
-      setDetail(data);
-    } catch {
-      setFetchFailed(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [food.id]);
-
-  const handleToggle = async () => {
-    if (loading) return;
-    if (!expanded && !detail && !fetchFailed) {
-      await fetchDetail();
-    }
-    setExpanded(e => !e);
+  const g = Math.max(1, Number(grams) || food.servingG);
+  const computed = {
+    kcal: Math.round(food.per100g.kcal * g / 100),
+    carbs_g: Math.round(food.per100g.carbs_g * g / 100 * 10) / 10,
+    protein_g: Math.round(food.per100g.protein_g * g / 100 * 10) / 10,
+    fat_g: Math.round(food.per100g.fat_g * g / 100 * 10) / 10,
   };
 
-  const serving = detail?.servings[servingIdx];
-  const mult = Math.max(0.1, parseFloat(count) || 1);
-  const computed = serving
-    ? {
-        kcal: Math.round(serving.kcal * mult),
-        carbs_g: Math.round(serving.carbs_g * mult * 10) / 10,
-        protein_g: Math.round(serving.protein_g * mult * 10) / 10,
-        fat_g: Math.round(serving.fat_g * mult * 10) / 10,
-      }
-    : null;
-
-  // Parse quick preview from food_description: "Per 100g - Calories: 165kcal | Fat: 3.57g | ..."
-  const kcalMatch = food.description.match(/Calories:\s*([\d.]+)kcal/);
-  const perMatch = food.description.match(/^(Per[^-]+)/);
-  const previewParts = [
-    perMatch ? perMatch[1].trim() : '',
-    kcalMatch ? `${Math.round(parseFloat(kcalMatch[1]))}kcal` : '',
-  ].filter(Boolean);
+  const defaultKcal = Math.round(food.per100g.kcal * food.servingG / 100);
+  const subtitle = [
+    food.brand || null,
+    `${food.servingG}g 기준`,
+    `${defaultKcal}kcal`,
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="border-b border-zinc-800/50 last:border-0">
       <button
-        onClick={handleToggle}
+        onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-zinc-800/40 transition-colors"
       >
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium truncate">{food.name}</p>
-          {previewParts.length > 0 && (
-            <p className="text-xs text-zinc-500 mt-0.5">{previewParts.join(' · ')}</p>
-          )}
+          <p className="text-xs text-zinc-500 mt-0.5 truncate">{subtitle}</p>
         </div>
-        {loading ? (
-          <div className="w-4 h-4 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin flex-shrink-0" />
-        ) : (
-          <Plus size={16} className={`text-blue-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-45' : ''}`} />
-        )}
+        <div className="text-xs flex gap-2 flex-shrink-0">
+          <span className="text-amber-500/70">탄{Math.round(food.per100g.carbs_g * food.servingG / 100)}g</span>
+          <span className="text-blue-500/70">단{Math.round(food.per100g.protein_g * food.servingG / 100)}g</span>
+        </div>
+        <Plus size={16} className={`text-blue-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-45' : ''}`} />
       </button>
 
-      {expanded && fetchFailed && (
-        <div className="px-4 pb-4 text-center">
-          <p className="text-zinc-500 text-xs">영양 정보를 불러올 수 없습니다.</p>
-          <button onClick={fetchDetail} className="text-blue-400 text-xs mt-1.5">
-            재시도
-          </button>
-        </div>
-      )}
-
-      {expanded && !fetchFailed && detail && (
+      {expanded && (
         <div className="px-4 pb-4 pt-1 bg-zinc-900/50">
-          {detail.servings.length > 1 && (
-            <div className="mb-3">
-              <label className="text-xs text-zinc-400 mb-1.5 block">제공량 선택</label>
-              <select
-                value={servingIdx}
-                onChange={e => { setServingIdx(Number(e.target.value)); setCount('1'); }}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-              >
-                {detail.servings.map((s, i) => (
-                  <option key={s.id} value={i}>{s.description}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <div className="flex items-center gap-2 mb-3">
-            <label className="text-xs text-zinc-400 flex-shrink-0">개수 / 배율</label>
+            <label className="text-xs text-zinc-400 flex-shrink-0">섭취량 (g)</label>
             <input
               type="number"
-              value={count}
-              onChange={e => setCount(e.target.value)}
-              inputMode="decimal"
-              min="0.1"
-              step="0.5"
+              value={grams}
+              onChange={e => setGrams(e.target.value)}
+              inputMode="numeric"
               className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white text-center focus:outline-none focus:border-blue-500"
             />
           </div>
-
-          {computed && <NutritionGrid {...computed} />}
-
+          <NutritionGrid {...computed} />
           <button
             onClick={() => {
-              if (!serving || !computed) return;
-              const servingLabel = mult === 1
-                ? serving.description
-                : `${serving.description} × ${mult}`;
-              onAdd({ food_name: food.name, serving: servingLabel, ...computed });
+              onAdd({
+                food_name: food.name,
+                serving: `${g}g${food.brand ? ` (${food.brand})` : ''}`,
+                ...computed,
+              });
               setExpanded(false);
             }}
             className="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
@@ -315,7 +238,7 @@ function FatsecretFoodRow({ food, onAdd }: { food: FsFood; onAdd: (item: AddItem
   );
 }
 
-// ── Page inner (needs Suspense because of useSearchParams) ─────────────────
+// ── Page inner ────────────────────────────────────────────────────────────
 
 function AddMealInner() {
   const router = useRouter();
@@ -331,30 +254,33 @@ function AddMealInner() {
   const [tab, setTab] = useState<'search' | 'manual'>('search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>(() => searchFoods(''));
-  const [fsResults, setFsResults] = useState<FsFood[]>([]);
-  const [fsLoading, setFsLoading] = useState(false);
+  const [usdaResults, setUsdaResults] = useState<UsdaFood[]>([]);
+  const [usdaLoading, setUsdaLoading] = useState(false);
+  const [translatedQuery, setTranslatedQuery] = useState<string | undefined>();
 
-  // Local DB — instant
+  // 식약처 DB — 즉시
   useEffect(() => { setResults(searchFoods(query)); }, [query]);
 
-  // FatSecret — debounced 500 ms
+  // USDA — 500ms 디바운스
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setFsResults([]);
-      setFsLoading(false);
+      setUsdaResults([]);
+      setUsdaLoading(false);
+      setTranslatedQuery(undefined);
       return;
     }
-    setFsLoading(true);
+    setUsdaLoading(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/fatsecret/search?q=${encodeURIComponent(trimmed)}`);
+        const res = await fetch(`/api/usda/search?q=${encodeURIComponent(trimmed)}`);
         const data = await res.json();
-        setFsResults(data.foods ?? []);
+        setUsdaResults(data.foods ?? []);
+        setTranslatedQuery(data.translatedQuery);
       } catch {
-        setFsResults([]);
+        setUsdaResults([]);
       } finally {
-        setFsLoading(false);
+        setUsdaLoading(false);
       }
     }, 500);
     return () => clearTimeout(t);
@@ -368,7 +294,7 @@ function AddMealInner() {
   if (!user) return null;
 
   const hasQuery = query.trim().length >= 2;
-  const noResults = hasQuery && results.length === 0 && !fsLoading && fsResults.length === 0;
+  const noResults = hasQuery && results.length === 0 && !usdaLoading && usdaResults.length === 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -407,7 +333,7 @@ function AddMealInner() {
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500 transition-colors"
-                placeholder="음식 이름으로 검색..."
+                placeholder="음식 이름으로 검색... (한글·영문 모두 가능)"
                 autoFocus
               />
               {query && (
@@ -418,14 +344,14 @@ function AddMealInner() {
             </div>
             <p className="text-xs text-zinc-600 mt-1.5 px-1">
               {hasQuery
-                ? `식약처 ${results.length}개${fsLoading ? ' + 검색 중...' : fsResults.length > 0 ? ` + FatSecret ${fsResults.length}개` : ''}`
+                ? `식약처 ${results.length}개${usdaLoading ? ' · USDA 검색 중...' : usdaResults.length > 0 ? ` · USDA ${usdaResults.length}개` : ''}`
                 : `${results.length}개 식품 (식약처 DB)`}
             </p>
           </div>
 
           {/* Results */}
           <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-3 min-h-0">
-            {/* Local DB */}
+            {/* 식약처 DB */}
             {results.length > 0 && (
               <div className="bg-zinc-900 rounded-2xl overflow-hidden">
                 {hasQuery && (
@@ -439,40 +365,56 @@ function AddMealInner() {
               </div>
             )}
 
-            {/* FatSecret */}
-            {hasQuery && (fsLoading || fsResults.length > 0) && (
+            {/* USDA 해외 식품 */}
+            {hasQuery && (
               <div className="bg-zinc-900 rounded-2xl overflow-hidden">
-                <div className="px-4 py-2 border-b border-zinc-800/50 flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">FatSecret</p>
-                  {fsLoading && (
-                    <div className="w-3 h-3 border border-zinc-600 border-t-blue-500 rounded-full animate-spin" />
+                <div className="px-4 py-2 border-b border-zinc-800/50 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider flex-shrink-0">
+                      해외 식품 (USDA)
+                    </p>
+                    {translatedQuery && (
+                      <p className="text-[10px] text-zinc-600 truncate">
+                        &ldquo;{translatedQuery}&rdquo; 으로 검색
+                      </p>
+                    )}
+                  </div>
+                  {usdaLoading && (
+                    <div className="w-3 h-3 border border-zinc-600 border-t-blue-500 rounded-full animate-spin flex-shrink-0" />
                   )}
                 </div>
-                {fsLoading && fsResults.length === 0 ? (
+
+                {usdaLoading && usdaResults.length === 0 ? (
                   <div className="py-6 text-center text-zinc-600 text-xs">검색 중...</div>
-                ) : (
-                  fsResults.map(food => (
-                    <FatsecretFoodRow key={food.id} food={food} onAdd={handleAdd} />
+                ) : usdaResults.length > 0 ? (
+                  usdaResults.map(food => (
+                    <UsdaFoodRow key={food.id} food={food} onAdd={handleAdd} />
                   ))
+                ) : (
+                  <div className="py-5 text-center">
+                    <p className="text-zinc-600 text-xs">결과 없음</p>
+                    <p className="text-zinc-700 text-[11px] mt-1">
+                      브랜드명·영문 검색어를 사용하면 더 많은 결과가 나와요
+                    </p>
+                    <p className="text-zinc-700 text-[11px] mt-0.5">
+                      예: 버거킹, 맥도날드, chicken, salmon
+                    </p>
+                  </div>
                 )}
               </div>
             )}
 
-            {/* No results — suggest manual entry */}
+            {/* 결과 없음 */}
             {noResults && (
               <div className="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-500 text-sm">
                 &ldquo;{query}&rdquo; 검색 결과가 없습니다.
                 <br />
-                <button
-                  onClick={() => setTab('manual')}
-                  className="text-blue-400 mt-2 block mx-auto"
-                >
+                <button onClick={() => setTab('manual')} className="text-blue-400 mt-2 block mx-auto">
                   직접 입력하기 →
                 </button>
               </div>
             )}
 
-            {/* Default empty state (no query) */}
             {!hasQuery && results.length === 0 && (
               <div className="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-500 text-sm">
                 검색 결과가 없습니다.
