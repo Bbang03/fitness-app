@@ -7,7 +7,7 @@ import { Dumbbell } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, currentUser } = useStore();
+  const { login, loginAsGuest, currentUser } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -93,6 +93,20 @@ export default function LoginPage() {
             회원가입
           </Link>
         </p>
+
+        <div className="relative flex items-center py-2">
+          <div className="flex-1 border-t border-zinc-800" />
+          <span className="px-3 text-xs text-zinc-600">또는</span>
+          <div className="flex-1 border-t border-zinc-800" />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => { loginAsGuest(); router.push('/dashboard'); }}
+          className="w-full bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-900 text-zinc-300 font-medium py-3.5 rounded-xl transition-colors"
+        >
+          비회원으로 시작
+        </button>
       </form>
     </div>
   );

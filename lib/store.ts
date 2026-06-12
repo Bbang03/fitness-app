@@ -35,6 +35,7 @@ interface StoreState {
 interface StoreActions {
   // Auth
   login: (email: string, password: string) => boolean;
+  loginAsGuest: () => void;
   signup: (data: SignupData) => void;
   logout: () => void;
   currentUser: () => User | null;
@@ -92,6 +93,26 @@ export const useStore = create<Store>()(
         if (!user) return false;
         set({ currentUserId: user.id });
         return true;
+      },
+
+      loginAsGuest: () => {
+        const existing = get().users.find((u) => u.is_guest);
+        if (existing) {
+          set({ currentUserId: existing.id });
+          return;
+        }
+        const guest: StoredUser = {
+          id: generateId(),
+          email: '',
+          password: '',
+          name: '비회원',
+          height_cm: 170,
+          sex: 'male',
+          birth_year: new Date().getFullYear() - 25,
+          created_at: new Date().toISOString(),
+          is_guest: true,
+        };
+        set((s) => ({ users: [...s.users, guest], currentUserId: guest.id }));
       },
 
       signup: (data) => {

@@ -9,6 +9,7 @@ export interface StoredUser {
   sex: Sex;
   birth_year: number;
   created_at: string;
+  is_guest?: boolean;
 }
 
 export interface User {
