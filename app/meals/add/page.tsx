@@ -254,34 +254,31 @@ function AddMealInner() {
   const [tab, setTab] = useState<'search' | 'manual'>('search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>(() => searchFoods(''));
-  const [usdaResults, setUsdaResults] = useState<UsdaFood[]>([]);
+  const [offResults, setOffResults] = useState<UsdaFood[]>([]);
   const [fsResults, setFsResults] = useState<UsdaFood[]>([]);
   const [externalLoading, setExternalLoading] = useState(false);
-  const [translatedQuery, setTranslatedQuery] = useState<string | undefined>();
 
   // 식약처 DB — 즉시
   useEffect(() => { setResults(searchFoods(query)); }, [query]);
 
-  // FatSecret + USDA — 500ms 디바운스, 병렬 호출
+  // FatSecret + OpenFoodFacts — 500ms 디바운스, 병렬 호출
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
-      setUsdaResults([]);
+      setOffResults([]);
       setFsResults([]);
       setExternalLoading(false);
-      setTranslatedQuery(undefined);
       return;
     }
     setExternalLoading(true);
     const t = setTimeout(async () => {
       try {
-        const [usdaRes, fsRes] = await Promise.allSettled([
-          fetch(`/api/usda/search?q=${encodeURIComponent(trimmed)}`).then(r => r.json()),
+        const [offRes, fsRes] = await Promise.allSettled([
+          fetch(`/api/openfoodfacts/search?q=${encodeURIComponent(trimmed)}`).then(r => r.json()),
           fetch(`/api/fatsecret/search?q=${encodeURIComponent(trimmed)}`).then(r => r.json()),
         ]);
-        if (usdaRes.status === 'fulfilled') {
-          setUsdaResults(usdaRes.value.foods ?? []);
-          setTranslatedQuery(usdaRes.value.translatedQuery);
+        if (offRes.status === 'fulfilled') {
+          setOffResults(offRes.value.foods ?? []);
         }
         if (fsRes.status === 'fulfilled') {
           setFsResults(fsRes.value.foods ?? []);
@@ -303,7 +300,7 @@ function AddMealInner() {
   if (!user) return null;
 
   const hasQuery = query.trim().length >= 2;
-  const noResults = hasQuery && results.length === 0 && !externalLoading && usdaResults.length === 0 && fsResults.length === 0;
+  const noResults = hasQuery && results.length === 0 && !externalLoading && offResults.length === 0 && fsResults.length === 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -357,7 +354,7 @@ function AddMealInner() {
                     results.length > 0 && `식약처 ${results.length}개`,
                     externalLoading ? '검색 중...' : [
                       fsResults.length > 0 && `FatSecret ${fsResults.length}개`,
-                      usdaResults.length > 0 && `USDA ${usdaResults.length}개`,
+                      offResults.length > 0 && `OFF ${offResults.length}개`,
                     ].filter(Boolean).join(' · '),
                   ].filter(Boolean).join(' · ')
                 : `${results.length}개 식품 (식약처 DB)`}
@@ -403,22 +400,26 @@ function AddMealInner() {
               </div>
             )}
 
-            {/* USDA */}
-            {hasQuery && usdaResults.length > 0 && (
+            {/* OpenFoodFacts */}
+            {hasQuery && (
               <div className="bg-zinc-900 rounded-2xl overflow-hidden">
-                <div className="px-4 py-2 border-b border-zinc-800/50 flex items-center gap-2">
-                  <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider flex-shrink-0">
-                    USDA (미국 식품 DB)
+                <div className="px-4 py-2 border-b border-zinc-800/50 flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+                    OpenFoodFacts (세계 식품 DB)
                   </p>
-                  {translatedQuery && (
-                    <p className="text-[10px] text-zinc-600 truncate">
-                      &ldquo;{translatedQuery}&rdquo; 으로 검색
-                    </p>
+                  {externalLoading && (
+                    <div className="w-3 h-3 border border-zinc-600 border-t-blue-500 rounded-full animate-spin flex-shrink-0" />
                   )}
                 </div>
-                {usdaResults.map(food => (
-                  <UsdaFoodRow key={`usda-${food.id}`} food={food} onAdd={handleAdd} />
-                ))}
+                {externalLoading && offResults.length === 0 ? (
+                  <div className="py-6 text-center text-zinc-600 text-xs">검색 중...</div>
+                ) : offResults.length > 0 ? (
+                  offResults.map(food => (
+                    <UsdaFoodRow key={`off-${food.id}`} food={food} onAdd={handleAdd} />
+                  ))
+                ) : (
+                  <div className="py-5 text-center text-zinc-600 text-xs">결과 없음</div>
+                )}
               </div>
             )}
 
