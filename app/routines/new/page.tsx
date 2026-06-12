@@ -118,15 +118,22 @@ export default function NewRoutinePage() {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex-1 min-w-0">
                     {item.exercise_name ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium flex-1 truncate">{item.exercise_name}</p>
-                        <span className="text-[10px] text-zinc-500 flex-shrink-0">
-                          {item.record_type === 'weight_reps' ? '무게+횟수' : item.record_type === 'reps_only' ? '횟수' : '시간'}
-                        </span>
-                      </div>
+                      <p className="text-sm font-medium truncate mb-1">{item.exercise_name}</p>
                     ) : (
-                      <p className="text-sm text-zinc-600 italic">운동을 선택하세요</p>
+                      <p className="text-sm text-zinc-600 italic mb-1">운동을 선택하세요</p>
                     )}
+                    <div className="flex gap-1">
+                      {(['weight_reps', 'reps_only', 'time'] as RecordType[]).map(rt => (
+                        <button key={rt} type="button" onClick={() => update(idx, 'record_type', rt)}
+                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+                            item.record_type === rt
+                              ? 'bg-blue-900/60 border-blue-700 text-blue-300'
+                              : 'border-zinc-700 text-zinc-600 hover:text-zinc-400'
+                          }`}>
+                          {rt === 'weight_reps' ? '무게+횟수' : rt === 'reps_only' ? '횟수만' : '시간'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <Link
                     href={`/exercises/select?idx=${idx}`}
