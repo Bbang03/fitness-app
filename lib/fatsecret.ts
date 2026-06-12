@@ -39,5 +39,10 @@ export async function fatsecretRequest(params: Record<string, string>): Promise<
     cache: 'no-store',
   });
   if (!res.ok) throw new Error(`FatSecret API error: ${res.status}`);
-  return res.json();
+  const json = await res.json();
+  if (json && typeof json === 'object' && 'error' in json) {
+    const e = (json as { error: { code: number; message: string } }).error;
+    throw new Error(`FatSecret error ${e.code}: ${e.message}`);
+  }
+  return json;
 }
