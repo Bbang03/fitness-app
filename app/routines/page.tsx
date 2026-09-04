@@ -3,12 +3,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 import BottomNav from '@/components/BottomNav';
 import { Plus, ChevronRight, Play, Trash2, Dumbbell } from 'lucide-react';
 
 export default function RoutinesPage() {
   const router = useRouter();
-  const { currentUser, routines, deleteRoutine } = useStore();
+  const {
+    currentUser,
+    routines,
+    setRoutines,
+    deleteRoutine,
+  } = useStore();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const user = currentUser();
@@ -16,6 +22,60 @@ export default function RoutinesPage() {
   useEffect(() => {
     if (!user) router.replace('/login');
   }, [user, router]);
+
+  useEffect(() => {
+    if (!user) return;
+  
+    const loadRoutines = async () => {
+      const supabase = createClient();
+  
+      const {
+        data: authData,
+      } = await supabase.auth.getUser();
+  
+      // 비회원 모드라면 기존 Zustand/localStorage 루틴을 그대로 사용
+      if (!authData.user) return;
+  
+      const { data, error } = await supabase
+        .from('routines')
+        .select(`
+          id,
+          user_id,
+          name,
+          created_at,
+          routine_items (
+            id,
+            order,
+            exercise_name,
+            target_sets,
+            target_reps,
+            rest_seconds,
+            record_type
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+  
+      if (error) {
+        console.error('Routine load failed:', error.message);
+        return;
+      }
+  
+      const loadedRoutines = (data ?? []).map((routine) => ({
+        id: routine.id,
+        user_id: routine.user_id,
+        name: routine.name,
+        created_at: routine.created_at,
+        items: (routine.routine_items ?? []).sort(
+          (a, b) => a.order - b.order,
+        ),
+      }));
+  
+      setRoutines(loadedRoutines);
+    };
+  
+    loadRoutines();
+  }, [user, setRoutines]);
 
   if (!user) return null;
 

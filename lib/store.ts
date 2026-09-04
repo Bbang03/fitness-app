@@ -52,6 +52,8 @@ interface StoreActions {
  syncAuthenticatedUser: (user: StoredUser) => void;
 
   // Routines
+  setRoutines: (routines: Routine[]) => void;
+  
   addRoutine: (
     name: string,
     items: Omit<RoutineItem, 'id'>[],
@@ -208,6 +210,7 @@ export const useStore = create<Store>()(
       clearRoutineDraft: () => set({ routineDraft: null }),
 
       // ── Routines ──────────────────────────────────────────────────────────
+      setRoutines: (routines) => set({ routines }),
 
       addRoutine: async (name, items) => {
         const user = get().currentUser();
