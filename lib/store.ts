@@ -104,7 +104,7 @@ interface StoreActions {
   startWorkout: (routineId: string) => void;
   logSet: (exerciseIndex: number, setIndex: number, weight: number, reps: number, duration_seconds?: number) => void;
   clearRestTimer: () => void;
-  finishWorkout: () => void;
+  finishWorkout: () => Promise<boolean>;
   cancelWorkout: () => void;
 
   // Meals (v0.2)
@@ -597,26 +597,129 @@ export const useStore = create<Store>()(
         set({ activeWorkout: { ...activeWorkout, phase: 'exercise', restTimer: null } });
       },
 
-      finishWorkout: () => {
+      finishWorkout: async () => {
         const { activeWorkout } = get();
         const user = get().currentUser();
-        if (!activeWorkout || !user) return;
+      
+        if (!activeWorkout || !user) return false;
+      
+        const storedUser = get().users.find((u) => u.id === user.id);
+      
+        const finishedAt = new Date().toISOString();
+        const workoutDate = new Date().toLocaleDateString('en-CA');
+      
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          const log: WorkoutLog = {
+            id: activeWorkout.workoutLogId,
+            user_id: user.id,
+            routine_id: activeWorkout.routineId,
+            routine_name: activeWorkout.routineName,
+            date: workoutDate,
+            started_at: activeWorkout.startedAt,
+            finished_at: finishedAt,
+            sets: activeWorkout.completedSets,
+          };
+      
+          set((s) => ({
+            workoutLogs: [log, ...s.workoutLogs],
+            activeWorkout: null,
+          }));
+      
+          return true;
+        }
 
+        const supabase = createClient();
+      
+        // Supabase용 UUID 새로 생성
+        const workoutLogId = crypto.randomUUID();
+      
+        // 1. 운동 기록 본체 저장
+        const { error: workoutError } = await supabase
+          .from('workout_logs')
+          .insert({
+            id: workoutLogId,
+            user_id: user.id,
+            routine_id: activeWorkout.routineId,
+            routine_name: activeWorkout.routineName,
+            date: workoutDate,
+            started_at: activeWorkout.startedAt,
+            finished_at: finishedAt,
+          });
+      
+        if (workoutError) {
+          console.error(
+            'Workout log insert failed:',
+            workoutError.message,
+          );
+          return false;
+        }
+      
+        // 2. 완료한 세트들을 Supabase용 형태로 변환
+        const persistedSets: SetLog[] =
+          activeWorkout.completedSets.map((setLog) => ({
+            ...setLog,
+            id: crypto.randomUUID(),
+            workout_log_id: workoutLogId,
+            record_type: setLog.record_type ?? 'weight_reps',
+          }));
+      
+        // 3. 세트 기록 저장
+        if (persistedSets.length > 0) {
+          const { error: setsError } = await supabase
+            .from('set_logs')
+            .insert(
+              persistedSets.map((setLog) => ({
+                id: setLog.id,
+                workout_log_id: workoutLogId,
+                exercise_name: setLog.exercise_name,
+                set_number: setLog.set_number,
+                weight_kg: setLog.weight_kg,
+                reps: setLog.reps,
+                actual_rest_seconds:
+                  setLog.actual_rest_seconds ?? 0,
+                duration_seconds:
+                  setLog.duration_seconds ?? null,
+                record_type:
+                  setLog.record_type ?? 'weight_reps',
+              })),
+            );
+      
+          if (setsError) {
+            console.error(
+              'Set logs insert failed:',
+              setsError.message,
+            );
+      
+            // 세트 저장 실패 시 부모 workout_log도 제거
+            await supabase
+              .from('workout_logs')
+              .delete()
+              .eq('id', workoutLogId)
+              .eq('user_id', user.id);
+      
+            return false;
+          }
+        }
+      
+        // 4. Supabase 저장 성공 후 Zustand에도 기록
         const log: WorkoutLog = {
-          id: activeWorkout.workoutLogId,
+          id: workoutLogId,
           user_id: user.id,
           routine_id: activeWorkout.routineId,
           routine_name: activeWorkout.routineName,
-          date: new Date().toISOString().split('T')[0],
+          date: workoutDate,
           started_at: activeWorkout.startedAt,
-          finished_at: new Date().toISOString(),
-          sets: activeWorkout.completedSets,
+          finished_at: finishedAt,
+          sets: persistedSets,
         };
-
+      
         set((s) => ({
           workoutLogs: [log, ...s.workoutLogs],
           activeWorkout: null,
         }));
+      
+        return true;
       },
 
       cancelWorkout: () => {
