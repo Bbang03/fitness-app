@@ -40,6 +40,12 @@ interface StoreState {
     name: string;
     items: Omit<RoutineItem, 'id'>[];
   } | null;
+
+  editRoutineDraft: {
+    routineId: string;
+    name: string;
+    items: Omit<RoutineItem, 'id'>[];
+  } | null;
 }
 
 interface StoreActions {
@@ -58,7 +64,11 @@ interface StoreActions {
     name: string,
     items: Omit<RoutineItem, 'id'>[],
   ) => Promise<string>;
-  updateRoutine: (id: string, name: string, items: Omit<RoutineItem, 'id'>[]) => void;
+  updateRoutine: (
+    id: string,
+    name: string,
+    items: Omit<RoutineItem, 'id'>[],
+  ) => Promise<boolean>;
   deleteRoutine: (id: string) => void;
 
   // Exercise library
@@ -79,6 +89,16 @@ interface StoreActions {
   ) => void;
   
   clearRoutineDraft: () => void;
+
+  setEditRoutineDraft: (
+    draft: {
+      routineId: string;
+      name: string;
+      items: Omit<RoutineItem, 'id'>[];
+    } | null,
+  ) => void;
+
+  clearEditRoutineDraft: () => void;
 
   // Workout
   startWorkout: (routineId: string) => void;
@@ -115,6 +135,7 @@ export const useStore = create<Store>()(
       favoriteExerciseIds: [],
       pendingExercise: null,
       routineDraft: null,
+      editRoutineDraft: null,
 
       // ── Auth ──────────────────────────────────────────────────────────────
 
@@ -208,6 +229,10 @@ export const useStore = create<Store>()(
       setRoutineDraft: (draft) => set({ routineDraft: draft }),
 
       clearRoutineDraft: () => set({ routineDraft: null }),
+
+      setEditRoutineDraft: (draft) => set({ editRoutineDraft: draft }),
+
+      clearEditRoutineDraft: () => set({ editRoutineDraft: null }),
 
       // ── Routines ──────────────────────────────────────────────────────────
       setRoutines: (routines) => set({ routines }),
@@ -309,7 +334,133 @@ export const useStore = create<Store>()(
         return routineId;
       },
 
-      updateRoutine: (id, name, items) => {
+      updateRoutine: async (id, name, items) => {
+        const user = get().currentUser();
+        if (!user) return false;
+      
+        const storedUser = get().users.find((u) => u.id === user.id);
+      
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          set((s) => ({
+            routines: s.routines.map((r) =>
+              r.id !== id
+                ? r
+                : {
+                    ...r,
+                    name,
+                    items: items.map((item, idx) => ({
+                      ...item,
+                      id: generateId(),
+                      order: idx,
+                    })),
+                  },
+            ),
+          }));
+      
+          return true;
+        }
+      
+        const existingRoutine = get().routines.find(
+          (r) => r.id === id && r.user_id === user.id,
+        );
+      
+        if (!existingRoutine) return false;
+      
+        const supabase = createClient();
+      
+        // 1. 루틴 이름 수정
+        const { error: routineError } = await supabase
+          .from('routines')
+          .update({ name })
+          .eq('id', id)
+          .eq('user_id', user.id);
+      
+        if (routineError) {
+          console.error('Routine update failed:', routineError.message);
+          return false;
+        }
+      
+        // 2. 기존 운동 항목 제거
+        const { error: deleteItemsError } = await supabase
+          .from('routine_items')
+          .delete()
+          .eq('routine_id', id);
+      
+        if (deleteItemsError) {
+          console.error(
+            'Routine items delete failed:',
+            deleteItemsError.message,
+          );
+      
+          // 루틴 이름 원상 복구 시도
+          await supabase
+            .from('routines')
+            .update({ name: existingRoutine.name })
+            .eq('id', id)
+            .eq('user_id', user.id);
+      
+          return false;
+        }
+      
+        // 3. 수정된 운동 항목 생성
+        const updatedItems: RoutineItem[] = items.map((item, idx) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          order: idx,
+        }));
+      
+        if (updatedItems.length > 0) {
+          const { error: insertItemsError } = await supabase
+            .from('routine_items')
+            .insert(
+              updatedItems.map((item) => ({
+                id: item.id,
+                routine_id: id,
+                order: item.order,
+                exercise_name: item.exercise_name,
+                target_sets: item.target_sets,
+                target_reps: item.target_reps,
+                rest_seconds: item.rest_seconds,
+                record_type: item.record_type,
+              })),
+            );
+      
+          if (insertItemsError) {
+            console.error(
+              'Routine items update failed:',
+              insertItemsError.message,
+            );
+      
+            // 실패했을 경우 기존 운동 항목 복구 시도
+            if (existingRoutine.items.length > 0) {
+              await supabase
+                .from('routine_items')
+                .insert(
+                  existingRoutine.items.map((item) => ({
+                    id: item.id,
+                    routine_id: id,
+                    order: item.order,
+                    exercise_name: item.exercise_name,
+                    target_sets: item.target_sets,
+                    target_reps: item.target_reps,
+                    rest_seconds: item.rest_seconds,
+                    record_type: item.record_type,
+                  })),
+                );
+            }
+      
+            await supabase
+              .from('routines')
+              .update({ name: existingRoutine.name })
+              .eq('id', id)
+              .eq('user_id', user.id);
+      
+            return false;
+          }
+        }
+      
+        // 4. Supabase 성공 후 Zustand도 갱신
         set((s) => ({
           routines: s.routines.map((r) =>
             r.id !== id
@@ -317,14 +468,12 @@ export const useStore = create<Store>()(
               : {
                   ...r,
                   name,
-                  items: items.map((item, idx) => ({
-                    ...item,
-                    id: generateId(),
-                    order: idx,
-                  })),
+                  items: updatedItems,
                 },
           ),
         }));
+      
+        return true;
       },
       
       deleteRoutine: (id) => {
