@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
-import { ChevronLeft, Plus, Trash2, BookOpen, X } from 'lucide-react';
+import { ChevronLeft, Plus, BookOpen, X } from 'lucide-react';
 import type { RoutineItem, RecordType } from '@/lib/types';
 
 type DraftItem = Omit<RoutineItem, 'id'>;
@@ -35,9 +35,30 @@ function Stepper({ value, onDec, onInc }: { value: number; onDec: () => void; on
 
 export default function NewRoutinePage() {
   const router = useRouter();
-  const { currentUser, addRoutine, pendingExercise, setPendingExercise } = useStore();
-  const [name, setName] = useState('');
-  const [items, setItems] = useState<DraftItem[]>([DEFAULT_ITEM(0)]);
+  const {
+    currentUser,
+    addRoutine,
+    pendingExercise,
+    setPendingExercise,
+    routineDraft,
+    setRoutineDraft,
+    clearRoutineDraft,
+  } = useStore();
+  const [name, setName] = useState(
+    () => routineDraft?.name ?? '',
+  );
+  
+  const [items, setItems] = useState<DraftItem[]>(
+    () => routineDraft?.items ?? [DEFAULT_ITEM(0)],
+  );
+
+  useEffect(() => {
+    setRoutineDraft({
+      name,
+      items,
+    });
+  }, [name, items, setRoutineDraft]);
+
   const [error, setError] = useState('');
 
   const user = currentUser();
@@ -71,12 +92,18 @@ export default function NewRoutinePage() {
     setItems(prev => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError('루틴 이름을 입력해주세요.'); return; }
     if (items.some(i => !i.exercise_name.trim())) { setError('모든 운동 이름을 입력해주세요.'); return; }
-    const id = addRoutine(name.trim(), items);
-    if (id) router.push('/routines');
+    const id = await addRoutine(name.trim(), items);
+
+    if (id) {
+      clearRoutineDraft();
+      router.push('/routines');
+    } else {
+      setError('루틴 저장에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
   if (!user) return null;
@@ -85,7 +112,13 @@ export default function NewRoutinePage() {
     <div className="min-h-screen pb-8">
       {/* Header */}
       <div className="sticky top-0 bg-zinc-950/95 backdrop-blur z-10 px-4 pt-12 pb-3 flex items-center gap-3 border-b border-zinc-800/50">
-        <button onClick={() => router.back()} className="text-zinc-400 hover:text-white p-1 -ml-1">
+        <button
+          onClick={() => {
+            clearRoutineDraft();
+            router.back();
+          }}
+          className="text-zinc-400 hover:text-white p-1 -ml-1"
+        >
           <ChevronLeft size={24} />
         </button>
         <h1 className="text-lg font-bold flex-1">새 루틴</h1>
@@ -135,8 +168,14 @@ export default function NewRoutinePage() {
                       ))}
                     </div>
                   </div>
-                  <Link
+                  <Link 
                     href={`/exercises/select?idx=${idx}`}
+                    onClick={() => {
+                      setRoutineDraft({
+                        name,
+                        items,
+                      });
+                    }}
                     className="flex-shrink-0 flex items-center gap-1 text-blue-400 bg-blue-900/20 border border-blue-800/40 px-2.5 py-1.5 rounded-lg text-xs font-medium"
                   >
                     <BookOpen size={12} />

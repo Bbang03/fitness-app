@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createClient } from '@/lib/supabase/client';
 import {
   StoredUser, User, Routine, RoutineItem, WorkoutLog, SetLog,
   ActiveWorkout, SignupData, MealLog, MealItem, MealType, NutritionSummary,
@@ -29,7 +30,16 @@ interface StoreState {
 
   // Exercise library
   favoriteExerciseIds: string[];
-  pendingExercise: { name: string; record_type: RecordType; targetIndex: number } | null;
+  pendingExercise: {
+    name: string;
+    record_type: RecordType;
+    targetIndex: number;
+  } | null;
+  
+  routineDraft: {
+    name: string;
+    items: Omit<RoutineItem, 'id'>[];
+  } | null;
 }
 
 interface StoreActions {
@@ -42,13 +52,31 @@ interface StoreActions {
  syncAuthenticatedUser: (user: StoredUser) => void;
 
   // Routines
-  addRoutine: (name: string, items: Omit<RoutineItem, 'id'>[]) => string;
+  addRoutine: (
+    name: string,
+    items: Omit<RoutineItem, 'id'>[],
+  ) => Promise<string>;
   updateRoutine: (id: string, name: string, items: Omit<RoutineItem, 'id'>[]) => void;
   deleteRoutine: (id: string) => void;
 
   // Exercise library
   toggleFavorite: (exerciseId: string) => void;
-  setPendingExercise: (ex: { name: string; record_type: RecordType; targetIndex: number } | null) => void;
+  setPendingExercise: (
+    ex: {
+      name: string;
+      record_type: RecordType;
+      targetIndex: number;
+    } | null,
+  ) => void;
+  
+  setRoutineDraft: (
+    draft: {
+      name: string;
+      items: Omit<RoutineItem, 'id'>[];
+    } | null,
+  ) => void;
+  
+  clearRoutineDraft: () => void;
 
   // Workout
   startWorkout: (routineId: string) => void;
@@ -84,6 +112,7 @@ export const useStore = create<Store>()(
       inbodyRecords: [],
       favoriteExerciseIds: [],
       pendingExercise: null,
+      routineDraft: null,
 
       // ── Auth ──────────────────────────────────────────────────────────────
 
@@ -174,20 +203,107 @@ export const useStore = create<Store>()(
 
       setPendingExercise: (ex) => set({ pendingExercise: ex }),
 
+      setRoutineDraft: (draft) => set({ routineDraft: draft }),
+
+      clearRoutineDraft: () => set({ routineDraft: null }),
+
       // ── Routines ──────────────────────────────────────────────────────────
 
-      addRoutine: (name, items) => {
+      addRoutine: async (name, items) => {
         const user = get().currentUser();
         if (!user) return '';
+        
+        const storedUser = get().users.find((u) => u.id === user.id);
+        
+        // 비회원 모드는 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          const routine: Routine = {
+            id: generateId(),
+            user_id: user.id,
+            name,
+            items: items.map((item, idx) => ({
+              ...item,
+              id: generateId(),
+              order: idx,
+            })),
+            created_at: new Date().toISOString(),
+          };
+      
+          set((s) => ({
+            routines: [...s.routines, routine],
+          }));
+      
+          return routine.id;
+        }
+      
+        const supabase = createClient();
+      
+        const routineId = crypto.randomUUID();
+        const createdAt = new Date().toISOString();
+      
+        // 1. 루틴 본체 생성
+        const { error: routineError } = await supabase
+          .from('routines')
+          .insert({
+            id: routineId,
+            user_id: user.id,
+            name,
+            created_at: createdAt,
+          });
+      
+        if (routineError) {
+          console.error('Routine insert failed:', routineError.message);
+          return '';
+        }
+      
+        // 2. 루틴 운동 항목 생성
+        const routineItems: RoutineItem[] = items.map((item, idx) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          order: idx,
+        }));
+      
+        const { error: itemsError } = await supabase
+          .from('routine_items')
+          .insert(
+            routineItems.map((item) => ({
+              id: item.id,
+              routine_id: routineId,
+              order: item.order,
+              exercise_name: item.exercise_name,
+              target_sets: item.target_sets,
+              target_reps: item.target_reps,
+              rest_seconds: item.rest_seconds,
+              record_type: item.record_type,
+            })),
+          );
+      
+        if (itemsError) {
+          console.error('Routine items insert failed:', itemsError.message);
+      
+          // 항목 저장 실패 시 이미 만든 부모 루틴도 제거
+          await supabase
+            .from('routines')
+            .delete()
+            .eq('id', routineId);
+      
+          return '';
+        }
+      
+        // 3. Supabase 저장 성공 후 기존 UI와 호환되도록 Zustand에도 반영
         const routine: Routine = {
-          id: generateId(),
+          id: routineId,
           user_id: user.id,
           name,
-          items: items.map((item, idx) => ({ ...item, id: generateId(), order: idx })),
-          created_at: new Date().toISOString(),
+          items: routineItems,
+          created_at: createdAt,
         };
-        set((s) => ({ routines: [...s.routines, routine] }));
-        return routine.id;
+      
+        set((s) => ({
+          routines: [...s.routines, routine],
+        }));
+      
+        return routineId;
       },
 
       updateRoutine: (id, name, items) => {
@@ -198,19 +314,26 @@ export const useStore = create<Store>()(
               : {
                   ...r,
                   name,
-                  items: items.map((item, idx) => ({ ...item, id: generateId(), order: idx })),
+                  items: items.map((item, idx) => ({
+                    ...item,
+                    id: generateId(),
+                    order: idx,
+                  })),
                 },
           ),
         }));
       },
-
+      
       deleteRoutine: (id) => {
         set((s) => ({
           routines: s.routines.filter((r) => r.id !== id),
-          activeWorkout: s.activeWorkout?.routineId === id ? null : s.activeWorkout,
+          activeWorkout:
+            s.activeWorkout?.routineId === id
+              ? null
+              : s.activeWorkout,
         }));
       },
-
+      
       // ── Workout ───────────────────────────────────────────────────────────
 
       startWorkout: (routineId) => {
