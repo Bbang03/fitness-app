@@ -101,6 +101,8 @@ interface StoreActions {
   clearEditRoutineDraft: () => void;
 
   // Workout
+  setWorkoutLogs: (logs: WorkoutLog[]) => void;
+
   startWorkout: (routineId: string) => void;
   logSet: (exerciseIndex: number, setIndex: number, weight: number, reps: number, duration_seconds?: number) => void;
   clearRestTimer: () => void;
@@ -521,6 +523,7 @@ export const useStore = create<Store>()(
       },
       
       // ── Workout ───────────────────────────────────────────────────────────
+      setWorkoutLogs: (logs) => set({ workoutLogs: logs }),
 
       startWorkout: (routineId) => {
         const routine = get().routines.find((r) => r.id === routineId);
