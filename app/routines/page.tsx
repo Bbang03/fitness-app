@@ -100,15 +100,21 @@ export default function RoutinesPage() {
         new Date(a.created_at).getTime(),
     );
 
-  const confirmDelete = (id: string) => {
+  const confirmDelete = async (id: string) => {
     if (deletingId === id) {
-      deleteRoutine(id);
+      const success = await deleteRoutine(id);
+  
       setDeletingId(null);
+  
+      if (!success) {
+        console.error('루틴 삭제에 실패했습니다.');
+      }
+  
       return;
     }
-
+  
     setDeletingId(id);
-
+  
     setTimeout(() => {
       setDeletingId(null);
     }, 2500);

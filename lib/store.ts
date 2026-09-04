@@ -69,7 +69,7 @@ interface StoreActions {
     name: string,
     items: Omit<RoutineItem, 'id'>[],
   ) => Promise<boolean>;
-  deleteRoutine: (id: string) => void;
+  deleteRoutine: (id: string) => Promise<boolean>;
 
   // Exercise library
   toggleFavorite: (exerciseId: string) => void;
@@ -476,7 +476,39 @@ export const useStore = create<Store>()(
         return true;
       },
       
-      deleteRoutine: (id) => {
+      deleteRoutine: async (id) => {
+        const user = get().currentUser();
+        if (!user) return false;
+      
+        const storedUser = get().users.find((u) => u.id === user.id);
+      
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          set((s) => ({
+            routines: s.routines.filter((r) => r.id !== id),
+            activeWorkout:
+              s.activeWorkout?.routineId === id
+                ? null
+                : s.activeWorkout,
+          }));
+      
+          return true;
+        }
+      
+        const supabase = createClient();
+      
+        const { error } = await supabase
+          .from('routines')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+      
+        if (error) {
+          console.error('Routine delete failed:', error.message);
+          return false;
+        }
+      
+        // Supabase 삭제 성공 후 Zustand에서도 제거
         set((s) => ({
           routines: s.routines.filter((r) => r.id !== id),
           activeWorkout:
@@ -484,6 +516,8 @@ export const useStore = create<Store>()(
               ? null
               : s.activeWorkout,
         }));
+      
+        return true;
       },
       
       // ── Workout ───────────────────────────────────────────────────────────
