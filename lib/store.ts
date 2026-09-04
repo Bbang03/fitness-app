@@ -34,11 +34,12 @@ interface StoreState {
 
 interface StoreActions {
   // Auth
-  login: (email: string, password: string) => boolean;
-  loginAsGuest: () => void;
-  signup: (data: SignupData) => void;
-  logout: () => void;
-  currentUser: () => User | null;
+ login: (email: string, password: string) => boolean;
+ loginAsGuest: () => void;
+ signup: (data: SignupData) => void;
+ logout: () => void;
+ currentUser: () => User | null;
+ syncAuthenticatedUser: (user: StoredUser) => void;
 
   // Routines
   addRoutine: (name: string, items: Omit<RoutineItem, 'id'>[]) => string;
@@ -85,6 +86,20 @@ export const useStore = create<Store>()(
       pendingExercise: null,
 
       // ── Auth ──────────────────────────────────────────────────────────────
+
+      syncAuthenticatedUser: (user) => {
+        set((s) => ({
+          users: [
+            ...s.users.filter(
+              (u) =>
+                u.id !== user.id &&
+                u.email.toLowerCase() !== user.email.toLowerCase(),
+            ),
+            user,
+          ],
+          currentUserId: user.id,
+        }));
+      },
 
       login: (email, password) => {
         const user = get().users.find(

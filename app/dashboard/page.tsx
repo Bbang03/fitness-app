@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 import BottomNav from '@/components/BottomNav';
 import { Play, Dumbbell, Flame, LogOut, AlertCircle, UtensilsCrossed, Activity } from 'lucide-react';
 import { formatDate, calcTotalVolume } from '@/lib/utils';
@@ -14,6 +15,22 @@ export default function DashboardPage() {
   const { currentUser, routines, workoutLogs, logout, activeWorkout, getDailyNutrition, getInbodyRecords } = useStore();
 
   const user = currentUser();
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+
+    const { error } = await supabase.auth.signOut({
+      scope: 'local',
+    });
+
+    if (error) {
+      console.error('Logout failed:', error.message);
+      return;
+    }
+
+    logout();
+    router.replace('/login');
+  };
 
   useEffect(() => {
     if (!user) router.replace('/login');
@@ -48,7 +65,7 @@ export default function DashboardPage() {
           <h1 className="text-xl font-bold mt-0.5">{user.name}님</h1>
         </div>
         <button
-          onClick={() => { logout(); router.push('/login'); }}
+          onClick={handleLogout}
           className="text-zinc-500 hover:text-zinc-300 p-2 -mr-2"
         >
           <LogOut size={20} />

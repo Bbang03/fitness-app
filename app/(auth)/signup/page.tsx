@@ -3,12 +3,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 import { Dumbbell, ChevronLeft } from 'lucide-react';
 import type { Sex } from '@/lib/types';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, currentUser } = useStore();
+const { currentUser } = useStore();
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({
     email: '',
@@ -41,25 +42,55 @@ export default function SignupPage() {
     setStep(2);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const users = useStore.getState().users;
-    if (users.find((u) => u.email.toLowerCase() === form.email.toLowerCase())) {
-      setError('이미 사용 중인 이메일입니다.');
-      setStep(1);
-      return;
-    }
-    signup({
-      email: form.email,
-      password: form.password,
-      name: form.name,
-      height_cm: Number(form.height_cm) || 170,
-      sex: form.sex,
-      birth_year: Number(form.birth_year) || new Date().getFullYear() - 25,
-    });
-    router.push('/dashboard');
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
+
+  const supabase = createClient();
+
+  const { data, error: signupError } = await supabase.auth.signUp({
+    email: form.email,
+    password: form.password,
+    options: {
+      data: {
+        name: form.name,
+        height_cm: Number(form.height_cm) || 170,
+        sex: form.sex,
+        birth_year:
+          Number(form.birth_year) || new Date().getFullYear() - 25,
+      },
+    },
+  });
+
+  if (signupError) {
+    setError(signupError.message);
+    return;
+  }
+
+if (!data.user) {
+  setError('회원가입에 실패했습니다.');
+  return;
+}
+
+const { error: profileError } = await supabase
+  .from('profiles')
+  .insert({
+    id: data.user.id,
+    name: form.name,
+    height_cm: Number(form.height_cm) || 170,
+    sex: form.sex,
+    birth_year:
+      Number(form.birth_year) || new Date().getFullYear() - 25,
+  });
+
+if (profileError) {
+  setError(`프로필 생성 실패: ${profileError.message}`);
+  return;
+}
+
+alert('회원가입이 완료되었습니다.');
+router.push('/login');
+};
 
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-12">

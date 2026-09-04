@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ServiceWorkerRegistrar from '@/components/ServiceWorkerRegistrar';
 import InstallBanner from '@/components/InstallBanner';
+import AuthSessionSync from '@/components/AuthSessionSync';
 
 export const metadata: Metadata = {
   title: 'FitTrack',
@@ -31,7 +32,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body className="bg-zinc-950 text-white antialiased">
         <ServiceWorkerRegistrar />
-        <div className="max-w-md mx-auto min-h-screen relative">{children}</div>
+
+        <AuthSessionSync>
+          <div className="max-w-md mx-auto min-h-screen relative">
+            {children}
+          </div>
+        </AuthSessionSync>
+
         <InstallBanner />
       </body>
     </html>

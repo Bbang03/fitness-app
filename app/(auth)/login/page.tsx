@@ -3,11 +3,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
+import { createClient } from '@/lib/supabase/client';
 import { Dumbbell } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginAsGuest, currentUser } = useStore();
+const { loginAsGuest, currentUser, syncAuthenticatedUser } = useStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,18 +18,54 @@ export default function LoginPage() {
     if (currentUser()) router.replace('/dashboard');
   }, [currentUser, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    const ok = login(email, password);
-    if (ok) {
-      router.push('/dashboard');
-    } else {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
-    }
-    setLoading(false);
-  };
+  const handleSubmit = async (e: React.FormEvent) => {
+   e.preventDefault();
+   setError('');
+   setLoading(true);
+ 
+   try {
+     const supabase = createClient();
+ 
+     const { data, error: loginError } =
+       await supabase.auth.signInWithPassword({
+         email,
+         password,
+       });
+ 
+     if (loginError || !data.user) {
+       setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+       return;
+     }
+ 
+     const { data: profile, error: profileError } = await supabase
+       .from('profiles')
+       .select('id, name, height_cm, sex, birth_year, created_at')
+       .eq('id', data.user.id)
+       .single();
+ 
+     if (profileError || !profile) {
+       await supabase.auth.signOut();
+       setError('사용자 프로필 정보를 불러오지 못했습니다.');
+       return;
+     }
+ 
+     syncAuthenticatedUser({
+       id: data.user.id,
+       email: data.user.email ?? email,
+       password: '',
+       name: profile.name,
+       height_cm: profile.height_cm,
+       sex: profile.sex,
+       birth_year: profile.birth_year,
+       created_at: profile.created_at,
+       is_guest: false,
+     });
+ 
+     router.push('/dashboard');
+   } finally {
+     setLoading(false);
+   }
+ };
 
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-12">
