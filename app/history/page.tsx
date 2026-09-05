@@ -1,30 +1,47 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-
-import { useStore } from '@/lib/store';
-import { createClient } from '@/lib/supabase/client';
-
-import BottomNav from '@/components/BottomNav';
+import {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
+  useRouter,
+} from 'next/navigation';
+
+import {
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Dumbbell,
+  Layers3,
+  TrendingUp,
 } from 'lucide-react';
 
+import AppShell from '@/components/AppShell';
+
+import { useStore } from '@/lib/store';
+
 import {
-  formatDuration,
+  createClient,
+} from '@/lib/supabase/client';
+
+import {
   calcTotalVolume,
+  formatDuration,
   isoToDateKey,
 } from '@/lib/utils';
 
 import type {
-  WorkoutLog,
-  SetLog,
   RecordType,
+  SetLog,
+  WorkoutLog,
 } from '@/lib/types';
+
+// ─────────────────────────────────────────────
+// Calendar helpers
+// ─────────────────────────────────────────────
 
 function getDaysInMonth(
   year: number,
@@ -51,25 +68,33 @@ function getFirstDayOfWeek(
 function setLabel(
   setLog: SetLog,
 ): string {
-  const recordType: RecordType =
-    setLog.record_type ??
-    'weight_reps';
+  const recordType:
+    RecordType =
+      setLog.record_type ??
+      'weight_reps';
 
-  if (recordType === 'time') {
+  if (
+    recordType === 'time'
+  ) {
     return formatDuration(
-      setLog.duration_seconds ?? 0,
+      setLog.duration_seconds ??
+        0,
     );
   }
 
-  if (recordType === 'reps_only') {
+  if (
+    recordType ===
+    'reps_only'
+  ) {
     return `${setLog.reps}회`;
   }
 
-  return `${setLog.weight_kg}kg × ${setLog.reps}`;
+  return `${setLog.weight_kg}kg × ${setLog.reps}회`;
 }
 
 export default function HistoryPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const {
     currentUser,
@@ -77,92 +102,128 @@ export default function HistoryPage() {
     setWorkoutLogs,
   } = useStore();
 
-  const user = currentUser();
+  const user =
+    currentUser();
 
-  const today = new Date();
+  const today =
+    new Date();
 
-  const [year, setYear] =
-    useState(today.getFullYear());
+  const [
+    year,
+    setYear,
+  ] = useState(
+    today.getFullYear(),
+  );
 
-  const [month, setMonth] =
-    useState(today.getMonth());
+  const [
+    month,
+    setMonth,
+  ] = useState(
+    today.getMonth(),
+  );
 
   const [
     selectedDate,
     setSelectedDate,
-  ] = useState<string | null>(
-    null,
-  );
+  ] = useState<
+    string | null
+  >(null);
 
   const [
     isLoading,
     setIsLoading,
   ] = useState(true);
 
-  // 로그인 확인
+  // ─────────────────────────────────────────────
+  // Auth
+  // ─────────────────────────────────────────────
+
   useEffect(() => {
     if (!user) {
-      router.replace('/login');
+      router.replace(
+        '/login',
+      );
     }
-  }, [user?.id, router]);
+  }, [
+    user?.id,
+    router,
+  ]);
 
-  // Supabase에서 운동 기록 불러오기
+  // ─────────────────────────────────────────────
+  // Supabase workout logs
+  // ─────────────────────────────────────────────
+
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      return;
+    }
 
-    const userId = user.id;
+    const userId =
+      user.id;
 
     const loadWorkoutLogs =
       async () => {
+        setIsLoading(
+          true,
+        );
+
         const supabase =
           createClient();
 
         const {
-          data: authData,
+          data:
+            authData,
         } =
           await supabase.auth.getUser();
 
-        // 비회원은 기존 Zustand/localStorage 기록 사용
+        // Guest
         if (!authData.user) {
-          setIsLoading(false);
+          setIsLoading(
+            false,
+          );
+
           return;
         }
 
         const {
           data,
           error,
-        } = await supabase
-          .from('workout_logs')
-          .select(`
-            id,
-            user_id,
-            routine_id,
-            routine_name,
-            date,
-            started_at,
-            finished_at,
-            set_logs (
-              id,
-              workout_log_id,
-              exercise_name,
-              set_number,
-              weight_kg,
-              reps,
-              actual_rest_seconds,
-              duration_seconds,
-              record_type
+        } =
+          await supabase
+            .from(
+              'workout_logs',
             )
-          `)
-          .eq(
-            'user_id',
-            userId,
-          )
-          .order(
-            'started_at',
-            {
-              ascending: false,
-            },
-          );
+            .select(`
+              id,
+              user_id,
+              routine_id,
+              routine_name,
+              date,
+              started_at,
+              finished_at,
+              set_logs (
+                id,
+                workout_log_id,
+                exercise_name,
+                set_number,
+                weight_kg,
+                reps,
+                actual_rest_seconds,
+                duration_seconds,
+                record_type
+              )
+            `)
+            .eq(
+              'user_id',
+              userId,
+            )
+            .order(
+              'started_at',
+              {
+                ascending:
+                  false,
+              },
+            );
 
         if (error) {
           console.error(
@@ -170,49 +231,76 @@ export default function HistoryPage() {
             error.message,
           );
 
-          setIsLoading(false);
+          setIsLoading(
+            false,
+          );
+
           return;
         }
 
         const loadedLogs:
-          WorkoutLog[] = (
-          data ?? []
-        ).map((log) => ({
-          id: log.id,
-          user_id:
-            log.user_id,
-          routine_id:
-            log.routine_id ?? '',
-          routine_name:
-            log.routine_name ?? '',
-          date: log.date,
-          started_at:
-            log.started_at,
-          finished_at:
-            log.finished_at,
-          sets: [
-            ...(log.set_logs ?? []),
-          ].sort(
-            (a, b) =>
-              a.set_number -
-              b.set_number,
-          ),
-        }));
+          WorkoutLog[] =
+            (
+              data ?? []
+            ).map(
+              (log) => ({
+                id: log.id,
+
+                user_id:
+                  log.user_id,
+
+                routine_id:
+                  log.routine_id ??
+                  '',
+
+                routine_name:
+                  log.routine_name ??
+                  '',
+
+                date:
+                  log.date,
+
+                started_at:
+                  log.started_at,
+
+                finished_at:
+                  log.finished_at,
+
+                sets: [
+                  ...(
+                    log.set_logs ??
+                    []
+                  ),
+                ].sort(
+                  (a, b) =>
+                    a.set_number -
+                    b.set_number,
+                ),
+              }),
+            );
 
         setWorkoutLogs(
           loadedLogs,
         );
 
-        setIsLoading(false);
+        setIsLoading(
+          false,
+        );
       };
 
-    loadWorkoutLogs();
+    void loadWorkoutLogs();
   }, [
     user?.id,
     setWorkoutLogs,
   ]);
 
-  if (!user) return null;
+  if (!user) {
+    return null;
+  }
+
+  // ─────────────────────────────────────────────
+  // User logs
+  // ─────────────────────────────────────────────
 
   const myLogs =
     workoutLogs
@@ -235,21 +323,98 @@ export default function HistoryPage() {
     myLogs.reduce<
       Record<
         string,
-        typeof myLogs
+        WorkoutLog[]
       >
-    >((acc, log) => {
-      const key =
-        isoToDateKey(
-          log.started_at,
-        );
-
+    >(
       (
-        acc[key] =
-          acc[key] || []
-      ).push(log);
+        result,
+        log,
+      ) => {
+        const key =
+          isoToDateKey(
+            log.started_at,
+          );
 
-      return acc;
-    }, {});
+        (
+          result[key] =
+            result[key] || []
+        ).push(log);
+
+        return result;
+      },
+      {},
+    );
+
+  // ─────────────────────────────────────────────
+  // Current displayed month
+  // ─────────────────────────────────────────────
+
+  const monthLogs =
+    myLogs.filter(
+      (log) => {
+        const date =
+          new Date(
+            log.started_at,
+          );
+
+        return (
+          date.getFullYear() ===
+            year &&
+          date.getMonth() ===
+            month
+        );
+      },
+    );
+
+  const monthSets =
+    monthLogs.reduce(
+      (sum, log) =>
+        sum +
+        log.sets.length,
+      0,
+    );
+
+  const monthVolume =
+    monthLogs.reduce(
+      (sum, log) =>
+        sum +
+        calcTotalVolume(
+          log.sets,
+        ),
+      0,
+    );
+
+  const monthDurationSec =
+    monthLogs.reduce(
+      (sum, log) => {
+        if (
+          !log.finished_at
+        ) {
+          return sum;
+        }
+
+        const duration =
+          Math.max(
+            0,
+            Math.round(
+              (
+                new Date(
+                  log.finished_at,
+                ).getTime() -
+                new Date(
+                  log.started_at,
+                ).getTime()
+              ) /
+                1000,
+            ),
+          );
+
+        return (
+          sum + duration
+        );
+      },
+      0,
+    );
 
   const daysInMonth =
     getDaysInMonth(
@@ -263,37 +428,12 @@ export default function HistoryPage() {
       month,
     );
 
-  const prevMonth = () => {
-    if (month === 0) {
-      setYear(
-        (y) => y - 1,
-      );
-
-      setMonth(11);
-    } else {
-      setMonth(
-        (m) => m - 1,
-      );
-    }
-
-    setSelectedDate(null);
-  };
-
-  const nextMonth = () => {
-    if (month === 11) {
-      setYear(
-        (y) => y + 1,
-      );
-
-      setMonth(0);
-    } else {
-      setMonth(
-        (m) => m + 1,
-      );
-    }
-
-    setSelectedDate(null);
-  };
+  const selectedLogs =
+    selectedDate
+      ? logsByDate[
+          selectedDate
+        ] ?? []
+      : [];
 
   const MONTHS = [
     '1월',
@@ -320,379 +460,428 @@ export default function HistoryPage() {
     '토',
   ];
 
-  const selectedLogs =
-    selectedDate
-      ? logsByDate[
-          selectedDate
-        ] || []
-      : [];
+  // ─────────────────────────────────────────────
+  // Month navigation
+  // ─────────────────────────────────────────────
+
+  const prevMonth = () => {
+    if (month === 0) {
+      setYear(
+        (current) =>
+          current - 1,
+      );
+
+      setMonth(11);
+    } else {
+      setMonth(
+        (current) =>
+          current - 1,
+      );
+    }
+
+    setSelectedDate(
+      null,
+    );
+  };
+
+  const nextMonth = () => {
+    if (month === 11) {
+      setYear(
+        (current) =>
+          current + 1,
+      );
+
+      setMonth(0);
+    } else {
+      setMonth(
+        (current) =>
+          current + 1,
+      );
+    }
+
+    setSelectedDate(
+      null,
+    );
+  };
 
   return (
-    <div className="pb-24">
+    <AppShell>
       {/* Header */}
-      <div className="px-4 pt-12 pb-4">
-        <h1 className="text-xl font-bold">
-          운동 기록
-        </h1>
-      </div>
-
-      {/* Calendar */}
-      <div className="mx-4 bg-zinc-900 rounded-2xl overflow-hidden mb-4">
-        {/* Month navigation */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+      <header className="px-5 pt-10 pb-6">
+        <div className="flex items-center gap-3">
           <button
-            onClick={
-              prevMonth
+            type="button"
+            onClick={() =>
+              router.push(
+                '/routines',
+              )
             }
-            className="text-zinc-400 hover:text-white p-1"
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-white"
+            aria-label="운동으로 돌아가기"
           >
             <ChevronLeft
-              size={20}
+              size={21}
             />
           </button>
 
-          <p className="font-semibold">
-            {year}년{' '}
-            {MONTHS[month]}
-          </p>
+          <div>
+            <p className="text-xs font-medium text-blue-400">
+              WORKOUT HISTORY
+            </p>
 
-          <button
-            onClick={
-              nextMonth
-            }
-            className="text-zinc-400 hover:text-white p-1"
-          >
-            <ChevronRight
-              size={20}
-            />
-          </button>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+              운동 기록
+            </h1>
+          </div>
+        </div>
+      </header>
+
+      {/* Monthly summary */}
+      <section className="px-5 mb-7">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-200">
+              {year}년{' '}
+              {MONTHS[month]}
+            </h2>
+
+            <p className="mt-1 text-xs text-zinc-600">
+              이번 달 운동 요약
+            </p>
+          </div>
+
+          <TrendingUp
+            size={17}
+            className="text-zinc-700"
+          />
         </div>
 
-        {/* Day names */}
-        <div className="grid grid-cols-7 px-2 pt-2">
-          {DAYS.map(
-            (day, i) => (
-              <div
-                key={day}
-                className={`text-center text-xs py-1 font-medium ${
-                  i === 0
-                    ? 'text-red-400'
-                    : i === 6
-                      ? 'text-blue-400'
-                      : 'text-zinc-500'
-                }`}
-              >
-                {day}
-              </div>
-            ),
-          )}
-        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <SummaryMetric
+            icon={Dumbbell}
+            value={`${monthLogs.length}`}
+            label="운동"
+            unit="회"
+          />
 
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 px-2 pb-3">
-          {Array.from({
-            length:
-              firstDay,
-          }).map((_, i) => (
-            <div
-              key={`empty-${i}`}
-            />
-          ))}
+          <SummaryMetric
+            icon={Layers3}
+            value={`${monthSets}`}
+            label="완료 세트"
+            unit="세트"
+          />
 
-          {Array.from({
-            length:
-              daysInMonth,
-          }).map((_, i) => {
-            const day = i + 1;
-
-            const dateKey =
-              `${year}-${String(
-                month + 1,
-              ).padStart(
-                2,
-                '0',
-              )}-${String(
-                day,
-              ).padStart(
-                2,
-                '0',
-              )}`;
-
-            const hasWorkout =
-              !!logsByDate[
-                dateKey
-              ];
-
-            const isToday =
-              dateKey ===
-              isoToDateKey(
-                today.toISOString(),
-              );
-
-            const isSelected =
-              selectedDate ===
-              dateKey;
-
-            const dayOfWeek =
-              (firstDay + i) %
-              7;
-
-            return (
-              <button
-                key={day}
-                onClick={() =>
-                  setSelectedDate(
-                    isSelected
-                      ? null
-                      : dateKey,
+          <SummaryMetric
+            icon={Clock3}
+            value={
+              monthDurationSec >
+              0
+                ? formatCompactDuration(
+                    monthDurationSec,
                   )
-                }
-                className={`relative aspect-square flex flex-col items-center justify-center rounded-full mx-0.5 my-0.5 transition-colors ${
-                  isSelected
-                    ? 'bg-blue-600 text-white'
-                    : isToday
-                      ? 'bg-zinc-700 text-white'
-                      : 'hover:bg-zinc-800'
-                }`}
-              >
-                <span
-                  className={`text-sm ${
-                    !isSelected &&
-                    (dayOfWeek ===
-                    0
-                      ? 'text-red-400'
-                      : dayOfWeek ===
+                : '0'
+            }
+            label="운동 시간"
+            unit={
+              monthDurationSec >
+              0
+                ? ''
+                : '분'
+            }
+          />
+        </div>
+
+        {monthVolume > 0 && (
+          <div className="mt-2 flex items-center justify-between rounded-2xl border border-zinc-800/70 bg-zinc-900/40 px-4 py-3">
+            <span className="text-xs text-zinc-500">
+              이번 달 총 볼륨
+            </span>
+
+            <span className="text-sm font-bold text-blue-400">
+              {Math.round(
+                monthVolume,
+              ).toLocaleString()}
+              kg
+            </span>
+          </div>
+        )}
+      </section>
+
+      {/* Calendar */}
+      <section className="px-5 mb-7">
+        <div className="overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/60">
+          {/* Month navigation */}
+          <div className="flex items-center justify-between border-b border-zinc-800/70 px-4 py-4">
+            <button
+              type="button"
+              onClick={
+                prevMonth
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
+            >
+              <ChevronLeft
+                size={19}
+              />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <CalendarDays
+                size={15}
+                className="text-blue-400"
+              />
+
+              <p className="text-sm font-semibold">
+                {year}년{' '}
+                {MONTHS[month]}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                nextMonth
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
+            >
+              <ChevronRight
+                size={19}
+              />
+            </button>
+          </div>
+
+          {/* Week labels */}
+          <div className="grid grid-cols-7 px-3 pt-3">
+            {DAYS.map(
+              (
+                day,
+                index,
+              ) => (
+                <div
+                  key={day}
+                  className={`py-1 text-center text-[10px] font-medium ${
+                    index === 0
+                      ? 'text-red-400/70'
+                      : index ===
                           6
-                        ? 'text-blue-400'
-                        : 'text-zinc-200')
+                        ? 'text-blue-400/70'
+                        : 'text-zinc-600'
                   }`}
                 >
                   {day}
-                </span>
+                </div>
+              ),
+            )}
+          </div>
 
-                {hasWorkout && (
-                  <span
-                    className={`absolute bottom-1 w-1 h-1 rounded-full ${
-                      isSelected
-                        ? 'bg-white'
-                        : 'bg-blue-400'
-                    }`}
-                  />
-                )}
-              </button>
-            );
-          })}
+          {/* Days */}
+          <div className="grid grid-cols-7 gap-y-1 px-3 pb-4 pt-1">
+            {Array.from({
+              length:
+                firstDay,
+            }).map(
+              (_, index) => (
+                <div
+                  key={`empty-${index}`}
+                  className="aspect-square"
+                />
+              ),
+            )}
+
+            {Array.from({
+              length:
+                daysInMonth,
+            }).map(
+              (
+                _,
+                index,
+              ) => {
+                const day =
+                  index + 1;
+
+                const dateKey =
+                  `${year}-${String(
+                    month + 1,
+                  ).padStart(
+                    2,
+                    '0',
+                  )}-${String(
+                    day,
+                  ).padStart(
+                    2,
+                    '0',
+                  )}`;
+
+                const hasWorkout =
+                  Boolean(
+                    logsByDate[
+                      dateKey
+                    ],
+                  );
+
+                const todayKey =
+                  new Date().toLocaleDateString(
+                    'en-CA',
+                  );
+
+                const isToday =
+                  dateKey ===
+                  todayKey;
+
+                const isSelected =
+                  selectedDate ===
+                  dateKey;
+
+                const dayOfWeek =
+                  (
+                    firstDay +
+                    index
+                  ) % 7;
+
+                return (
+                  <button
+                    key={
+                      dateKey
+                    }
+                    type="button"
+                    onClick={() =>
+                      setSelectedDate(
+                        isSelected
+                          ? null
+                          : dateKey,
+                      )
+                    }
+                    className="relative flex aspect-square items-center justify-center"
+                  >
+                    <div
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm transition-colors ${
+                        isSelected
+                          ? 'bg-blue-600 font-bold text-white'
+                          : isToday
+                            ? 'bg-zinc-800 font-semibold text-white'
+                            : 'hover:bg-zinc-800/60'
+                      }`}
+                    >
+                      <span
+                        className={
+                          isSelected
+                            ? 'text-white'
+                            : dayOfWeek ===
+                                0
+                              ? 'text-red-400'
+                              : dayOfWeek ===
+                                  6
+                                ? 'text-blue-400'
+                                : 'text-zinc-300'
+                        }
+                      >
+                        {day}
+                      </span>
+                    </div>
+
+                    {hasWorkout && (
+                      <span
+                        className={`absolute bottom-0.5 h-1 w-1 rounded-full ${
+                          isSelected
+                            ? 'bg-white'
+                            : 'bg-blue-400'
+                        }`}
+                      />
+                    )}
+                  </button>
+                );
+              },
+            )}
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Loading */}
       {isLoading && (
-        <div className="px-4 mb-4">
-          <div className="bg-zinc-900 rounded-2xl p-5 text-center text-sm text-zinc-500">
-            운동 기록을
-            불러오는 중...
+        <section className="px-5">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 px-4 py-5 text-center">
+            <div className="mx-auto h-2 w-2 animate-pulse rounded-full bg-blue-400" />
+
+            <p className="mt-3 text-xs text-zinc-500">
+              운동 기록을 불러오고 있어요
+            </p>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Selected date */}
       {!isLoading &&
         selectedDate && (
-          <div className="px-4 mb-4">
-            <p className="text-sm text-zinc-400 mb-3">
-              {(() => {
-                const [
-                  y,
-                  m,
-                  d,
-                ] =
-                  selectedDate.split(
-                    '-',
-                  );
+          <section className="px-5">
+            <div className="mb-3">
+              <h2 className="text-sm font-semibold text-zinc-200">
+                {formatSelectedDate(
+                  selectedDate,
+                )}
+              </h2>
 
-                return `${y}년 ${parseInt(
-                  m,
-                )}월 ${parseInt(
-                  d,
-                )}일`;
-              })()}
-            </p>
+              <p className="mt-1 text-xs text-zinc-600">
+                선택한 날짜의 운동 기록
+              </p>
+            </div>
 
             {selectedLogs.length ===
             0 ? (
-              <div className="bg-zinc-900 rounded-2xl p-5 text-center text-zinc-500 text-sm">
-                이 날은
-                운동하지
-                않았습니다
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 px-4 py-6 text-center">
+                <p className="text-sm text-zinc-500">
+                  이 날은 운동 기록이 없어요.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {selectedLogs.map(
-                  (log) => {
-                    const durationMin =
-                      log.finished_at
-                        ? Math.round(
-                            (new Date(
-                              log.finished_at,
-                            ).getTime() -
-                              new Date(
-                                log.started_at,
-                              ).getTime()) /
-                              60000,
-                          )
-                        : null;
-
-                    const volume =
-                      calcTotalVolume(
-                        log.sets,
-                      );
-
-                    const exerciseGroups =
-                      log.sets.reduce<
-                        Record<
-                          string,
-                          typeof log.sets
-                        >
-                      >(
-                        (
-                          acc,
-                          setLog,
-                        ) => {
-                          (
-                            acc[
-                              setLog
-                                .exercise_name
-                            ] =
-                              acc[
-                                setLog
-                                  .exercise_name
-                              ] ||
-                              []
-                          ).push(
-                            setLog,
-                          );
-
-                          return acc;
-                        },
-                        {},
-                      );
-
-                    return (
-                      <div
-                        key={
-                          log.id
-                        }
-                        className="bg-zinc-900 rounded-2xl overflow-hidden"
-                      >
-                        <div className="px-4 pt-4 pb-3 border-b border-zinc-800">
-                          <div className="flex items-center justify-between">
-                            <p className="font-semibold">
-                              {
-                                log.routine_name
-                              }
-                            </p>
-
-                            <div className="flex gap-3 text-xs text-zinc-400">
-                              {durationMin !=
-                                null &&
-                                durationMin >
-                                  0 && (
-                                  <span>
-                                    {
-                                      durationMin
-                                    }
-                                    분
-                                  </span>
-                                )}
-
-                              {volume >
-                                0 && (
-                                <span>
-                                  {volume.toLocaleString()}
-                                  kg
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <p className="text-xs text-zinc-500 mt-0.5">
-                            {
-                              log.sets
-                                .length
-                            }
-                            세트 완료
-                          </p>
-                        </div>
-
-                        <div className="px-4 py-3 space-y-2">
-                          {Object.entries(
-                            exerciseGroups,
-                          ).map(
-                            ([
-                              exerciseName,
-                              sets,
-                            ]) => (
-                              <div
-                                key={
-                                  exerciseName
-                                }
-                              >
-                                <p className="text-xs text-zinc-400 mb-1">
-                                  {
-                                    exerciseName
-                                  }
-                                </p>
-
-                                <div className="flex flex-wrap gap-1.5">
-                                  {sets.map(
-                                    (
-                                      setLog,
-                                    ) => (
-                                      <span
-                                        key={
-                                          setLog.id
-                                        }
-                                        className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-md"
-                                      >
-                                        {setLabel(
-                                          setLog,
-                                        )}
-                                      </span>
-                                    ),
-                                  )}
-                                </div>
-                              </div>
-                            ),
-                          )}
-                        </div>
-                      </div>
-                    );
-                  },
+                  (log) => (
+                    <DetailedLogCard
+                      key={log.id}
+                      log={log}
+                    />
+                  ),
                 )}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-      {/* All logs */}
+      {/* Recent history */}
       {!isLoading &&
         !selectedDate && (
-          <div className="px-4">
-            <p className="text-sm font-medium text-zinc-300 mb-3">
-              전체 기록
-            </p>
+          <section className="px-5">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-200">
+                  최근 운동
+                </h2>
+
+                <p className="mt-1 text-xs text-zinc-600">
+                  최신 기록부터 확인할 수 있어요.
+                </p>
+              </div>
+
+              <span className="text-xs text-zinc-600">
+                {myLogs.length}회
+              </span>
+            </div>
 
             {myLogs.length ===
             0 ? (
-              <div className="bg-zinc-900 rounded-2xl p-8 text-center">
-                <Dumbbell
-                  size={36}
-                  className="text-zinc-600 mx-auto mb-3"
-                />
+              <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-900/30 px-5 py-10 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10">
+                  <Dumbbell
+                    size={22}
+                    className="text-blue-400"
+                  />
+                </div>
 
-                <p className="text-zinc-400">
-                  아직 운동
-                  기록이 없습니다
+                <p className="mt-4 text-sm font-semibold">
+                  아직 운동 기록이 없어요
+                </p>
+
+                <p className="mt-1 text-xs text-zinc-500">
+                  운동을 완료하면 이곳에 기록이 쌓입니다.
                 </p>
               </div>
             ) : (
@@ -703,87 +892,421 @@ export default function HistoryPage() {
                     20,
                   )
                   .map(
-                    (log) => {
-                      const durationSec =
-                        log.finished_at
-                          ? Math.round(
-                              (new Date(
-                                log.finished_at,
-                              ).getTime() -
-                                new Date(
-                                  log.started_at,
-                                ).getTime()) /
-                                1000,
-                            )
-                          : null;
-
-                      const volume =
-                        calcTotalVolume(
-                          log.sets,
-                        );
-
-                      return (
-                        <div
-                          key={
-                            log.id
-                          }
-                          className="bg-zinc-900 rounded-2xl px-4 py-3.5"
-                        >
-                          <div className="flex items-center justify-between">
-                            <p className="font-medium">
-                              {
-                                log.routine_name
-                              }
-                            </p>
-
-                            <p className="text-xs text-zinc-500">
-                              {isoToDateKey(
-                                log.started_at,
-                              ).replace(
-                                /-/g,
-                                '.',
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="flex gap-3 mt-1">
-                            <span className="text-xs text-zinc-400">
-                              {
-                                log.sets
-                                  .length
-                              }
-                              세트
-                            </span>
-
-                            {volume >
-                              0 && (
-                              <span className="text-xs text-zinc-400">
-                                {volume.toLocaleString()}
-                                kg 볼륨
-                              </span>
-                            )}
-
-                            {durationSec !=
-                              null &&
-                              durationSec >
-                                0 && (
-                                <span className="text-xs text-zinc-400">
-                                  {formatDuration(
-                                    durationSec,
-                                  )}
-                                </span>
-                              )}
-                          </div>
-                        </div>
-                      );
-                    },
+                    (log) => (
+                      <CompactLogCard
+                        key={log.id}
+                        log={log}
+                        onClick={() =>
+                          setSelectedDate(
+                            isoToDateKey(
+                              log.started_at,
+                            ),
+                          )
+                        }
+                      />
+                    ),
                   )}
               </div>
             )}
-          </div>
+          </section>
         )}
 
-      <BottomNav />
+      <div className="h-4" />
+    </AppShell>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Monthly metric
+// ─────────────────────────────────────────────
+
+function SummaryMetric({
+  icon: Icon,
+  value,
+  unit,
+  label,
+}: {
+  icon: React.ComponentType<{
+    size?: number;
+    className?: string;
+  }>;
+
+  value: string;
+  unit: string;
+  label: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 p-3">
+      <Icon
+        size={15}
+        className="text-blue-400"
+      />
+
+      <p className="mt-4 truncate text-lg font-bold">
+        {value}
+
+        {unit && (
+          <span className="ml-1 text-[10px] font-medium text-zinc-600">
+            {unit}
+          </span>
+        )}
+      </p>
+
+      <p className="mt-1 truncate text-[10px] text-zinc-600">
+        {label}
+      </p>
     </div>
   );
+}
+
+// ─────────────────────────────────────────────
+// Compact log card
+// ─────────────────────────────────────────────
+
+function CompactLogCard({
+  log,
+  onClick,
+}: {
+  log: WorkoutLog;
+  onClick: () => void;
+}) {
+  const volume =
+    calcTotalVolume(
+      log.sets,
+    );
+
+  const durationSec =
+    getWorkoutDuration(
+      log,
+    );
+
+  const timedSeconds =
+    log.sets.reduce(
+      (sum, set) =>
+        sum +
+        (
+          set.duration_seconds ??
+          0
+        ),
+      0,
+    );
+
+  const exerciseCount =
+    new Set(
+      log.sets.map(
+        (set) =>
+          set.exercise_name,
+      ),
+    ).size;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-4 text-left transition-colors hover:bg-zinc-900"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {log.routine_name}
+          </p>
+
+          <p className="mt-1 text-xs text-zinc-600">
+            {formatLogDate(
+              log.started_at,
+            )}
+          </p>
+        </div>
+
+        <ChevronRight
+          size={17}
+          className="flex-shrink-0 text-zinc-700"
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <LogChip>
+          {exerciseCount}개 운동
+        </LogChip>
+
+        <LogChip>
+          {log.sets.length}세트
+        </LogChip>
+
+        {durationSec > 0 && (
+          <LogChip>
+            {formatDuration(
+              durationSec,
+            )}
+          </LogChip>
+        )}
+
+        {volume > 0 && (
+          <LogChip>
+            {Math.round(
+              volume,
+            ).toLocaleString()}
+            kg
+          </LogChip>
+        )}
+
+        {timedSeconds > 0 && (
+          <LogChip>
+            시간 운동{' '}
+            {formatDuration(
+              timedSeconds,
+            )}
+          </LogChip>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Detailed workout card
+// ─────────────────────────────────────────────
+
+function DetailedLogCard({
+  log,
+}: {
+  log: WorkoutLog;
+}) {
+  const durationSec =
+    getWorkoutDuration(
+      log,
+    );
+
+  const volume =
+    calcTotalVolume(
+      log.sets,
+    );
+
+  const exerciseGroups =
+    log.sets.reduce<
+      Record<
+        string,
+        SetLog[]
+      >
+    >(
+      (
+        result,
+        set,
+      ) => {
+        (
+          result[
+            set.exercise_name
+          ] =
+            result[
+              set.exercise_name
+            ] || []
+        ).push(set);
+
+        return result;
+      },
+      {},
+    );
+
+  return (
+    <article className="overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/60">
+      <header className="border-b border-zinc-800/70 px-4 py-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-base font-semibold">
+              {log.routine_name}
+            </p>
+
+            <p className="mt-1 text-xs text-zinc-600">
+              {log.sets.length}세트 완료
+            </p>
+          </div>
+
+          <div className="text-right">
+            {durationSec > 0 && (
+              <p className="text-xs font-medium text-zinc-400">
+                {formatDuration(
+                  durationSec,
+                )}
+              </p>
+            )}
+
+            {volume > 0 && (
+              <p className="mt-1 text-[10px] text-blue-400">
+                {Math.round(
+                  volume,
+                ).toLocaleString()}
+                kg
+              </p>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="space-y-5 px-4 py-4">
+        {Object.entries(
+          exerciseGroups,
+        ).map(
+          (
+            [
+              exerciseName,
+              sets,
+            ],
+          ) => {
+            const sortedSets =
+              [...sets].sort(
+                (a, b) =>
+                  a.set_number -
+                  b.set_number,
+              );
+
+            return (
+              <div
+                key={
+                  exerciseName
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-zinc-300">
+                    {exerciseName}
+                  </p>
+
+                  <span className="text-[10px] text-zinc-600">
+                    {sets.length}세트
+                  </span>
+                </div>
+
+                <div className="mt-2 space-y-1.5">
+                  {sortedSets.map(
+                    (set) => (
+                      <div
+                        key={set.id}
+                        className="grid grid-cols-[32px_1fr] rounded-xl bg-zinc-950/50 px-3 py-2.5 text-xs"
+                      >
+                        <span className="font-medium text-zinc-600">
+                          {set.set_number}
+                        </span>
+
+                        <span className="font-medium text-zinc-300">
+                          {setLabel(
+                            set,
+                          )}
+                        </span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            );
+          },
+        )}
+      </div>
+    </article>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Small helpers
+// ─────────────────────────────────────────────
+
+function LogChip({
+  children,
+}: {
+  children:
+    React.ReactNode;
+}) {
+  return (
+    <span className="rounded-lg bg-zinc-800/80 px-2.5 py-1.5 text-[10px] text-zinc-400">
+      {children}
+    </span>
+  );
+}
+
+function getWorkoutDuration(
+  log: WorkoutLog,
+) {
+  if (
+    !log.finished_at
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.round(
+      (
+        new Date(
+          log.finished_at,
+        ).getTime() -
+        new Date(
+          log.started_at,
+        ).getTime()
+      ) /
+        1000,
+    ),
+  );
+}
+
+function formatLogDate(
+  value: string,
+) {
+  const date =
+    new Date(value);
+
+  return new Intl.DateTimeFormat(
+    'ko-KR',
+    {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    },
+  ).format(date);
+}
+
+function formatSelectedDate(
+  value: string,
+) {
+  const [
+    year,
+    month,
+    day,
+  ] =
+    value.split('-');
+
+  return `${year}년 ${parseInt(
+    month,
+  )}월 ${parseInt(
+    day,
+  )}일`;
+}
+
+function formatCompactDuration(
+  seconds: number,
+) {
+  const minutes =
+    Math.round(
+      seconds / 60,
+    );
+
+  if (
+    minutes < 60
+  ) {
+    return `${minutes}분`;
+  }
+
+  const hours =
+    Math.floor(
+      minutes / 60,
+    );
+
+  const remainingMinutes =
+    minutes % 60;
+
+  if (
+    remainingMinutes === 0
+  ) {
+    return `${hours}시간`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
 }
