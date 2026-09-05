@@ -110,12 +110,27 @@ interface StoreActions {
   cancelWorkout: () => void;
 
   // Meals (v0.2)
-  addMealItem: (date: string, mealType: MealType, item: Omit<MealItem, 'id' | 'meal_log_id'>) => void;
-  removeMealItem: (mealLogId: string, itemId: string) => void;
+  setMealLogs: (logs: MealLog[]) => void;
+  
+  addMealItem: (
+    date: string,
+    mealType: MealType,
+    item: Omit<MealItem, 'id' | 'meal_log_id'>,
+  ) => void;
+  
+  removeMealItem: (
+    mealLogId: string,
+    itemId: string,
+  ) => void;
+  
   deleteMealLog: (id: string) => void;
+  
   getMealsByDate: (date: string) => MealLog[];
-  getDailyNutrition: (date: string) => NutritionSummary;
-
+  
+  getDailyNutrition: (
+    date: string,
+  ) => NutritionSummary;
+  
   // InBody (v0.3)
   addInbodyRecord: (record: Omit<InbodyRecord, 'id' | 'user_id'>) => void;
   deleteInbodyRecord: (id: string) => void;
@@ -730,6 +745,11 @@ export const useStore = create<Store>()(
       },
 
       // ── Meals ──────────────────────────────────────────────────────────────
+
+      setMealLogs: (logs) =>
+        set({
+          mealLogs: logs,
+        }),
 
       addMealItem: (date, mealType, item) => {
         const user = get().currentUser();
