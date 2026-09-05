@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
 import BottomNav from '@/components/BottomNav';
-import { Plus, Trash2, TrendingUp, TrendingDown, Minus, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, TrendingUp, TrendingDown, Minus, AlertCircle, RefreshCw } from 'lucide-react';
 import { predict } from '@/lib/prediction';
 import type { InbodyRecord } from '@/lib/types';
 
@@ -195,14 +195,53 @@ function PredictionCard({ record, avgKcal, avgProtein, weeklyVolume, user }: {
 
 export default function InbodyPage() {
   const router = useRouter();
-  const { currentUser, getInbodyRecords, deleteInbodyRecord, getMealsByDate, workoutLogs } = useStore();
-  const user = currentUser();
+  const {
+    currentUser,
+    loadInbodyRecords,
+    getInbodyRecords,
+    deleteInbodyRecord,
+    getMealsByDate,
+    workoutLogs,
+  } = useStore();
 
-  useEffect(() => { if (!user) router.replace('/login'); }, [user, router]);
+  const user = currentUser();
 
   const [selectedMetrics, setSelectedMetrics] = useState<Set<string>>(
     new Set(['weight_kg', 'skeletal_muscle_kg', 'body_fat_kg']),
   );
+  const [isHydrating, setIsHydrating] = useState(true);
+  const [syncError, setSyncError] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrate = async () => {
+      setIsHydrating(true);
+      setSyncError('');
+
+      const ok = await loadInbodyRecords();
+
+      if (cancelled) return;
+
+      if (!ok) {
+        setSyncError('체성분 기록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      }
+
+      setIsHydrating(false);
+    };
+
+    void hydrate();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, router, loadInbodyRecords]);
 
   const records = getInbodyRecords();
 
@@ -252,9 +291,31 @@ export default function InbodyPage() {
   if (!user) return null;
 
   const latestRecord = records.at(-1) ?? null;
+  const previousRecord = records.length >= 2 ? records.at(-2) ?? null : null;
+
   const bodyType = latestRecord
-    ? classifyBodyType(user.sex, latestRecord.weight_kg, latestRecord.skeletal_muscle_kg, latestRecord.body_fat_pct)
+    ? classifyBodyType(
+        user.sex,
+        latestRecord.weight_kg,
+        latestRecord.skeletal_muscle_kg,
+        latestRecord.body_fat_pct,
+      )
     : null;
+
+  const handleDelete = async (id: string) => {
+    if (deletingId) return;
+
+    setDeletingId(id);
+    setSyncError('');
+
+    const ok = await deleteInbodyRecord(id);
+
+    if (!ok) {
+      setSyncError('체성분 기록을 삭제하지 못했습니다.');
+    }
+
+    setDeletingId(null);
+  };
 
   const chartSeries: ChartSeries[] = CHART_METRICS
     .filter(m => selectedMetrics.has(m.key))
@@ -280,7 +341,19 @@ export default function InbodyPage() {
         </Link>
       </div>
 
-      {records.length === 0 ? (
+      {syncError && (
+        <div className="mx-4 mb-4 flex items-start gap-2 rounded-2xl border border-red-900/40 bg-red-950/20 p-3.5">
+          <AlertCircle size={15} className="mt-0.5 flex-shrink-0 text-red-400" />
+          <p className="text-xs leading-relaxed text-red-300">{syncError}</p>
+        </div>
+      )}
+
+      {isHydrating ? (
+        <div className="mx-4 flex items-center justify-center gap-2 rounded-2xl bg-zinc-900 p-10 text-sm text-zinc-500">
+          <RefreshCw size={15} className="animate-spin" />
+          체성분 기록을 불러오는 중...
+        </div>
+      ) : records.length === 0 ? (
         <div className="mx-4 bg-zinc-900 rounded-2xl p-10 text-center">
           <p className="text-zinc-400 text-sm mb-2">인바디 기록이 없습니다</p>
           <p className="text-zinc-600 text-xs mb-5">인바디 측정 결과를 입력해 체성분 추이와 예측을 확인하세요.</p>
@@ -297,7 +370,7 @@ export default function InbodyPage() {
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {CHART_METRICS.map(m => {
                   const active = selectedMetrics.has(m.key);
-                  const hasData = records.some(r => (r[m.key] as number | undefined) !== undefined);
+                  const hasData = records.some(r => { const value = r[m.key] as number | undefined | null; return value !== undefined && value !== null; });
                   return (
                     <button
                       key={m.key}
@@ -339,16 +412,57 @@ export default function InbodyPage() {
               </div>
 
               {/* Required fields */}
-              <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 text-center">
                 {[
-                  { label: '체중',    value: `${latestRecord.weight_kg}kg`,             color: 'text-white'    },
-                  { label: '골격근',  value: `${latestRecord.skeletal_muscle_kg}kg`,     color: 'text-blue-400' },
-                  { label: '체지방%', value: `${latestRecord.body_fat_pct}%`,            color: 'text-rose-400' },
-                  { label: '체지방량', value: `${latestRecord.body_fat_kg.toFixed(1)}kg`, color: 'text-rose-300' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="bg-zinc-800 rounded-xl py-3">
+                  {
+                    label: '체중',
+                    value: `${latestRecord.weight_kg}kg`,
+                    color: 'text-white',
+                    delta: previousRecord
+                      ? latestRecord.weight_kg - previousRecord.weight_kg
+                      : null,
+                    unit: 'kg',
+                    invert: false,
+                  },
+                  {
+                    label: '골격근',
+                    value: `${latestRecord.skeletal_muscle_kg}kg`,
+                    color: 'text-blue-400',
+                    delta: previousRecord
+                      ? latestRecord.skeletal_muscle_kg - previousRecord.skeletal_muscle_kg
+                      : null,
+                    unit: 'kg',
+                    invert: false,
+                  },
+                  {
+                    label: '체지방%',
+                    value: `${latestRecord.body_fat_pct}%`,
+                    color: 'text-rose-400',
+                    delta: previousRecord
+                      ? latestRecord.body_fat_pct - previousRecord.body_fat_pct
+                      : null,
+                    unit: '%',
+                    invert: true,
+                  },
+                  {
+                    label: '체지방량',
+                    value: `${latestRecord.body_fat_kg.toFixed(1)}kg`,
+                    color: 'text-rose-300',
+                    delta: previousRecord
+                      ? latestRecord.body_fat_kg - previousRecord.body_fat_kg
+                      : null,
+                    unit: 'kg',
+                    invert: true,
+                  },
+                ].map(({ label, value, color, delta, unit, invert }) => (
+                  <div key={label} className="rounded-xl bg-zinc-800 px-2 py-3">
                     <p className={`text-sm font-bold ${color}`}>{value}</p>
-                    <p className="text-[10px] text-zinc-500 mt-0.5">{label}</p>
+                    {delta !== null && (
+                      <div className="mt-1 flex justify-center">
+                        <DeltaBadge value={delta} unit={unit} invert={invert} />
+                      </div>
+                    )}
+                    <p className="mt-1 text-[10px] text-zinc-500">{label}</p>
                   </div>
                 ))}
               </div>
@@ -362,7 +476,7 @@ export default function InbodyPage() {
                   { label: '무기질',    value: latestRecord.mineral_kg,           fmt: (v: number) => `${v}kg`,          color: 'text-amber-400'  },
                   { label: '복부지방률', value: latestRecord.abdominal_fat_ratio,  fmt: (v: number) => `${v}`,            color: 'text-yellow-400' },
                   { label: '내장지방',  value: latestRecord.visceral_fat_level,   fmt: (v: number) => `Lv.${v}`,         color: 'text-purple-400' },
-                ].filter(o => o.value !== undefined);
+                ].filter(o => o.value !== undefined && o.value !== null);
                 if (opts.length === 0) return null;
                 return (
                   <div className="grid grid-cols-3 gap-2 text-center mt-2">
@@ -420,10 +534,17 @@ export default function InbodyPage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => deleteInbodyRecord(rec.id)}
-                      className="text-zinc-600 hover:text-red-400 p-1.5 flex-shrink-0 transition-colors"
+                      type="button"
+                      onClick={() => void handleDelete(rec.id)}
+                      disabled={deletingId === rec.id}
+                      className="flex-shrink-0 p-1.5 text-zinc-600 transition-colors hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40"
+                      aria-label={`${rec.measured_at} 체성분 기록 삭제`}
                     >
-                      <Trash2 size={14} />
+                      {deletingId === rec.id ? (
+                        <RefreshCw size={14} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
                     </button>
                   </div>
                 );

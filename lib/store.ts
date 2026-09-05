@@ -132,8 +132,11 @@ interface StoreActions {
   ) => NutritionSummary;
   
   // InBody (v0.3)
-  addInbodyRecord: (record: Omit<InbodyRecord, 'id' | 'user_id'>) => void;
-  deleteInbodyRecord: (id: string) => void;
+  loadInbodyRecords: () => Promise<boolean>;
+  addInbodyRecord: (
+    record: Omit<InbodyRecord, 'id' | 'user_id'>,
+  ) => Promise<boolean>;
+  deleteInbodyRecord: (id: string) => Promise<boolean>;
   getInbodyRecords: () => InbodyRecord[];
 }
 
@@ -818,25 +821,190 @@ export const useStore = create<Store>()(
 
       // ── InBody ────────────────────────────────────────────────────────────
 
-      addInbodyRecord: (record) => {
+      loadInbodyRecords: async () => {
         const user = get().currentUser();
-        if (!user) return;
-        const newRecord: InbodyRecord = { ...record, id: generateId(), user_id: user.id };
-        set((s) => ({
-          inbodyRecords: [...s.inbodyRecords, newRecord].sort(
-            (a, b) => a.measured_at.localeCompare(b.measured_at),
-          ),
+        if (!user) return false;
+
+        const storedUser = get().users.find((u) => u.id === user.id);
+
+        // 비회원은 기존 localStorage 기록을 그대로 사용
+        if (storedUser?.is_guest) {
+          return true;
+        }
+
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from('inbody_records')
+          .select(`
+            id,
+            user_id,
+            measured_at,
+            weight_kg,
+            skeletal_muscle_kg,
+            body_fat_kg,
+            body_fat_pct,
+            abdominal_fat_ratio,
+            visceral_fat_level,
+            body_water_kg,
+            bmr_kcal,
+            protein_kg,
+            mineral_kg
+          `)
+          .eq('user_id', user.id)
+          .order('measured_at', { ascending: true });
+
+        if (error) {
+          console.error('InBody records load failed:', error.message);
+          return false;
+        }
+
+        const hydratedRecords: InbodyRecord[] = (data ?? []).map((row) => ({
+          id: row.id,
+          user_id: row.user_id,
+          measured_at: row.measured_at,
+          weight_kg: Number(row.weight_kg),
+          skeletal_muscle_kg: Number(row.skeletal_muscle_kg),
+          body_fat_kg: Number(row.body_fat_kg),
+          body_fat_pct: Number(row.body_fat_pct),
+          ...(row.abdominal_fat_ratio !== null
+            ? { abdominal_fat_ratio: Number(row.abdominal_fat_ratio) }
+            : {}),
+          ...(row.visceral_fat_level !== null
+            ? { visceral_fat_level: Number(row.visceral_fat_level) }
+            : {}),
+          ...(row.body_water_kg !== null
+            ? { body_water_kg: Number(row.body_water_kg) }
+            : {}),
+          ...(row.bmr_kcal !== null
+            ? { bmr_kcal: Number(row.bmr_kcal) }
+            : {}),
+          ...(row.protein_kg !== null
+            ? { protein_kg: Number(row.protein_kg) }
+            : {}),
+          ...(row.mineral_kg !== null
+            ? { mineral_kg: Number(row.mineral_kg) }
+            : {}),
         }));
+
+        set((s) => ({
+          inbodyRecords: [
+            ...s.inbodyRecords.filter((record) => record.user_id !== user.id),
+            ...hydratedRecords,
+          ].sort((a, b) => a.measured_at.localeCompare(b.measured_at)),
+        }));
+
+        return true;
       },
 
-      deleteInbodyRecord: (id) => {
-        set((s) => ({ inbodyRecords: s.inbodyRecords.filter((r) => r.id !== id) }));
+      addInbodyRecord: async (record) => {
+        const user = get().currentUser();
+        if (!user) return false;
+
+        const storedUser = get().users.find((u) => u.id === user.id);
+
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          const newRecord: InbodyRecord = {
+            ...record,
+            id: generateId(),
+            user_id: user.id,
+          };
+
+          set((s) => ({
+            inbodyRecords: [...s.inbodyRecords, newRecord].sort(
+              (a, b) => a.measured_at.localeCompare(b.measured_at),
+            ),
+          }));
+
+          return true;
+        }
+
+        const supabase = createClient();
+        const id = crypto.randomUUID();
+
+        const { error } = await supabase
+          .from('inbody_records')
+          .insert({
+            id,
+            user_id: user.id,
+            measured_at: record.measured_at,
+            weight_kg: record.weight_kg,
+            skeletal_muscle_kg: record.skeletal_muscle_kg,
+            body_fat_kg: record.body_fat_kg,
+            body_fat_pct: record.body_fat_pct,
+            abdominal_fat_ratio: record.abdominal_fat_ratio ?? null,
+            visceral_fat_level: record.visceral_fat_level ?? null,
+            body_water_kg: record.body_water_kg ?? null,
+            bmr_kcal: record.bmr_kcal ?? null,
+            protein_kg: record.protein_kg ?? null,
+            mineral_kg: record.mineral_kg ?? null,
+          });
+
+        if (error) {
+          console.error('InBody record insert failed:', error.message);
+          return false;
+        }
+
+        const newRecord: InbodyRecord = {
+          ...record,
+          id,
+          user_id: user.id,
+        };
+
+        set((s) => ({
+          inbodyRecords: [
+            ...s.inbodyRecords.filter((existing) => existing.id !== id),
+            newRecord,
+          ].sort((a, b) => a.measured_at.localeCompare(b.measured_at)),
+        }));
+
+        return true;
+      },
+
+      deleteInbodyRecord: async (id) => {
+        const user = get().currentUser();
+        if (!user) return false;
+
+        const storedUser = get().users.find((u) => u.id === user.id);
+
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          set((s) => ({
+            inbodyRecords: s.inbodyRecords.filter((record) => record.id !== id),
+          }));
+
+          return true;
+        }
+
+        const supabase = createClient();
+
+        const { error } = await supabase
+          .from('inbody_records')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('InBody record delete failed:', error.message);
+          return false;
+        }
+
+        set((s) => ({
+          inbodyRecords: s.inbodyRecords.filter((record) => record.id !== id),
+        }));
+
+        return true;
       },
 
       getInbodyRecords: () => {
         const user = get().currentUser();
         if (!user) return [];
-        return get().inbodyRecords.filter((r) => r.user_id === user.id);
+
+        return get()
+          .inbodyRecords
+          .filter((record) => record.user_id === user.id)
+          .sort((a, b) => a.measured_at.localeCompare(b.measured_at));
       },
     }),
     {
