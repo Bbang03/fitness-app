@@ -1,26 +1,26 @@
 'use client';
 
 import {
-  useEffect,
   useMemo,
   useState,
 } from 'react';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 import {
   Check,
   ChevronLeft,
   Dumbbell,
   Loader2,
+  MailCheck,
   X,
 } from 'lucide-react';
 
-import { useStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
 
-import type { Sex } from '@/lib/types';
+import type {
+  Sex,
+} from '@/lib/types';
 
 const EMAIL_REGEX =
   /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -40,23 +40,21 @@ type EmailValidationResult = {
 };
 
 export default function SignupPage() {
-  const router = useRouter();
-
-  const { currentUser } = useStore();
-
   const [step, setStep] =
     useState<1 | 2>(1);
 
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    name: '',
-    height_cm: '170',
-    sex: 'male' as Sex,
-    birth_year: String(
-      new Date().getFullYear() - 25,
-    ),
-  });
+  const [form, setForm] =
+    useState({
+      email: '',
+      password: '',
+      name: '',
+      height_cm: '170',
+      sex: 'male' as Sex,
+      birth_year: String(
+        new Date().getFullYear() -
+          25,
+      ),
+    });
 
   const [error, setError] =
     useState('');
@@ -64,31 +62,45 @@ export default function SignupPage() {
   const [
     emailStatus,
     setEmailStatus,
-  ] = useState<EmailStatus>('idle');
+  ] =
+    useState<EmailStatus>(
+      'idle',
+    );
 
   const [
     emailMessage,
     setEmailMessage,
-  ] = useState('');
+  ] =
+    useState('');
 
   const [
     verifiedEmail,
     setVerifiedEmail,
-  ] = useState('');
+  ] =
+    useState('');
 
   const [
     isSubmitting,
     setIsSubmitting,
-  ] = useState(false);
+  ] =
+    useState(false);
 
-  useEffect(() => {
-    if (currentUser()) {
-      router.replace('/dashboard');
-    }
-  }, [currentUser, router]);
+  const [
+    signupComplete,
+    setSignupComplete,
+  ] =
+    useState(false);
+
+  const [
+    signupEmail,
+    setSignupEmail,
+  ] =
+    useState('');
 
   const normalizedEmail =
-    form.email.trim().toLowerCase();
+    form.email
+      .trim()
+      .toLowerCase();
 
   const isEmailFormatValid =
     useMemo(
@@ -143,16 +155,24 @@ export default function SignupPage() {
       setVerifiedEmail('');
       setEmailStatus('idle');
       setEmailMessage('');
+    }
+
+    if (error) {
       setError('');
     }
   };
 
-  // ── 이메일 도메인 검증 ─────────────────────────────────────────────
+  // ─────────────────────────────────────────────
+  // 이메일 도메인 검증
+  // ─────────────────────────────────────────────
 
   const validateEmailDomain =
     async (): Promise<boolean> => {
       if (!normalizedEmail) {
-        setEmailStatus('invalid');
+        setEmailStatus(
+          'invalid',
+        );
+
         setEmailMessage(
           '이메일을 입력해주세요.',
         );
@@ -160,8 +180,13 @@ export default function SignupPage() {
         return false;
       }
 
-      if (!isEmailFormatValid) {
-        setEmailStatus('invalid');
+      if (
+        !isEmailFormatValid
+      ) {
+        setEmailStatus(
+          'invalid',
+        );
+
         setEmailMessage(
           '올바른 이메일 형식이 아닙니다.',
         );
@@ -177,7 +202,10 @@ export default function SignupPage() {
         return true;
       }
 
-      setEmailStatus('checking');
+      setEmailStatus(
+        'checking',
+      );
+
       setEmailMessage(
         '이메일 도메인을 확인하고 있습니다.',
       );
@@ -194,10 +222,11 @@ export default function SignupPage() {
                   'application/json',
               },
 
-              body: JSON.stringify({
-                email:
-                  normalizedEmail,
-              }),
+              body:
+                JSON.stringify({
+                  email:
+                    normalizedEmail,
+                }),
             },
           );
 
@@ -206,7 +235,10 @@ export default function SignupPage() {
 
         if (!result.valid) {
           setVerifiedEmail('');
-          setEmailStatus('invalid');
+
+          setEmailStatus(
+            'invalid',
+          );
 
           setEmailMessage(
             result.message ??
@@ -220,21 +252,28 @@ export default function SignupPage() {
           normalizedEmail,
         );
 
-        setEmailStatus('valid');
+        setEmailStatus(
+          'valid',
+        );
 
         setEmailMessage(
           '이메일을 받을 수 있는 도메인입니다.',
         );
 
         return true;
-      } catch (validationError) {
+      } catch (
+        validationError
+      ) {
         console.error(
           'Email validation failed:',
           validationError,
         );
 
         setVerifiedEmail('');
-        setEmailStatus('invalid');
+
+        setEmailStatus(
+          'invalid',
+        );
 
         setEmailMessage(
           '이메일 주소를 확인하는 중 문제가 발생했습니다.',
@@ -244,175 +283,394 @@ export default function SignupPage() {
       }
     };
 
-  // ── Step 1 ─────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────
+  // Step 1
+  // ─────────────────────────────────────────────
 
-  const handleStep1 = async (
-    e: React.FormEvent,
-  ) => {
-    e.preventDefault();
+  const handleStep1 =
+    async (
+      e: React.FormEvent,
+    ) => {
+      e.preventDefault();
 
-    if (!form.name.trim()) {
-      setError(
-        '이름을 입력해주세요.',
-      );
-      return;
-    }
+      if (
+        !form.name.trim()
+      ) {
+        setError(
+          '이름을 입력해주세요.',
+        );
 
-    if (!form.password) {
-      setError(
-        '비밀번호를 입력해주세요.',
-      );
-      return;
-    }
+        return;
+      }
 
-    if (!isPasswordValid) {
-      setError(
-        '비밀번호 조건을 모두 충족해주세요.',
-      );
-      return;
-    }
+      if (!form.password) {
+        setError(
+          '비밀번호를 입력해주세요.',
+        );
 
-    setError('');
+        return;
+      }
 
-    const emailIsValid =
-      await validateEmailDomain();
+      if (
+        !isPasswordValid
+      ) {
+        setError(
+          '비밀번호 조건을 모두 충족해주세요.',
+        );
 
-    if (!emailIsValid) {
-      return;
-    }
+        return;
+      }
 
-    setStep(2);
-  };
+      setError('');
 
-  // ── 회원가입 ───────────────────────────────────────────────────────
+      const emailIsValid =
+        await validateEmailDomain();
 
-  const handleSubmit = async (
-    e: React.FormEvent,
-  ) => {
-    e.preventDefault();
+      if (!emailIsValid) {
+        return;
+      }
 
-    if (isSubmitting) {
-      return;
-    }
+      setStep(2);
+    };
 
-    const emailIsValid =
-      await validateEmailDomain();
+  // ─────────────────────────────────────────────
+  // 회원가입
+  // ─────────────────────────────────────────────
 
-    if (!emailIsValid) {
-      setStep(1);
-      return;
-    }
+  const handleSubmit =
+    async (
+      e: React.FormEvent,
+    ) => {
+      e.preventDefault();
 
-    if (!isPasswordValid) {
-      setError(
-        '비밀번호 조건을 모두 충족해주세요.',
-      );
+      if (isSubmitting) {
+        return;
+      }
 
-      setStep(1);
-      return;
-    }
+      const emailIsValid =
+        await validateEmailDomain();
 
-    const height =
-      Number(form.height_cm);
+      if (!emailIsValid) {
+        setStep(1);
+        return;
+      }
 
-    const birthYear =
-      Number(form.birth_year);
+      if (
+        !isPasswordValid
+      ) {
+        setError(
+          '비밀번호 조건을 모두 충족해주세요.',
+        );
 
-    const currentYear =
-      new Date().getFullYear();
+        setStep(1);
+        return;
+      }
 
-    if (
-      !Number.isFinite(height) ||
-      height < 100 ||
-      height > 250
-    ) {
-      setError(
-        '키를 올바르게 입력해주세요.',
-      );
-      return;
-    }
+      const height =
+        Number(
+          form.height_cm,
+        );
 
-    if (
-      !Number.isFinite(birthYear) ||
-      birthYear < 1940 ||
-      birthYear >
-        currentYear - 10
-    ) {
-      setError(
-        '출생 연도를 올바르게 입력해주세요.',
-      );
-      return;
-    }
+      const birthYear =
+        Number(
+          form.birth_year,
+        );
 
-    setError('');
-    setIsSubmitting(true);
+      const currentYear =
+        new Date()
+          .getFullYear();
 
-    const supabase =
-      createClient();
+      if (
+        !Number.isFinite(
+          height,
+        ) ||
+        height < 100 ||
+        height > 250
+      ) {
+        setError(
+          '키를 올바르게 입력해주세요.',
+        );
 
-    const {
-      data,
-      error: signupError,
-    } =
-      await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: form.password,
+        return;
+      }
 
-        options: {
-          data: {
-            name:
-              form.name.trim(),
+      if (
+        !Number.isFinite(
+          birthYear,
+        ) ||
+        birthYear < 1940 ||
+        birthYear >
+          currentYear - 10
+      ) {
+        setError(
+          '출생 연도를 올바르게 입력해주세요.',
+        );
 
-            height_cm:
-              height,
+        return;
+      }
 
-            sex:
-              form.sex,
+      setError('');
+      setIsSubmitting(true);
 
-            birth_year:
-              birthYear,
-          },
-        },
-      });
+      const supabase =
+        createClient();
 
-    if (signupError) {
-      console.error(
-        'Signup failed:',
-        signupError.message,
-      );
+      try {
+        /*
+         * 이전 테스트 계정이나 다른 사용자의
+         * Supabase 세션이 브라우저에 남아 있는 경우
+         * 새 회원가입 흐름과 섞이지 않도록
+         * local session을 먼저 정리한다.
+         */
+        const {
+          error:
+            signOutError,
+        } =
+          await supabase.auth.signOut({
+            scope: 'local',
+          });
 
-      setError(
-        getSignupErrorMessage(
-          signupError.message,
-        ),
-      );
+        if (signOutError) {
+          console.warn(
+            'Previous local session cleanup failed:',
+            signOutError.message,
+          );
+        }
 
-      setIsSubmitting(false);
-      return;
-    }
+        /*
+         * 이메일 인증이 활성화되어 있다면
+         * 가입 직후 session은 null이어야 한다.
+         *
+         * 기본 Supabase 확인 링크를 사용하더라도
+         * 이메일 인증 후 로그인 화면으로
+         * 돌아오도록 redirect URL을 지정한다.
+         */
+        const {
+          data,
+          error:
+            signupError,
+        } =
+          await supabase.auth.signUp({
+            email:
+              normalizedEmail,
 
-    if (!data.user) {
-      setError(
-        '회원가입에 실패했습니다.',
-      );
+            password:
+              form.password,
 
-      setIsSubmitting(false);
-      return;
-    }
+            options: {
+              emailRedirectTo:
+                `${window.location.origin}/login?confirmed=1`,
 
-    if (data.session) {
-      router.replace(
-        '/onboarding',
-      );
-      return;
-    }
+              data: {
+                name:
+                  form.name.trim(),
 
-    alert(
-      '회원가입이 완료되었습니다.\n가입한 이메일로 전송된 인증 메일을 확인해주세요.',
+                height_cm:
+                  height,
+
+                sex:
+                  form.sex,
+
+                birth_year:
+                  birthYear,
+              },
+            },
+          });
+
+        if (signupError) {
+          console.error(
+            'Signup failed:',
+            signupError.message,
+          );
+
+          setError(
+            getSignupErrorMessage(
+              signupError.message,
+            ),
+          );
+
+          return;
+        }
+
+        if (!data.user) {
+          setError(
+            '회원가입 처리 중 사용자 정보를 생성하지 못했습니다.',
+          );
+
+          return;
+        }
+
+        /*
+         * 중요:
+         *
+         * FitTrack은 이메일 인증 완료 전에는
+         * 로그인 세션을 허용하지 않는다.
+         *
+         * 따라서 가입 직후 session이 존재하면
+         * Supabase Auth에서 이메일 인증이
+         * 비활성화되어 있다는 의미로 처리한다.
+         */
+        if (data.session) {
+          console.error(
+            'Unexpected signup session: email confirmation appears to be disabled.',
+          );
+
+          await supabase.auth.signOut({
+            scope: 'local',
+          });
+
+          setError(
+            '이메일 인증 절차가 정상적으로 시작되지 않았습니다. Supabase Auth 이메일 인증 설정을 확인해주세요.',
+          );
+
+          return;
+        }
+
+        /*
+         * 이메일 인증이 정상적으로 필요한 경우
+         *
+         * data.user    -> 존재
+         * data.session -> null
+         *
+         * 여기서는 로그인/온보딩으로
+         * 자동 이동하지 않는다.
+         */
+        setSignupEmail(
+          normalizedEmail,
+        );
+
+        setSignupComplete(
+          true,
+        );
+
+        // 비밀번호는 화면 상태에서도 제거
+        setForm(
+          (prev) => ({
+            ...prev,
+            password: '',
+          }),
+        );
+      } catch (
+        signupException
+      ) {
+        console.error(
+          'Signup exception:',
+          signupException,
+        );
+
+        setError(
+          '회원가입 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        );
+      } finally {
+        setIsSubmitting(
+          false,
+        );
+      }
+    };
+
+  // ─────────────────────────────────────────────
+  // 이메일 인증 대기 화면
+  // ─────────────────────────────────────────────
+
+  if (signupComplete) {
+    return (
+      <div className="min-h-screen flex flex-col justify-center px-6 py-12">
+        <div className="text-center">
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <Dumbbell
+                size={30}
+                className="text-white"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-center mb-5">
+            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
+              <MailCheck
+                size={28}
+                className="text-emerald-400"
+              />
+            </div>
+          </div>
+
+          <p className="text-sm font-medium text-emerald-400 mb-2">
+            회원가입 완료
+          </p>
+
+          <h1 className="text-2xl font-bold">
+            인증 메일을
+            <br />
+            확인해주세요
+          </h1>
+
+          <p className="text-sm text-zinc-400 mt-4 leading-relaxed">
+            아래 이메일 주소로
+            인증 메일을 전송했습니다.
+          </p>
+
+          <div className="mt-5 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4">
+            <p className="text-xs text-zinc-500">
+              인증 이메일
+            </p>
+
+            <p className="text-sm font-medium text-zinc-200 mt-1 break-all">
+              {signupEmail}
+            </p>
+          </div>
+
+          <div className="mt-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl px-4 py-4 text-left">
+            <p className="text-sm font-medium text-blue-300">
+              다음 단계
+            </p>
+
+            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+              1. 받은 편지함에서
+              Supabase 인증 메일을
+              확인해주세요.
+            </p>
+
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              2. 이메일 인증 링크를
+              눌러 인증을 완료해주세요.
+            </p>
+
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              3. 인증 후 FitTrack에
+              로그인하면 온보딩 설문이
+              시작됩니다.
+            </p>
+          </div>
+
+          <p className="text-xs text-zinc-600 mt-4 leading-relaxed">
+            메일이 보이지 않는다면
+            스팸 또는 정크 메일함도
+            확인해주세요.
+          </p>
+
+          <div className="space-y-3 mt-8">
+            <Link
+              href="/login"
+              className="block w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-colors"
+            >
+              인증 후 로그인
+            </Link>
+
+            <Link
+              href="/"
+              className="block w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 font-medium py-3.5 rounded-xl transition-colors"
+            >
+              홈으로 이동
+            </Link>
+          </div>
+        </div>
+      </div>
     );
+  }
 
-    router.replace('/login');
-  };
+  // ─────────────────────────────────────────────
+  // 회원가입 Form
+  // ─────────────────────────────────────────────
 
   return (
     <div className="min-h-screen flex flex-col justify-center px-6 py-12">
@@ -438,9 +696,7 @@ export default function SignupPage() {
 
       {/* Step indicator */}
       <div className="flex items-center gap-2 mb-8">
-        <div
-          className="h-1 flex-1 rounded-full bg-blue-500"
-        />
+        <div className="h-1 flex-1 rounded-full bg-blue-500" />
 
         <div
           className={`h-1 flex-1 rounded-full ${
@@ -471,14 +727,19 @@ export default function SignupPage() {
 
             <input
               type="text"
-              value={form.name}
+              value={
+                form.name
+              }
               onChange={(e) =>
                 update(
                   'name',
                   e.target.value,
                 )
               }
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+              disabled={
+                isSubmitting
+              }
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
               placeholder="홍길동"
               autoComplete="name"
               required
@@ -493,7 +754,9 @@ export default function SignupPage() {
 
             <input
               type="email"
-              value={form.email}
+              value={
+                form.email
+              }
               onChange={(e) =>
                 update(
                   'email',
@@ -507,7 +770,10 @@ export default function SignupPage() {
                   void validateEmailDomain();
                 }
               }}
-              className={`w-full bg-zinc-900 border rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors ${
+              disabled={
+                isSubmitting
+              }
+              className={`w-full bg-zinc-900 border rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none transition-colors disabled:opacity-50 ${
                 emailStatus ===
                 'invalid'
                   ? 'border-red-500 focus:border-red-500'
@@ -573,14 +839,19 @@ export default function SignupPage() {
 
             <input
               type="password"
-              value={form.password}
+              value={
+                form.password
+              }
               onChange={(e) =>
                 update(
                   'password',
                   e.target.value,
                 )
               }
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-colors"
+              disabled={
+                isSubmitting
+              }
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white placeholder-zinc-600 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
               placeholder="••••••••"
               autoComplete="new-password"
               required
@@ -618,7 +889,7 @@ export default function SignupPage() {
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm bg-red-900/20 border border-red-900/30 rounded-lg py-2 px-3">
+            <p className="text-red-400 text-sm bg-red-900/20 border border-red-900/30 rounded-lg py-2.5 px-3 leading-relaxed">
               {error}
             </p>
           )}
@@ -627,11 +898,13 @@ export default function SignupPage() {
             type="submit"
             disabled={
               emailStatus ===
-              'checking'
+                'checking' ||
+              isSubmitting
             }
             className={`w-full font-semibold py-3.5 rounded-xl transition-colors mt-2 flex items-center justify-center gap-2 ${
               emailStatus ===
-              'checking'
+                'checking' ||
+              isSubmitting
                 ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white'
             }`}
@@ -643,6 +916,7 @@ export default function SignupPage() {
                   size={17}
                   className="animate-spin"
                 />
+
                 이메일 확인 중...
               </>
             ) : (
@@ -655,7 +929,7 @@ export default function SignupPage() {
 
             <Link
               href="/login"
-              className="text-blue-400 font-medium"
+              className="text-blue-400 font-medium hover:text-blue-300"
             >
               로그인
             </Link>
@@ -675,6 +949,12 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => {
+                if (
+                  isSubmitting
+                ) {
+                  return;
+                }
+
                 setError('');
                 setStep(1);
               }}
@@ -706,32 +986,38 @@ export default function SignupPage() {
                   'male',
                   'female',
                 ] as Sex[]
-              ).map((sex) => (
-                <button
-                  key={sex}
-                  type="button"
-                  disabled={
-                    isSubmitting
-                  }
-                  onClick={() =>
-                    update(
-                      'sex',
-                      sex,
-                    )
-                  }
-                  className={`py-3 rounded-xl text-sm font-medium border transition-colors ${
-                    form.sex ===
-                    sex
-                      ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-zinc-900 border-zinc-700 text-zinc-300'
-                  }`}
-                >
-                  {sex ===
-                  'male'
-                    ? '남성'
-                    : '여성'}
-                </button>
-              ))}
+              ).map(
+                (
+                  sex,
+                ) => (
+                  <button
+                    key={
+                      sex
+                    }
+                    type="button"
+                    disabled={
+                      isSubmitting
+                    }
+                    onClick={() =>
+                      update(
+                        'sex',
+                        sex,
+                      )
+                    }
+                    className={`py-3 rounded-xl text-sm font-medium border transition-colors disabled:opacity-50 ${
+                      form.sex ===
+                      sex
+                        ? 'bg-blue-600 border-blue-600 text-white'
+                        : 'bg-zinc-900 border-zinc-700 text-zinc-300'
+                    }`}
+                  >
+                    {sex ===
+                    'male'
+                      ? '남성'
+                      : '여성'}
+                  </button>
+                ),
+              )}
             </div>
           </div>
 
@@ -755,7 +1041,7 @@ export default function SignupPage() {
               disabled={
                 isSubmitting
               }
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
               min={100}
               max={250}
               required
@@ -782,10 +1068,11 @@ export default function SignupPage() {
               disabled={
                 isSubmitting
               }
-              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3.5 text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
               min={1940}
               max={
-                new Date().getFullYear() -
+                new Date()
+                  .getFullYear() -
                 10
               }
               required
@@ -794,14 +1081,18 @@ export default function SignupPage() {
 
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3">
             <p className="text-xs text-zinc-400 leading-relaxed">
-              가입 후 운동 경험, 활동량,
-              수면, 목표와 식습관을 묻는
-              짧은 설문이 이어집니다.
+              가입 후 먼저 이메일
+              인증을 진행합니다.
+              인증이 완료된 사용자는
+              로그인 후 운동 경험,
+              활동량, 수면, 목표와
+              식습관을 묻는 짧은
+              설문을 진행합니다.
             </p>
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm bg-red-900/20 border border-red-900/30 rounded-lg py-2 px-3">
+            <p className="text-red-400 text-sm bg-red-900/20 border border-red-900/30 rounded-lg py-2.5 px-3 leading-relaxed">
               {error}
             </p>
           )}
@@ -811,15 +1102,24 @@ export default function SignupPage() {
             disabled={
               isSubmitting
             }
-            className={`w-full py-3.5 rounded-xl font-semibold ${
+            className={`w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors ${
               isSubmitting
-                ? 'bg-zinc-800 text-zinc-500'
+                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-500 text-white'
             }`}
           >
-            {isSubmitting
-              ? '가입 중...'
-              : '가입하고 설문 시작'}
+            {isSubmitting ? (
+              <>
+                <Loader2
+                  size={17}
+                  className="animate-spin"
+                />
+
+                가입 중...
+              </>
+            ) : (
+              '회원가입'
+            )}
           </button>
         </form>
       )}
@@ -850,7 +1150,9 @@ function PasswordRule({
         }`}
       >
         {valid ? (
-          <Check size={10} />
+          <Check
+            size={10}
+          />
         ) : (
           <div className="w-1 h-1 bg-zinc-600 rounded-full" />
         )}
@@ -873,6 +1175,9 @@ function getSignupErrorMessage(
     ) ||
     normalized.includes(
       'already been registered',
+    ) ||
+    normalized.includes(
+      'user already registered',
     )
   ) {
     return '이미 가입된 이메일입니다.';
@@ -897,10 +1202,13 @@ function getSignupErrorMessage(
   if (
     normalized.includes(
       'rate limit',
+    ) ||
+    normalized.includes(
+      'too many requests',
     )
   ) {
-    return '잠시 후 다시 시도해주세요.';
+    return '회원가입 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.';
   }
 
-  return message;
+  return '회원가입에 실패했습니다. 입력한 정보를 확인한 뒤 다시 시도해주세요.';
 }
