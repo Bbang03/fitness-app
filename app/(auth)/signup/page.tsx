@@ -441,9 +441,12 @@ export default function SignupPage() {
          * 이메일 인증이 활성화되어 있다면
          * 가입 직후 session은 null이어야 한다.
          *
-         * 기본 Supabase 확인 링크를 사용하더라도
-         * 이메일 인증 후 로그인 화면으로
-         * 돌아오도록 redirect URL을 지정한다.
+         * 인증 메일의 링크가 현재 실행 중인 앱의
+         * /auth/confirm 엔드포인트로 돌아오도록 한다.
+         *
+         * Supabase Confirm signup 이메일 템플릿에서는
+         * {{ .RedirectTo }}에 token_hash/type을 붙여
+         * 이 엔드포인트를 호출하도록 설정한다.
          */
         const {
           data,
@@ -459,7 +462,7 @@ export default function SignupPage() {
 
             options: {
               emailRedirectTo:
-                `${window.location.origin}/login?confirmed=1`,
+                `${window.location.origin}/auth/confirm`,
 
               data: {
                 name:

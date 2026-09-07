@@ -35,12 +35,47 @@ export default function LoginPage() {
   const [checkingSession, setCheckingSession] =
     useState(true);
 
+  const [emailConfirmed, setEmailConfirmed] =
+    useState(false);
+
   // ── 이미 Supabase 로그인된 사용자 처리 ───────────────────────────────
 
   useEffect(() => {
     const checkExistingSession = async () => {
       const supabase =
         createClient();
+
+      /*
+       * 이메일 인증 완료 후 /login?confirmed=1 로 들어온 경우
+       * 인증 과정에서 남아 있을 수 있는 로컬 세션을 한 번 더 정리한다.
+       *
+       * FitTrack은 이메일 인증과 실제 로그인을 분리하므로,
+       * 이 경우에는 자동으로 dashboard/onboarding으로 보내지 않고
+       * 반드시 로그인 폼을 보여준다.
+       */
+      const confirmed =
+        new URLSearchParams(
+          window.location.search,
+        ).get('confirmed') === '1';
+
+      if (confirmed) {
+        setEmailConfirmed(true);
+
+        const { error: signOutError } =
+          await supabase.auth.signOut({
+            scope: 'local',
+          });
+
+        if (signOutError) {
+          console.warn(
+            'Post-confirmation local session cleanup failed:',
+            signOutError.message,
+          );
+        }
+
+        setCheckingSession(false);
+        return;
+      }
 
       try {
         const {
@@ -427,6 +462,19 @@ export default function LoginPage() {
             required
           />
         </div>
+
+        {/* Email confirmation success */}
+        {emailConfirmed && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+            <p className="text-sm font-medium text-emerald-300 text-center">
+              이메일 인증이 완료되었습니다.
+            </p>
+
+            <p className="text-xs text-zinc-400 text-center mt-1 leading-relaxed">
+              가입한 이메일과 비밀번호로 로그인해주세요.
+            </p>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
