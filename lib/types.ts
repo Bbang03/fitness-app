@@ -139,3 +139,79 @@ export interface InbodyRecord {
   protein_kg?: number;          // 단백질 kg (선택)
   mineral_kg?: number;          // 무기질 kg (선택)
 }
+
+// ── v0.4: 체성분 예측 온보딩 ────────────────────────────────────────────────
+
+// 일상 활동 수준
+export type ActivityLevel =
+  | 'sedentary'      // 대부분 앉아서 생활
+  | 'light'          // 가벼운 활동
+  | 'moderate'       // 보통 수준의 활동
+  | 'active'         // 활동적인 생활
+  | 'very_active';   // 매우 활동적
+
+// 현재 가장 중요한 운동 / 체성분 목표
+export type PrimaryGoal =
+  | 'fat_loss'       // 체지방 감량
+  | 'muscle_gain'    // 근육 증가
+  | 'recomposition'  // 체지방 감소 + 근육 증가
+  | 'maintenance'    // 현재 체형 유지
+  | 'fitness';       // 전반적인 체력 향상
+
+// 식단 관리 경험
+export type DietExperience =
+  | 'none'
+  | 'beginner'
+  | 'experienced';
+
+// 최근 운동의 규칙성
+export type TrainingConsistency =
+  | 'irregular'
+  | 'somewhat_consistent'
+  | 'consistent';
+
+// Supabase prediction_profiles 테이블과 대응될 사용자 예측 프로필
+export interface PredictionProfile {
+  user_id: string;
+
+  // 웨이트 트레이닝 누적 경험 개월 수
+  // 예: 2년 → 24
+  training_experience_months: number;
+
+  // 최근 3개월 기준 평균 주당 운동 횟수
+  // 예: 주 4회 → 4
+  recent_training_frequency: number;
+
+  // 한 번 운동할 때 평균 운동 시간
+  // 단위: 분
+  average_session_minutes: number;
+
+  // 최근 운동 습관의 규칙성
+  training_consistency: TrainingConsistency;
+
+  // 운동 외 일상생활 활동 수준
+  activity_level: ActivityLevel;
+
+  // 평균 수면 시간
+  // 단위: 시간
+  average_sleep_hours: number;
+
+  // 현재 주요 목표
+  primary_goal: PrimaryGoal;
+
+  // 칼로리 / 탄단지 관리 경험
+  diet_experience: DietExperience;
+
+  // 하루 평균 식사 횟수
+  typical_meals_per_day: number;
+
+  created_at: string;
+  updated_at: string;
+}
+
+// 온보딩 화면에서 입력받을 때 사용하는 타입.
+// user_id와 timestamp는 클라이언트 입력값이 아니므로 제외.
+export type PredictionProfileInput = Omit<
+  PredictionProfile,
+  'user_id' | 'created_at' | 'updated_at'
+>;

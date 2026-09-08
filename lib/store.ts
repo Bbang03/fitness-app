@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { createClient } from '@/lib/supabase/client';
 import {
   StoredUser, User, Routine, RoutineItem, WorkoutLog, SetLog,
   ActiveWorkout, SignupData, MealLog, MealItem, MealType, NutritionSummary,
@@ -29,43 +30,113 @@ interface StoreState {
 
   // Exercise library
   favoriteExerciseIds: string[];
-  pendingExercise: { name: string; record_type: RecordType; targetIndex: number } | null;
+  pendingExercise: {
+    name: string;
+    record_type: RecordType;
+    targetIndex: number;
+  } | null;
+  
+  routineDraft: {
+    name: string;
+    items: Omit<RoutineItem, 'id'>[];
+  } | null;
+
+  editRoutineDraft: {
+    routineId: string;
+    name: string;
+    items: Omit<RoutineItem, 'id'>[];
+  } | null;
 }
 
 interface StoreActions {
   // Auth
-  login: (email: string, password: string) => boolean;
-  loginAsGuest: () => void;
-  signup: (data: SignupData) => void;
-  logout: () => void;
-  currentUser: () => User | null;
+ login: (email: string, password: string) => boolean;
+ loginAsGuest: () => void;
+ signup: (data: SignupData) => void;
+ logout: () => void;
+ currentUser: () => User | null;
+ syncAuthenticatedUser: (user: StoredUser) => void;
 
   // Routines
-  addRoutine: (name: string, items: Omit<RoutineItem, 'id'>[]) => string;
-  updateRoutine: (id: string, name: string, items: Omit<RoutineItem, 'id'>[]) => void;
-  deleteRoutine: (id: string) => void;
+  setRoutines: (routines: Routine[]) => void;
+  
+  addRoutine: (
+    name: string,
+    items: Omit<RoutineItem, 'id'>[],
+  ) => Promise<string>;
+  updateRoutine: (
+    id: string,
+    name: string,
+    items: Omit<RoutineItem, 'id'>[],
+  ) => Promise<boolean>;
+  deleteRoutine: (id: string) => Promise<boolean>;
 
   // Exercise library
   toggleFavorite: (exerciseId: string) => void;
-  setPendingExercise: (ex: { name: string; record_type: RecordType; targetIndex: number } | null) => void;
+  setPendingExercise: (
+    ex: {
+      name: string;
+      record_type: RecordType;
+      targetIndex: number;
+    } | null,
+  ) => void;
+  
+  setRoutineDraft: (
+    draft: {
+      name: string;
+      items: Omit<RoutineItem, 'id'>[];
+    } | null,
+  ) => void;
+  
+  clearRoutineDraft: () => void;
+
+  setEditRoutineDraft: (
+    draft: {
+      routineId: string;
+      name: string;
+      items: Omit<RoutineItem, 'id'>[];
+    } | null,
+  ) => void;
+
+  clearEditRoutineDraft: () => void;
 
   // Workout
+  setWorkoutLogs: (logs: WorkoutLog[]) => void;
+
   startWorkout: (routineId: string) => void;
   logSet: (exerciseIndex: number, setIndex: number, weight: number, reps: number, duration_seconds?: number) => void;
   clearRestTimer: () => void;
-  finishWorkout: () => void;
+  finishWorkout: () => Promise<boolean>;
   cancelWorkout: () => void;
 
   // Meals (v0.2)
-  addMealItem: (date: string, mealType: MealType, item: Omit<MealItem, 'id' | 'meal_log_id'>) => void;
-  removeMealItem: (mealLogId: string, itemId: string) => void;
+  setMealLogs: (logs: MealLog[]) => void;
+  
+  addMealItem: (
+    date: string,
+    mealType: MealType,
+    item: Omit<MealItem, 'id' | 'meal_log_id'>,
+  ) => void;
+  
+  removeMealItem: (
+    mealLogId: string,
+    itemId: string,
+  ) => void;
+  
   deleteMealLog: (id: string) => void;
+  
   getMealsByDate: (date: string) => MealLog[];
-  getDailyNutrition: (date: string) => NutritionSummary;
-
+  
+  getDailyNutrition: (
+    date: string,
+  ) => NutritionSummary;
+  
   // InBody (v0.3)
-  addInbodyRecord: (record: Omit<InbodyRecord, 'id' | 'user_id'>) => void;
-  deleteInbodyRecord: (id: string) => void;
+  loadInbodyRecords: () => Promise<boolean>;
+  addInbodyRecord: (
+    record: Omit<InbodyRecord, 'id' | 'user_id'>,
+  ) => Promise<boolean>;
+  deleteInbodyRecord: (id: string) => Promise<boolean>;
   getInbodyRecords: () => InbodyRecord[];
 }
 
@@ -83,8 +154,24 @@ export const useStore = create<Store>()(
       inbodyRecords: [],
       favoriteExerciseIds: [],
       pendingExercise: null,
+      routineDraft: null,
+      editRoutineDraft: null,
 
       // ── Auth ──────────────────────────────────────────────────────────────
+
+      syncAuthenticatedUser: (user) => {
+        set((s) => ({
+          users: [
+            ...s.users.filter(
+              (u) =>
+                u.id !== user.id &&
+                u.email.toLowerCase() !== user.email.toLowerCase(),
+            ),
+            user,
+          ],
+          currentUserId: user.id,
+        }));
+      },
 
       login: (email, password) => {
         const user = get().users.find(
@@ -159,23 +246,241 @@ export const useStore = create<Store>()(
 
       setPendingExercise: (ex) => set({ pendingExercise: ex }),
 
-      // ── Routines ──────────────────────────────────────────────────────────
+      setRoutineDraft: (draft) => set({ routineDraft: draft }),
 
-      addRoutine: (name, items) => {
+      clearRoutineDraft: () => set({ routineDraft: null }),
+
+      setEditRoutineDraft: (draft) => set({ editRoutineDraft: draft }),
+
+      clearEditRoutineDraft: () => set({ editRoutineDraft: null }),
+
+      // ── Routines ──────────────────────────────────────────────────────────
+      setRoutines: (routines) => set({ routines }),
+
+      addRoutine: async (name, items) => {
         const user = get().currentUser();
         if (!user) return '';
+        
+        const storedUser = get().users.find((u) => u.id === user.id);
+        
+        // 비회원 모드는 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          const routine: Routine = {
+            id: generateId(),
+            user_id: user.id,
+            name,
+            items: items.map((item, idx) => ({
+              ...item,
+              id: generateId(),
+              order: idx,
+            })),
+            created_at: new Date().toISOString(),
+          };
+      
+          set((s) => ({
+            routines: [...s.routines, routine],
+          }));
+      
+          return routine.id;
+        }
+      
+        const supabase = createClient();
+      
+        const routineId = crypto.randomUUID();
+        const createdAt = new Date().toISOString();
+      
+        // 1. 루틴 본체 생성
+        const { error: routineError } = await supabase
+          .from('routines')
+          .insert({
+            id: routineId,
+            user_id: user.id,
+            name,
+            created_at: createdAt,
+          });
+      
+        if (routineError) {
+          console.error('Routine insert failed:', routineError.message);
+          return '';
+        }
+      
+        // 2. 루틴 운동 항목 생성
+        const routineItems: RoutineItem[] = items.map((item, idx) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          order: idx,
+        }));
+      
+        const { error: itemsError } = await supabase
+          .from('routine_items')
+          .insert(
+            routineItems.map((item) => ({
+              id: item.id,
+              routine_id: routineId,
+              order: item.order,
+              exercise_name: item.exercise_name,
+              target_sets: item.target_sets,
+              target_reps: item.target_reps,
+              rest_seconds: item.rest_seconds,
+              record_type: item.record_type,
+            })),
+          );
+      
+        if (itemsError) {
+          console.error('Routine items insert failed:', itemsError.message);
+      
+          // 항목 저장 실패 시 이미 만든 부모 루틴도 제거
+          await supabase
+            .from('routines')
+            .delete()
+            .eq('id', routineId);
+      
+          return '';
+        }
+      
+        // 3. Supabase 저장 성공 후 기존 UI와 호환되도록 Zustand에도 반영
         const routine: Routine = {
-          id: generateId(),
+          id: routineId,
           user_id: user.id,
           name,
-          items: items.map((item, idx) => ({ ...item, id: generateId(), order: idx })),
-          created_at: new Date().toISOString(),
+          items: routineItems,
+          created_at: createdAt,
         };
-        set((s) => ({ routines: [...s.routines, routine] }));
-        return routine.id;
+      
+        set((s) => ({
+          routines: [...s.routines, routine],
+        }));
+      
+        return routineId;
       },
 
-      updateRoutine: (id, name, items) => {
+      updateRoutine: async (id, name, items) => {
+        const user = get().currentUser();
+        if (!user) return false;
+      
+        const storedUser = get().users.find((u) => u.id === user.id);
+      
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          set((s) => ({
+            routines: s.routines.map((r) =>
+              r.id !== id
+                ? r
+                : {
+                    ...r,
+                    name,
+                    items: items.map((item, idx) => ({
+                      ...item,
+                      id: generateId(),
+                      order: idx,
+                    })),
+                  },
+            ),
+          }));
+      
+          return true;
+        }
+      
+        const existingRoutine = get().routines.find(
+          (r) => r.id === id && r.user_id === user.id,
+        );
+      
+        if (!existingRoutine) return false;
+      
+        const supabase = createClient();
+      
+        // 1. 루틴 이름 수정
+        const { error: routineError } = await supabase
+          .from('routines')
+          .update({ name })
+          .eq('id', id)
+          .eq('user_id', user.id);
+      
+        if (routineError) {
+          console.error('Routine update failed:', routineError.message);
+          return false;
+        }
+      
+        // 2. 기존 운동 항목 제거
+        const { error: deleteItemsError } = await supabase
+          .from('routine_items')
+          .delete()
+          .eq('routine_id', id);
+      
+        if (deleteItemsError) {
+          console.error(
+            'Routine items delete failed:',
+            deleteItemsError.message,
+          );
+      
+          // 루틴 이름 원상 복구 시도
+          await supabase
+            .from('routines')
+            .update({ name: existingRoutine.name })
+            .eq('id', id)
+            .eq('user_id', user.id);
+      
+          return false;
+        }
+      
+        // 3. 수정된 운동 항목 생성
+        const updatedItems: RoutineItem[] = items.map((item, idx) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          order: idx,
+        }));
+      
+        if (updatedItems.length > 0) {
+          const { error: insertItemsError } = await supabase
+            .from('routine_items')
+            .insert(
+              updatedItems.map((item) => ({
+                id: item.id,
+                routine_id: id,
+                order: item.order,
+                exercise_name: item.exercise_name,
+                target_sets: item.target_sets,
+                target_reps: item.target_reps,
+                rest_seconds: item.rest_seconds,
+                record_type: item.record_type,
+              })),
+            );
+      
+          if (insertItemsError) {
+            console.error(
+              'Routine items update failed:',
+              insertItemsError.message,
+            );
+      
+            // 실패했을 경우 기존 운동 항목 복구 시도
+            if (existingRoutine.items.length > 0) {
+              await supabase
+                .from('routine_items')
+                .insert(
+                  existingRoutine.items.map((item) => ({
+                    id: item.id,
+                    routine_id: id,
+                    order: item.order,
+                    exercise_name: item.exercise_name,
+                    target_sets: item.target_sets,
+                    target_reps: item.target_reps,
+                    rest_seconds: item.rest_seconds,
+                    record_type: item.record_type,
+                  })),
+                );
+            }
+      
+            await supabase
+              .from('routines')
+              .update({ name: existingRoutine.name })
+              .eq('id', id)
+              .eq('user_id', user.id);
+      
+            return false;
+          }
+        }
+      
+        // 4. Supabase 성공 후 Zustand도 갱신
         set((s) => ({
           routines: s.routines.map((r) =>
             r.id !== id
@@ -183,20 +488,60 @@ export const useStore = create<Store>()(
               : {
                   ...r,
                   name,
-                  items: items.map((item, idx) => ({ ...item, id: generateId(), order: idx })),
+                  items: updatedItems,
                 },
           ),
         }));
+      
+        return true;
       },
-
-      deleteRoutine: (id) => {
+      
+      deleteRoutine: async (id) => {
+        const user = get().currentUser();
+        if (!user) return false;
+      
+        const storedUser = get().users.find((u) => u.id === user.id);
+      
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          set((s) => ({
+            routines: s.routines.filter((r) => r.id !== id),
+            activeWorkout:
+              s.activeWorkout?.routineId === id
+                ? null
+                : s.activeWorkout,
+          }));
+      
+          return true;
+        }
+      
+        const supabase = createClient();
+      
+        const { error } = await supabase
+          .from('routines')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+      
+        if (error) {
+          console.error('Routine delete failed:', error.message);
+          return false;
+        }
+      
+        // Supabase 삭제 성공 후 Zustand에서도 제거
         set((s) => ({
           routines: s.routines.filter((r) => r.id !== id),
-          activeWorkout: s.activeWorkout?.routineId === id ? null : s.activeWorkout,
+          activeWorkout:
+            s.activeWorkout?.routineId === id
+              ? null
+              : s.activeWorkout,
         }));
+      
+        return true;
       },
-
+      
       // ── Workout ───────────────────────────────────────────────────────────
+      setWorkoutLogs: (logs) => set({ workoutLogs: logs }),
 
       startWorkout: (routineId) => {
         const routine = get().routines.find((r) => r.id === routineId);
@@ -273,26 +618,129 @@ export const useStore = create<Store>()(
         set({ activeWorkout: { ...activeWorkout, phase: 'exercise', restTimer: null } });
       },
 
-      finishWorkout: () => {
+      finishWorkout: async () => {
         const { activeWorkout } = get();
         const user = get().currentUser();
-        if (!activeWorkout || !user) return;
+      
+        if (!activeWorkout || !user) return false;
+      
+        const storedUser = get().users.find((u) => u.id === user.id);
+      
+        const finishedAt = new Date().toISOString();
+        const workoutDate = new Date().toLocaleDateString('en-CA');
+      
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          const log: WorkoutLog = {
+            id: activeWorkout.workoutLogId,
+            user_id: user.id,
+            routine_id: activeWorkout.routineId,
+            routine_name: activeWorkout.routineName,
+            date: workoutDate,
+            started_at: activeWorkout.startedAt,
+            finished_at: finishedAt,
+            sets: activeWorkout.completedSets,
+          };
+      
+          set((s) => ({
+            workoutLogs: [log, ...s.workoutLogs],
+            activeWorkout: null,
+          }));
+      
+          return true;
+        }
 
+        const supabase = createClient();
+      
+        // Supabase용 UUID 새로 생성
+        const workoutLogId = crypto.randomUUID();
+      
+        // 1. 운동 기록 본체 저장
+        const { error: workoutError } = await supabase
+          .from('workout_logs')
+          .insert({
+            id: workoutLogId,
+            user_id: user.id,
+            routine_id: activeWorkout.routineId,
+            routine_name: activeWorkout.routineName,
+            date: workoutDate,
+            started_at: activeWorkout.startedAt,
+            finished_at: finishedAt,
+          });
+      
+        if (workoutError) {
+          console.error(
+            'Workout log insert failed:',
+            workoutError.message,
+          );
+          return false;
+        }
+      
+        // 2. 완료한 세트들을 Supabase용 형태로 변환
+        const persistedSets: SetLog[] =
+          activeWorkout.completedSets.map((setLog) => ({
+            ...setLog,
+            id: crypto.randomUUID(),
+            workout_log_id: workoutLogId,
+            record_type: setLog.record_type ?? 'weight_reps',
+          }));
+      
+        // 3. 세트 기록 저장
+        if (persistedSets.length > 0) {
+          const { error: setsError } = await supabase
+            .from('set_logs')
+            .insert(
+              persistedSets.map((setLog) => ({
+                id: setLog.id,
+                workout_log_id: workoutLogId,
+                exercise_name: setLog.exercise_name,
+                set_number: setLog.set_number,
+                weight_kg: setLog.weight_kg,
+                reps: setLog.reps,
+                actual_rest_seconds:
+                  setLog.actual_rest_seconds ?? 0,
+                duration_seconds:
+                  setLog.duration_seconds ?? null,
+                record_type:
+                  setLog.record_type ?? 'weight_reps',
+              })),
+            );
+      
+          if (setsError) {
+            console.error(
+              'Set logs insert failed:',
+              setsError.message,
+            );
+      
+            // 세트 저장 실패 시 부모 workout_log도 제거
+            await supabase
+              .from('workout_logs')
+              .delete()
+              .eq('id', workoutLogId)
+              .eq('user_id', user.id);
+      
+            return false;
+          }
+        }
+      
+        // 4. Supabase 저장 성공 후 Zustand에도 기록
         const log: WorkoutLog = {
-          id: activeWorkout.workoutLogId,
+          id: workoutLogId,
           user_id: user.id,
           routine_id: activeWorkout.routineId,
           routine_name: activeWorkout.routineName,
-          date: new Date().toISOString().split('T')[0],
+          date: workoutDate,
           started_at: activeWorkout.startedAt,
-          finished_at: new Date().toISOString(),
-          sets: activeWorkout.completedSets,
+          finished_at: finishedAt,
+          sets: persistedSets,
         };
-
+      
         set((s) => ({
           workoutLogs: [log, ...s.workoutLogs],
           activeWorkout: null,
         }));
+      
+        return true;
       },
 
       cancelWorkout: () => {
@@ -300,6 +748,11 @@ export const useStore = create<Store>()(
       },
 
       // ── Meals ──────────────────────────────────────────────────────────────
+
+      setMealLogs: (logs) =>
+        set({
+          mealLogs: logs,
+        }),
 
       addMealItem: (date, mealType, item) => {
         const user = get().currentUser();
@@ -368,25 +821,190 @@ export const useStore = create<Store>()(
 
       // ── InBody ────────────────────────────────────────────────────────────
 
-      addInbodyRecord: (record) => {
+      loadInbodyRecords: async () => {
         const user = get().currentUser();
-        if (!user) return;
-        const newRecord: InbodyRecord = { ...record, id: generateId(), user_id: user.id };
-        set((s) => ({
-          inbodyRecords: [...s.inbodyRecords, newRecord].sort(
-            (a, b) => a.measured_at.localeCompare(b.measured_at),
-          ),
+        if (!user) return false;
+
+        const storedUser = get().users.find((u) => u.id === user.id);
+
+        // 비회원은 기존 localStorage 기록을 그대로 사용
+        if (storedUser?.is_guest) {
+          return true;
+        }
+
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from('inbody_records')
+          .select(`
+            id,
+            user_id,
+            measured_at,
+            weight_kg,
+            skeletal_muscle_kg,
+            body_fat_kg,
+            body_fat_pct,
+            abdominal_fat_ratio,
+            visceral_fat_level,
+            body_water_kg,
+            bmr_kcal,
+            protein_kg,
+            mineral_kg
+          `)
+          .eq('user_id', user.id)
+          .order('measured_at', { ascending: true });
+
+        if (error) {
+          console.error('InBody records load failed:', error.message);
+          return false;
+        }
+
+        const hydratedRecords: InbodyRecord[] = (data ?? []).map((row) => ({
+          id: row.id,
+          user_id: row.user_id,
+          measured_at: row.measured_at,
+          weight_kg: Number(row.weight_kg),
+          skeletal_muscle_kg: Number(row.skeletal_muscle_kg),
+          body_fat_kg: Number(row.body_fat_kg),
+          body_fat_pct: Number(row.body_fat_pct),
+          ...(row.abdominal_fat_ratio !== null
+            ? { abdominal_fat_ratio: Number(row.abdominal_fat_ratio) }
+            : {}),
+          ...(row.visceral_fat_level !== null
+            ? { visceral_fat_level: Number(row.visceral_fat_level) }
+            : {}),
+          ...(row.body_water_kg !== null
+            ? { body_water_kg: Number(row.body_water_kg) }
+            : {}),
+          ...(row.bmr_kcal !== null
+            ? { bmr_kcal: Number(row.bmr_kcal) }
+            : {}),
+          ...(row.protein_kg !== null
+            ? { protein_kg: Number(row.protein_kg) }
+            : {}),
+          ...(row.mineral_kg !== null
+            ? { mineral_kg: Number(row.mineral_kg) }
+            : {}),
         }));
+
+        set((s) => ({
+          inbodyRecords: [
+            ...s.inbodyRecords.filter((record) => record.user_id !== user.id),
+            ...hydratedRecords,
+          ].sort((a, b) => a.measured_at.localeCompare(b.measured_at)),
+        }));
+
+        return true;
       },
 
-      deleteInbodyRecord: (id) => {
-        set((s) => ({ inbodyRecords: s.inbodyRecords.filter((r) => r.id !== id) }));
+      addInbodyRecord: async (record) => {
+        const user = get().currentUser();
+        if (!user) return false;
+
+        const storedUser = get().users.find((u) => u.id === user.id);
+
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          const newRecord: InbodyRecord = {
+            ...record,
+            id: generateId(),
+            user_id: user.id,
+          };
+
+          set((s) => ({
+            inbodyRecords: [...s.inbodyRecords, newRecord].sort(
+              (a, b) => a.measured_at.localeCompare(b.measured_at),
+            ),
+          }));
+
+          return true;
+        }
+
+        const supabase = createClient();
+        const id = crypto.randomUUID();
+
+        const { error } = await supabase
+          .from('inbody_records')
+          .insert({
+            id,
+            user_id: user.id,
+            measured_at: record.measured_at,
+            weight_kg: record.weight_kg,
+            skeletal_muscle_kg: record.skeletal_muscle_kg,
+            body_fat_kg: record.body_fat_kg,
+            body_fat_pct: record.body_fat_pct,
+            abdominal_fat_ratio: record.abdominal_fat_ratio ?? null,
+            visceral_fat_level: record.visceral_fat_level ?? null,
+            body_water_kg: record.body_water_kg ?? null,
+            bmr_kcal: record.bmr_kcal ?? null,
+            protein_kg: record.protein_kg ?? null,
+            mineral_kg: record.mineral_kg ?? null,
+          });
+
+        if (error) {
+          console.error('InBody record insert failed:', error.message);
+          return false;
+        }
+
+        const newRecord: InbodyRecord = {
+          ...record,
+          id,
+          user_id: user.id,
+        };
+
+        set((s) => ({
+          inbodyRecords: [
+            ...s.inbodyRecords.filter((existing) => existing.id !== id),
+            newRecord,
+          ].sort((a, b) => a.measured_at.localeCompare(b.measured_at)),
+        }));
+
+        return true;
+      },
+
+      deleteInbodyRecord: async (id) => {
+        const user = get().currentUser();
+        if (!user) return false;
+
+        const storedUser = get().users.find((u) => u.id === user.id);
+
+        // 비회원은 기존 localStorage 방식 유지
+        if (storedUser?.is_guest) {
+          set((s) => ({
+            inbodyRecords: s.inbodyRecords.filter((record) => record.id !== id),
+          }));
+
+          return true;
+        }
+
+        const supabase = createClient();
+
+        const { error } = await supabase
+          .from('inbody_records')
+          .delete()
+          .eq('id', id)
+          .eq('user_id', user.id);
+
+        if (error) {
+          console.error('InBody record delete failed:', error.message);
+          return false;
+        }
+
+        set((s) => ({
+          inbodyRecords: s.inbodyRecords.filter((record) => record.id !== id),
+        }));
+
+        return true;
       },
 
       getInbodyRecords: () => {
         const user = get().currentUser();
         if (!user) return [];
-        return get().inbodyRecords.filter((r) => r.user_id === user.id);
+
+        return get()
+          .inbodyRecords
+          .filter((record) => record.user_id === user.id)
+          .sort((a, b) => a.measured_at.localeCompare(b.measured_at));
       },
     }),
     {
