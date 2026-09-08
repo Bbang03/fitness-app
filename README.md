@@ -17,7 +17,7 @@
 
 ## 🔗 Links
 
-- **Live Demo**: https://fitness-app-eta-henna.vercel.app/dashboard
+- **Live Demo**: https://fitness-app-eta-henna.vercel.app
 - **Repository**: https://github.com/Bbang03/fitness-app
 - **Competition**: https://static.wanted.co.kr/ai-championship/2026/landing.html
 
