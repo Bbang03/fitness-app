@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Camera,
   ChevronLeft,
   Database,
   Plus,
@@ -22,6 +21,7 @@ import {
 
 import { useStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
+import PhotoMealScanner from '@/components/PhotoMealScanner';
 import {
   calcNutrition,
   searchFoods,
@@ -2281,16 +2281,16 @@ function AddMealInner() {
     };
   }, [query]);
 
-  const handleAdd = useCallback(
-    async (item: AddItem) => {
-      if (!user || isSaving) return;
+  const handleAddMany = useCallback(
+    async (items: AddItem[]) => {
+      if (!user || isSaving || items.length === 0) return;
 
       setSaveError('');
       setIsSaving(true);
 
       try {
         if (isGuest) {
-          addMealItem(date, mealType, item);
+          items.forEach(item => addMealItem(date, mealType, item));
           router.back();
           return;
         }
@@ -2344,31 +2344,22 @@ function AddMealInner() {
           return;
         }
 
-        const itemId = crypto.randomUUID();
-        const { data: insertedItem, error: itemError } = await supabase
+        const { data: insertedItems, error: itemError } = await supabase
           .from('meal_items')
-          .insert({
-            id: itemId,
-            meal_log_id: mealLogRow.id,
-            food_name: item.food_name,
-            serving: item.serving,
-            kcal: item.kcal,
-            carbs_g: item.carbs_g,
-            protein_g: item.protein_g,
-            fat_g: item.fat_g,
-            nutrition_status:
-              item.nutrition_status ??
-              'database',
-            nutrition_confidence:
-              item.nutrition_confidence ??
-              null,
-            nutrition_source:
-              item.nutrition_source ??
-              null,
-            nutrition_meta:
-              item.nutrition_meta ??
-              {},
-          })
+          .insert(items.map(item => ({
+              id: crypto.randomUUID(),
+              meal_log_id: mealLogRow.id,
+              food_name: item.food_name,
+              serving: item.serving,
+              kcal: item.kcal,
+              carbs_g: item.carbs_g,
+              protein_g: item.protein_g,
+              fat_g: item.fat_g,
+              nutrition_status: item.nutrition_status ?? 'database',
+              nutrition_confidence: item.nutrition_confidence ?? null,
+              nutrition_source: item.nutrition_source ?? null,
+              nutrition_meta: item.nutrition_meta ?? {},
+            })))
           .select(`
             id,
             meal_log_id,
@@ -2378,25 +2369,24 @@ function AddMealInner() {
             carbs_g,
             protein_g,
             fat_g
-          `)
-          .single();
+          `);
 
-        if (itemError || !insertedItem) {
+        if (itemError || !insertedItems || insertedItems.length !== items.length) {
           console.error('Meal item insert failed:', itemError?.message);
           setSaveError('음식 저장에 실패했습니다.');
           return;
         }
 
-        const newItem: MealItem = {
-          id: insertedItem.id,
-          meal_log_id: insertedItem.meal_log_id,
-          food_name: insertedItem.food_name,
-          serving: insertedItem.serving ?? '',
-          kcal: Number(insertedItem.kcal),
-          carbs_g: Number(insertedItem.carbs_g),
-          protein_g: Number(insertedItem.protein_g),
-          fat_g: Number(insertedItem.fat_g),
-        };
+        const newItems: MealItem[] = insertedItems.map(insertedItem => ({
+            id: insertedItem.id,
+            meal_log_id: insertedItem.meal_log_id,
+            food_name: insertedItem.food_name,
+            serving: insertedItem.serving ?? '',
+            kcal: Number(insertedItem.kcal),
+            carbs_g: Number(insertedItem.carbs_g),
+            protein_g: Number(insertedItem.protein_g),
+            fat_g: Number(insertedItem.fat_g),
+          }));
 
         const currentLogs = useStore.getState().mealLogs;
         const existing = currentLogs.find((log) => log.id === mealLogRow.id);
@@ -2405,7 +2395,7 @@ function AddMealInner() {
         if (existing) {
           nextLogs = currentLogs.map((log) =>
             log.id === existing.id
-              ? { ...log, items: [...log.items, newItem] }
+              ? { ...log, items: [...log.items, ...newItems] }
               : log,
           );
         } else {
@@ -2414,7 +2404,7 @@ function AddMealInner() {
             user_id: mealLogRow.user_id,
             date: mealLogRow.date,
             meal_type: mealLogRow.meal_type as MealType,
-            items: [newItem],
+            items: newItems,
           };
           nextLogs = [...currentLogs, newLog];
         }
@@ -2438,6 +2428,11 @@ function AddMealInner() {
       router,
       setMealLogs,
     ],
+  );
+
+  const handleAdd = useCallback(
+    async (item: AddItem) => handleAddMany([item]),
+    [handleAddMany],
   );
 
   if (!user) return null;
@@ -2475,25 +2470,7 @@ function AddMealInner() {
 
       <main className="px-5 pt-5">
         <section className="mb-6">
-          <div className="overflow-hidden rounded-3xl border border-blue-500/15 bg-gradient-to-br from-blue-500/10 via-zinc-900/70 to-zinc-950 p-5">
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10">
-                <Camera size={22} className="text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-semibold">사진으로 음식 찾기</p>
-                  <Sparkles size={13} className="text-blue-400" />
-                </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
-                  음식 사진에서 후보를 인식하고 브랜드 메뉴·영양정보와 연결하는 기능을 준비 중이에요.
-                </p>
-                <span className="mt-3 inline-flex rounded-lg bg-zinc-800 px-2.5 py-1 text-[10px] font-medium text-zinc-500">
-                  AI 연결 예정
-                </span>
-              </div>
-            </div>
-          </div>
+          <PhotoMealScanner onAddMany={handleAddMany} />
         </section>
 
         <section>

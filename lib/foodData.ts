@@ -94,6 +94,13 @@ export const FOOD_DB: FoodItem[] = [
     per100g: { kcal: 41, carbs_g: 9.6, protein_g: 0.9, fat_g: 0.2 } },
   { id: 'v07', name: '오이', category: '채소', serving_desc: '1/2개 (150g)', serving_g: 150,
     per100g: { kcal: 15, carbs_g: 3.6, protein_g: 0.7, fat_g: 0.1 } },
+  { id: 'v08', name: '오이 피클', category: '채소', serving_desc: '작은 접시 (50g)', serving_g: 50,
+    per100g: { kcal: 12, carbs_g: 2.4, protein_g: 0.5, fat_g: 0.3 } },
+  // 드레싱 포함 양배추는 생양배추와 열량 차이가 커 별도 항목으로 둔다.
+  // Health Canada의 homemade(약 70kcal/100g)와 USDA 시판형(160kcal/100g)
+  // 사이의 일반적인 중간 대표값이다.
+  { id: 'v09', name: '양배추 샐러드 (드레싱 포함)', category: '채소', serving_desc: '작은 접시 (80g)', serving_g: 80,
+    per100g: { kcal: 110, carbs_g: 11.5, protein_g: 1.5, fat_g: 6.5 } },
 
   // ── 과일 ──────────────────────────────────────────────────────────────────
   { id: 'f01', name: '바나나', category: '과일', serving_desc: '중간크기 1개 (118g)', serving_g: 118,
@@ -172,6 +179,23 @@ export const FOOD_DB: FoodItem[] = [
     per100g: { kcal: 28, carbs_g: 5, protein_g: 1, fat_g: 0.5 } },
   { id: 'k30', name: '나물 (콩나물)', category: '한식', serving_desc: '1인분 (100g)', serving_g: 100,
     per100g: { kcal: 30, carbs_g: 3, protein_g: 3, fat_g: 1 } },
+  // 2026-09-08 공개 웹 다중 출처(서로 다른 도메인 2개 이상) 100g 대표값.
+  // 우동국물은 면이 포함된 우동 자료가 섞이지 않도록 일본 문부과학성 식품성분 DB의
+  // 비농축 면 국물(めんつゆ/ストレート, 식품번호 17029) 수치를 사용한다.
+  { id: 'k31', name: '미소장국', category: '국/탕', serving_desc: '1그릇 (200g)', serving_g: 200,
+    per100g: { kcal: 22, carbs_g: 2.1, protein_g: 1.6, fat_g: 0.7 } },
+  { id: 'k32', name: '우동국물', category: '국/탕', serving_desc: '1그릇 (200g)', serving_g: 200,
+    per100g: { kcal: 44, carbs_g: 8.7, protein_g: 2.2, fat_g: 0 } },
+  { id: 'k33', name: '계란말이', category: '한식', serving_desc: '3조각 (90g)', serving_g: 90,
+    per100g: { kcal: 170, carbs_g: 2.6, protein_g: 12, fat_g: 13 } },
+  { id: 'k34', name: '카레 소스', category: '한식', serving_desc: '1그릇 (250g)', serving_g: 250,
+    per100g: { kcal: 72, carbs_g: 9.8, protein_g: 2.5, fat_g: 1.9 } },
+  { id: 'k35', name: '단무지', category: '반찬', serving_desc: '작은 접시 (30g)', serving_g: 30,
+    per100g: { kcal: 20, carbs_g: 3.7, protein_g: 0.7, fat_g: 0.2 } },
+  { id: 'k36', name: '새우튀김', category: '튀김', serving_desc: '2개 (100g)', serving_g: 100,
+    per100g: { kcal: 263, carbs_g: 22.3, protein_g: 10.5, fat_g: 15.5 } },
+  { id: 'k37', name: '돈까스', category: '튀김', serving_desc: '1장 (250g)', serving_g: 250,
+    per100g: { kcal: 360, carbs_g: 17.6, protein_g: 12.8, fat_g: 25.1 } },
 
   // ── 국수류 ─────────────────────────────────────────────────────────────────
   { id: 'n01', name: '짜장면', category: '국수', serving_desc: '1인분 (600g)', serving_g: 600,
