@@ -642,27 +642,28 @@ function ResultRow({
               )}
               {/* 양 조절 — 숫자 입력 대신 탭 위주 */}
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                <button
-                  onClick={() => onGrams(servingG)}
-                  title={servingLabel}
-                  aria-label={`${servingLabel}으로 변경`}
-                  className={`px-2 py-1 rounded-md text-[11px] transition-colors ${
-                    row.grams === servingG
-                      ? 'bg-blue-600/20 text-blue-300 ring-1 ring-blue-500/50'
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                  }`}
-                >
-                  1인분 · {servingG}g
-                </button>
-                {[0.5, 0.75, 1, 1.5].map(mult => {
-                  const g = Math.round(row.grams * mult);
+                {[
+                  { ratio: 0.5, label: '반만' },
+                  { ratio: 0.75, label: '조금 적게' },
+                  { ratio: 1, label: '1인분' },
+                  { ratio: 1.5, label: '곱빼기' },
+                ].map(option => {
+                  const g = Math.max(1, Math.round(servingG * option.ratio));
+                  const active = row.grams === g;
                   return (
                     <button
-                      key={mult}
+                      key={option.ratio}
                       onClick={() => onGrams(g)}
-                      className="px-2 py-1 rounded-md bg-zinc-800 text-[11px] text-zinc-400 hover:bg-zinc-700 hover:text-white transition-colors"
+                      title={option.ratio === 1 ? servingLabel : `${option.label} (${g}g)`}
+                      aria-label={`${option.label}, ${g}g으로 변경`}
+                      aria-pressed={active}
+                      className={`px-2 py-1 rounded-md text-[11px] transition-colors ${
+                        active
+                          ? 'bg-blue-600/20 text-blue-300 ring-1 ring-blue-500/50'
+                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                      }`}
                     >
-                      {mult === 1 ? '그대로' : `×${mult}`}
+                      {option.label}
                     </button>
                   );
                 })}
