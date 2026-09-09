@@ -1,0 +1,52 @@
+/* Hallmark · macrostructure: Stat-Led · tone: soft utilitarian · anchor hue: blue
+ * audience: everyday fitness users · use: log and review daily activity · theme: custom Apple-like
+ * Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4
+ */
+:root {
+  --color-canvas: oklch(96.8% 0.004 255);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-muted: oklch(94.8% 0.006 255);
+  --color-ink: oklch(20% 0.012 255);
+  --color-ink-secondary: oklch(49% 0.012 255);
+  --color-ink-tertiary: oklch(65% 0.01 255);
+  --color-rule: oklch(90.5% 0.008 255);
+  --color-accent: oklch(54% 0.2 255);
+  --color-accent-ink: oklch(100% 0 0);
+  --color-accent-pressed: oklch(48% 0.2 255);
+  --color-accent-soft: oklch(94% 0.035 255);
+  --color-positive: oklch(58% 0.14 156);
+  --color-positive-soft: oklch(95% 0.025 156);
+  --color-warning: oklch(68% 0.15 72);
+  --color-warning-soft: oklch(96% 0.035 72);
+  --color-negative: oklch(61% 0.2 23);
+  --color-negative-soft: oklch(95% 0.03 23);
+  --color-focus: oklch(54% 0.2 255);
+
+  --font-display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-body: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+
+  --text-caption: 0.6875rem;
+  --text-body: 0.9375rem;
+  --text-title: 1.75rem;
+  --text-display: 2.5rem;
+
+  --radius-control: 0.75rem;
+  --radius-card: 1.5rem;
+  --radius-pill: 999px;
+  --rule-hairline: 1px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+}

@@ -1,3 +1,5 @@
+@import '../tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,6 +12,8 @@
 
 html {
   background: #09090b;
+
+  overflow-x: clip;
 
   -webkit-tap-highlight-color: transparent;
 }
@@ -28,6 +32,154 @@ body {
   color: #fafafa;
 
   overscroll-behavior: none;
+  overflow-x: clip;
+}
+
+.fittrack-apple {
+  min-height: 100vh;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.fittrack-apple h1,
+.fittrack-apple h2,
+.fittrack-apple h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-style: normal;
+  letter-spacing: -0.025em;
+}
+
+.fittrack-apple [class*='bg-zinc-950'] {
+  background: var(--color-canvas) !important;
+}
+
+.fittrack-apple [class*='bg-zinc-900'] {
+  background: var(--color-surface) !important;
+}
+
+.fittrack-apple [class*='bg-zinc-800'] {
+  background: var(--color-surface-muted) !important;
+}
+
+.fittrack-apple [class*='border-zinc-8'],
+.fittrack-apple [class*='border-zinc-7'],
+.fittrack-apple [class*='border-white'] {
+  border-color: var(--color-rule) !important;
+}
+
+.fittrack-apple [class*='divide-zinc'] > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--color-rule) !important;
+}
+
+.fittrack-apple [class*='text-white'],
+.fittrack-apple [class*='text-zinc-200'],
+.fittrack-apple [class*='text-zinc-300'] {
+  color: var(--color-ink) !important;
+}
+
+.fittrack-apple [class*='text-zinc-4'],
+.fittrack-apple [class*='text-zinc-5'] {
+  color: var(--color-ink-secondary) !important;
+}
+
+.fittrack-apple [class*='text-zinc-6'],
+.fittrack-apple [class*='text-zinc-7'] {
+  color: var(--color-ink-tertiary) !important;
+}
+
+.fittrack-apple .bg-blue-600.text-white,
+.fittrack-apple [class*='bg-blue-600'][class*='text-white'],
+.fittrack-apple [class*='bg-blue-500'][class*='text-white'] {
+  color: var(--color-accent-ink) !important;
+}
+
+.fittrack-apple .apple-accent-surface,
+.fittrack-apple .apple-accent-surface [class*='text-white'] {
+  color: var(--color-accent-ink) !important;
+}
+
+.fittrack-apple button.apple-accent-surface:disabled {
+  color: var(--color-ink-tertiary) !important;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.fittrack-apple [class*='bg-gradient'] {
+  background-image: none !important;
+  background-color: var(--color-surface) !important;
+}
+
+.fittrack-apple input,
+.fittrack-apple select,
+.fittrack-apple textarea {
+  color: var(--color-ink);
+}
+
+.fittrack-apple input::placeholder,
+.fittrack-apple textarea::placeholder {
+  color: var(--color-ink-tertiary);
+}
+
+.fittrack-apple .apple-page-header {
+  padding: calc(env(safe-area-inset-top) + var(--space-8)) var(--space-5) var(--space-6);
+}
+
+.fittrack-apple .apple-page-kicker {
+  color: var(--color-accent);
+  font-size: var(--text-caption);
+  font-weight: 650;
+}
+
+.fittrack-apple .apple-page-title {
+  margin-top: var(--space-1);
+  font-size: var(--text-title);
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.fittrack-apple .apple-card {
+  border: var(--rule-hairline) solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--color-ink) 4%, transparent);
+}
+
+.fittrack-apple .apple-sticky-canvas {
+  background: color-mix(in oklch, var(--color-canvas) 95%, transparent);
+}
+
+.fittrack-apple button,
+.fittrack-apple a {
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
+}
+
+.fittrack-apple button:active:not(:disabled),
+.fittrack-apple a:active {
+  opacity: 0.72;
+}
+
+.fittrack-apple button:focus-visible,
+.fittrack-apple a:focus-visible,
+.fittrack-apple input:focus-visible,
+.fittrack-apple select:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fittrack-apple *,
+  .fittrack-apple *::before,
+  .fittrack-apple *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 button,

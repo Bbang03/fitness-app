@@ -631,13 +631,13 @@ export default function MealsPage() {
   return (
     <AppShell>
       {/* Header */}
-      <header className="px-5 pt-10 pb-5">
+      <header className="apple-page-header">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-400">
-            Nutrition
+          <p className="apple-page-kicker">
+            오늘의 기록
           </p>
 
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">
+          <h1 className="apple-page-title">
             식단
           </h1>
 
@@ -649,7 +649,7 @@ export default function MealsPage() {
 
       {/* Date */}
       <section className="px-5 mb-5">
-        <div className="flex items-center justify-between rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-2 py-2">
+        <div className="apple-card flex items-center justify-between px-2 py-2">
           <button
             type="button"
             onClick={() =>
@@ -790,7 +790,7 @@ export default function MealsPage() {
 
       {/* Daily summary */}
       <section className="px-5 mb-7">
-        <div className="overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5">
+        <div className="apple-card overflow-hidden p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs text-zinc-500">
@@ -815,12 +815,12 @@ export default function MealsPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-emerald-500/10 px-3 py-2.5 text-right">
-              <p className="text-sm font-bold text-emerald-400">
+            <div className="rounded-2xl bg-blue-500/10 px-3 py-2.5 text-right">
+              <p className="text-sm font-bold text-blue-600">
                 {recordedMealCount}/4
               </p>
 
-              <p className="mt-0.5 text-[9px] text-emerald-400/60">
+              <p className="mt-0.5 text-[9px] text-blue-500">
                 끼니 기록
               </p>
             </div>
@@ -839,7 +839,7 @@ export default function MealsPage() {
 
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                className="h-full rounded-full bg-blue-600"
                 style={{
                   width:
                     `${recordPercent}%`,
@@ -886,13 +886,13 @@ export default function MealsPage() {
           href={`/meals/add?date=${date}&type=${encodeURIComponent(
             suggestedType,
           )}`}
-          className="group flex items-center justify-between rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.05] p-4 transition-colors hover:bg-emerald-500/[0.08]"
+          className="apple-accent-surface group flex min-h-16 items-center justify-between rounded-2xl bg-blue-600 p-4 text-white shadow-sm transition-colors hover:bg-blue-500"
         >
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
+            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/15">
               <Camera
                 size={20}
-                className="text-emerald-400"
+                className="text-white"
               />
             </div>
 
@@ -906,11 +906,11 @@ export default function MealsPage() {
 
                 <Sparkles
                   size={12}
-                  className="flex-shrink-0 text-blue-400"
+                  className="flex-shrink-0 text-white/80"
                 />
               </div>
 
-              <p className="mt-1 truncate text-xs text-zinc-500">
+              <p className="mt-1 truncate text-xs text-white/70">
                 음식 DB 검색과 AI 영양 추정을 활용해 빠르게 기록하세요
               </p>
             </div>
@@ -918,7 +918,7 @@ export default function MealsPage() {
 
           <ChevronRight
             size={18}
-            className="ml-3 flex-shrink-0 text-zinc-700 transition-colors group-hover:text-zinc-500"
+            className="ml-3 flex-shrink-0 text-white/70 transition-colors group-hover:text-white"
           />
         </Link>
       </section>

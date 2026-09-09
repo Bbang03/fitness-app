@@ -505,15 +505,15 @@ function ResultRow({
   const servingLabel = row.serving_desc ?? `추정 1인분 (${servingG}g)`;
 
   return (
-    <div className={`px-4 py-3 border-b border-zinc-800/50 last:border-0 ${row.selected ? '' : 'opacity-45'}`}>
+    <div className={`border-b border-zinc-200 px-4 py-4 last:border-0 ${row.selected ? '' : 'opacity-45'}`}>
       <div className="flex items-start gap-3">
         <button
           onClick={onToggle}
           disabled={row.needs_identity_confirmation}
           title={row.needs_identity_confirmation ? '음식 후보를 먼저 선택해주세요' : undefined}
           aria-label={row.selected ? '제외' : '포함'}
-          className={`mt-0.5 w-6 h-6 rounded-md flex-shrink-0 flex items-center justify-center transition-colors ${
-            row.selected ? 'bg-blue-600' : 'bg-zinc-800 border border-zinc-700'
+          className={`mt-0.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-colors ${
+            row.selected ? 'bg-blue-600' : 'border border-zinc-200 bg-zinc-100'
           }`}
         >
           {row.selected && <Check size={14} className="text-white" />}
@@ -565,10 +565,10 @@ function ResultRow({
                       <button
                         key={candidate.name}
                         onClick={() => onIdentity(candidate)}
-                        className={`w-full px-2.5 py-2 rounded-md border text-left ${
+                        className={`min-h-11 w-full rounded-xl border px-3 py-2.5 text-left ${
                           row.selected_identity === candidate.name
-                            ? 'border-violet-500/60 bg-violet-500/10 text-violet-200'
-                            : 'border-zinc-700 bg-zinc-800 text-zinc-300'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-zinc-200 bg-white text-zinc-700'
                         }`}
                       >
                         <span className="flex items-center justify-between gap-2 text-[11px]">
@@ -625,10 +625,10 @@ function ResultRow({
                     <button
                       key={`${candidate.source}-${candidate.id}`}
                       onClick={() => onCandidate(candidate)}
-                      className={`w-full px-2.5 py-2 rounded-md border text-left ${
+                      className={`min-h-11 w-full rounded-xl border px-3 py-2.5 text-left ${
                         row.selected && row.food_id === `${candidate.source}:${candidate.id}`
-                          ? 'border-emerald-500/60 bg-emerald-500/10 text-emerald-300'
-                          : 'border-zinc-700 bg-zinc-800 text-zinc-400'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-zinc-200 bg-white text-zinc-600'
                       }`}
                     >
                       <span className="block text-[11px] truncate">{candidate.display_name ?? candidate.vision_name ?? candidate.name}</span>
@@ -657,10 +657,10 @@ function ResultRow({
                       title={option.ratio === 1 ? servingLabel : `${option.label} (${g}g)`}
                       aria-label={`${option.label}, ${g}g으로 변경`}
                       aria-pressed={active}
-                      className={`px-2 py-1 rounded-md text-[11px] transition-colors ${
+                      className={`min-h-11 rounded-xl px-3 py-2 text-[11px] font-medium transition-colors ${
                         active
-                          ? 'bg-blue-600/20 text-blue-300 ring-1 ring-blue-500/50'
-                          : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                          ? 'bg-blue-600 text-white ring-1 ring-blue-600'
+                          : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
                       }`}
                     >
                       {option.label}
@@ -672,7 +672,7 @@ function ResultRow({
                   value={row.grams}
                   onChange={e => onGrams(Math.max(1, Number(e.target.value) || 1))}
                   inputMode="numeric"
-                  className="w-16 bg-zinc-800 border border-zinc-700 rounded-md px-2 py-1 text-[11px] text-white text-right focus:outline-none focus:border-blue-500"
+                  className="h-11 w-16 rounded-xl border border-zinc-200 bg-white px-2 text-right text-sm text-zinc-900 focus:border-blue-500 focus:outline-none"
                 />
                 <span className="text-[11px] text-zinc-500">g</span>
               </div>
@@ -1118,7 +1118,7 @@ export default function PhotoMealScanner({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full overflow-hidden rounded-3xl border border-blue-500/15 bg-gradient-to-br from-blue-500/10 via-zinc-900/70 to-zinc-950 p-5 text-left"
+          className="apple-card w-full overflow-hidden p-5 text-left"
         >
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10">
@@ -1132,7 +1132,7 @@ export default function PhotoMealScanner({
               <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
                 음식 사진에서 후보를 인식하고 브랜드 메뉴·영양정보와 연결해요.
               </p>
-              <span className="mt-3 inline-flex rounded-lg bg-zinc-800 px-2.5 py-1 text-[10px] font-medium text-zinc-500">
+              <span className="apple-accent-surface mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white">
                 사진 선택
               </span>
             </div>
@@ -1178,7 +1178,7 @@ export default function PhotoMealScanner({
       {/* 결과 */}
       {rows && !loading && (
         <>
-          <div className="bg-zinc-900 rounded-2xl overflow-hidden mb-4">
+          <div className="apple-card mb-4 overflow-hidden">
             <div className="px-4 py-2.5 border-b border-zinc-800/50">
               <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
                 인식 결과 {rows.length}개 — 맞는지 확인해주세요
@@ -1196,7 +1196,7 @@ export default function PhotoMealScanner({
             ))}
           </div>
 
-          <div className="bg-zinc-900 rounded-2xl p-4 mb-4">
+          <div className="apple-card mb-4 p-4">
             <div className="flex items-baseline justify-between mb-1">
               <p className="text-xs text-zinc-400">선택한 {selected.length}개 합계</p>
               <p className="text-xl font-bold text-white">
@@ -1212,7 +1212,7 @@ export default function PhotoMealScanner({
           <button
             onClick={submit}
             disabled={selected.length === 0 || submitting}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white font-semibold py-3.5 rounded-xl transition-colors"
+            className="apple-accent-surface min-h-14 w-full rounded-2xl bg-blue-600 py-3.5 font-semibold text-white transition-colors hover:bg-blue-500 disabled:bg-zinc-200 disabled:text-zinc-400"
           >
             {submitting
               ? '저장 중...'

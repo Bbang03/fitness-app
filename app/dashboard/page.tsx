@@ -1115,17 +1115,20 @@ export default function DashboardPage() {
 
   return (
     <AppShell>
-      <header className="px-5 pt-10 pb-5">
+      <header className="apple-page-header">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-zinc-500">
+            <p className="apple-page-kicker">
               {todayLabel}
             </p>
 
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">
-              {greeting},{' '}
-              {user.name}님
+            <h1 className="apple-page-title">
+              오늘
             </h1>
+
+            <p className="mt-1 text-sm text-zinc-500">
+              {greeting}, {user.name}님
+            </p>
           </div>
 
           <button
@@ -1133,7 +1136,7 @@ export default function DashboardPage() {
             onClick={
               handleLogout
             }
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900/70 text-zinc-500 transition-colors hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-zinc-800 bg-white text-zinc-500 transition-colors hover:text-zinc-900"
             aria-label="로그아웃"
           >
             <LogOut
@@ -1141,6 +1144,42 @@ export default function DashboardPage() {
             />
           </button>
         </div>
+
+        <Link href="/meals" className="apple-card mt-6 block p-5">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-zinc-500">오늘 섭취</p>
+              <p className="mt-1 text-[2.5rem] font-bold leading-none tracking-[-0.045em] text-zinc-900">
+                {Math.round(todayNutrition.kcal).toLocaleString()}
+                <span className="ml-1.5 text-sm font-semibold tracking-normal text-zinc-500">kcal</span>
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-blue-600">
+              {kcalReference ? `목표 ${kcalReference.toLocaleString()}` : '영양 상세'}
+            </span>
+          </div>
+
+          <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full bg-blue-600"
+              style={{ width: `${kcalProgress}%` }}
+            />
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 divide-x divide-zinc-200">
+            <Macro label="탄수화물" value={todayNutrition.carbs_g} className="text-amber-500" />
+            <Macro label="단백질" value={todayNutrition.protein_g} className="text-blue-600" />
+            <Macro label="지방" value={todayNutrition.fat_g} className="text-rose-500" />
+          </div>
+        </Link>
+
+        <Link
+          href="/meals/add"
+          className="apple-accent-surface mt-3 flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-500"
+        >
+          <Camera size={19} />
+          사진으로 식사 기록
+        </Link>
       </header>
 
       {isLoading && (

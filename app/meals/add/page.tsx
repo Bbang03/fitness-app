@@ -2449,20 +2449,20 @@ function AddMealInner() {
     fsResults.length === 0;
 
   return (
-    <div className="min-h-screen pb-8">
-      <header className="sticky top-0 z-30 border-b border-white/[0.05] bg-zinc-950/95 backdrop-blur-xl">
+    <div className="fittrack-apple min-h-screen pb-8">
+      <header className="sticky top-0 z-30 border-b border-black/[0.06] bg-white/90 backdrop-blur-xl">
         <div className="flex items-center gap-3 px-4 pt-10 pb-4">
           <button
             type="button"
             onClick={() => router.back()}
             disabled={isSaving}
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
           >
             <ChevronLeft size={22} />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-emerald-400">{mealType}</p>
-            <h1 className="text-lg font-bold">음식 기록</h1>
+            <p className="apple-page-kicker">{mealType}</p>
+            <h1 className="text-xl font-bold">음식 기록</h1>
           </div>
           <span className="text-xs text-zinc-600">{date}</span>
         </div>
@@ -2474,12 +2474,12 @@ function AddMealInner() {
         </section>
 
         <section>
-          <div className="grid grid-cols-2 rounded-xl bg-zinc-900 p-1">
+          <div className="grid grid-cols-2 rounded-xl bg-zinc-100 p-1">
             <button
               type="button"
               onClick={() => setTab('search')}
               className={`rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                tab === 'search' ? 'bg-zinc-800 text-white' : 'text-zinc-500'
+                tab === 'search' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
               }`}
             >
               음식 검색
@@ -2488,7 +2488,7 @@ function AddMealInner() {
               type="button"
               onClick={() => setTab('manual')}
               className={`rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                tab === 'manual' ? 'bg-zinc-800 text-white' : 'text-zinc-500'
+                tab === 'manual' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
               }`}
             >
               직접 입력
@@ -2504,7 +2504,7 @@ function AddMealInner() {
 
         {tab === 'search' ? (
           <section className="mt-5">
-            <div className="sticky top-[89px] z-20 -mx-1 bg-zinc-950/95 px-1 pb-3 backdrop-blur-xl">
+            <div className="apple-sticky-canvas sticky top-[89px] z-20 -mx-1 px-1 pb-3 backdrop-blur-xl">
               <div className="relative">
                 <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
                 <input

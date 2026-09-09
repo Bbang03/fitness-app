@@ -43,8 +43,8 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 border-t border-white/[0.06] bg-zinc-950/90 backdrop-blur-xl">
-      <div className="grid grid-cols-5 px-2 pt-2">
+    <nav className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 border-t border-black/[0.06] bg-white/90 backdrop-blur-xl">
+      <div className="grid grid-cols-5 px-2 pt-1.5">
         {tabs.map(
           ({
             href,
@@ -61,13 +61,13 @@ export default function BottomNav() {
               <Link
                 key={href}
                 href={href}
-                className="group flex min-w-0 flex-col items-center justify-center gap-1 py-2"
+                className="group flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 py-1.5"
               >
                 <div
-                  className={`flex h-8 min-w-11 items-center justify-center rounded-xl px-3 transition-all ${
+                  className={`flex h-7 min-w-11 items-center justify-center rounded-xl px-3 transition-colors ${
                     active
-                      ? 'bg-blue-500/15 text-blue-400'
-                      : 'text-zinc-600 group-hover:text-zinc-400'
+                      ? 'text-blue-600'
+                      : 'text-zinc-400 group-hover:text-zinc-600'
                   }`}
                 >
                   <Icon
@@ -83,8 +83,8 @@ export default function BottomNav() {
                 <span
                   className={`text-[10px] font-medium transition-colors ${
                     active
-                      ? 'text-blue-400'
-                      : 'text-zinc-600'
+                      ? 'text-blue-600'
+                      : 'text-zinc-400'
                   }`}
                 >
                   {label}

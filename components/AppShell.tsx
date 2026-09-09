@@ -10,7 +10,7 @@ export default function AppShell({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+20px)]">
+    <div className="fittrack-apple min-h-screen pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+20px)]">
       {children}
 
       <BottomNav />

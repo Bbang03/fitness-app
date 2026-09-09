@@ -1,0 +1,9 @@
+{
+  "date": "2026-09-09",
+  "framework": "Next.js 15 app router",
+  "styling": "Tailwind CSS 3",
+  "font": "system sans-serif",
+  "motion": "motion-cut",
+  "spacing": "4pt scale",
+  "preserved": ["framework", "routes", "data flow", "interaction behavior"]
+}
