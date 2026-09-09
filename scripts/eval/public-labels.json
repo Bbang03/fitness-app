@@ -1,0 +1,322 @@
+[
+  {
+    "file": "public_01_bibimbap.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "비빔밥",
+        "accepted_names": [
+          "돌솥비빔밥"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_02_kimchi_jjigae.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "김치찌개",
+        "accepted_names": [
+          "김치찌개 (돼지고기)",
+          "돼지고기 김치찌개"
+        ],
+        "grams": 0
+      },
+      {
+        "name": "백미밥",
+        "accepted_names": [
+          "흰밥",
+          "쌀밥",
+          "공기밥"
+        ],
+        "grams": 0
+      },
+      {
+        "name": "배추김치",
+        "accepted_names": [
+          "김치"
+        ],
+        "grams": 0,
+        "optional": true
+      },
+      {
+        "name": "깍두기",
+        "accepted_names": [
+          "무김치",
+          "무생채",
+          "단무지 무침",
+          "단무지"
+        ],
+        "grams": 0,
+        "optional": true
+      },
+      {
+        "name": "어묵볶음",
+        "accepted_names": [
+          "오뎅볶음"
+        ],
+        "grams": 0,
+        "optional": true
+      },
+      {
+        "name": "콩나물무침",
+        "accepted_names": [
+          "콩나물"
+        ],
+        "grams": 0,
+        "optional": true
+      }
+    ]
+  },
+  {
+    "file": "public_03_tteokbokki.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "떡볶이",
+        "accepted_names": [],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_04_samgyeopsal.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "삼겹살",
+        "accepted_names": [
+          "삼겹살 구이",
+          "구운 삼겹살",
+          "삼겹살 (구운)"
+        ],
+        "grams": 0
+      },
+      {
+        "name": "멜젓",
+        "accepted_names": [
+          "멜젓 소스",
+          "멸치젓 소스"
+        ],
+        "grams": 0,
+        "optional": true
+      }
+    ]
+  },
+  {
+    "file": "public_05_fried_chicken.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "치킨버거",
+        "accepted_names": [
+          "치킨 샌드위치",
+          "프라이드 치킨 샌드위치",
+          "치킨버거 샌드위치",
+          "햄버거",
+          "버거",
+          "오픈 햄버거"
+        ],
+        "grams": 0
+      },
+      {
+        "name": "감자튀김",
+        "accepted_names": [
+          "프렌치프라이",
+          "프렌치프라이스"
+        ],
+        "grams": 0
+      },
+      {
+        "name": "오이 피클",
+        "accepted_names": [
+          "피클",
+          "딜 피클"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_06_cheese_pizza.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "피자",
+        "accepted_names": [
+          "치즈 피자",
+          "피자 (치즈)"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_07_cucumber_pickles.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "오이 피클",
+        "accepted_names": [
+          "피클"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_08_cabbage_salad.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "양배추",
+        "accepted_names": [
+          "양배추 샐러드",
+          "채 썬 양배추"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_09_japchae.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "잡채",
+        "accepted_names": [],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_10_bulgogi.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "불고기",
+        "accepted_names": [],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_11_gimbap.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "김밥",
+        "accepted_names": [],
+        "grams": 0
+      },
+      {
+        "name": "단무지",
+        "accepted_names": [],
+        "grams": 0,
+        "optional": true
+      },
+      {
+        "name": "국물",
+        "accepted_names": ["장국", "우동국물"],
+        "grams": 0,
+        "optional": true
+      }
+    ]
+  },
+  {
+    "file": "public_12_ramyeon.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "라면",
+        "accepted_names": [
+          "라멘",
+          "라면 (국물 포함)",
+          "맛있는라면",
+          "맛있는 라면"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_13_cola_zero.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "코카콜라 제로",
+        "accepted_names": [
+          "제로 콜라",
+          "콜라 제로"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_14_cola_regular.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "코카콜라",
+        "accepted_names": [
+          "콜라",
+          "일반 콜라"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_15_sushi.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "초밥",
+        "accepted_names": [
+          "스시",
+          "모둠초밥"
+        ],
+        "grams": 0
+      }
+    ]
+  },
+  {
+    "file": "public_16_laptop.jpg",
+    "is_food": false,
+    "items": []
+  },
+  {
+    "file": "public_17_empty_plate.jpg",
+    "is_food": false,
+    "items": []
+  },
+  {
+    "file": "public_18_pajeon.jpg",
+    "is_food": true,
+    "items": [
+      {
+        "name": "해물파전",
+        "accepted_names": [
+          "파전",
+          "해물전"
+        ],
+        "grams": 0
+      },
+      {
+        "name": "시금치나물",
+        "accepted_names": ["시금치 무침", "초록색 나물무침", "나물무침", "나물", "나물 (콩나물)"],
+        "grams": 0,
+        "optional": true
+      },
+      {
+        "name": "간장 소스",
+        "accepted_names": ["간장", "초간장"],
+        "grams": 0,
+        "optional": true
+      }
+    ]
+  }
+]

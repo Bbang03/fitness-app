@@ -1,0 +1,25 @@
+[
+  { "file": "01_single_chicken.jpg", "is_food": true,
+    "items": [ { "name": "닭가슴살 (삶은)", "grams": 150 } ] },
+
+  { "file": "02_bansang.jpg", "is_food": true,
+    "items": [
+      { "name": "백미밥",  "grams": 210 },
+      { "name": "된장찌개", "grams": 200 },
+      { "name": "김치",    "grams": 40 },
+      { "name": "계란후라이", "grams": 50 }
+    ] },
+
+  { "file": "03_sikpan.jpg", "is_food": true,
+    "items": [
+      { "name": "잡곡밥", "grams": 200 },
+      { "name": "제육볶음", "grams": 150 },
+      { "name": "김치", "grams": 30 }
+    ] },
+
+  { "file": "10_not_in_db.jpg", "is_food": true,
+    "items": [ { "name": "기타", "grams": 400 } ] },
+
+  { "file": "20_selfie.jpg", "is_food": false, "items": [] },
+  { "file": "21_desk.jpg",   "is_food": false, "items": [] }
+]

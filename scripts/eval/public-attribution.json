@@ -1,0 +1,144 @@
+[
+  {
+    "file": "public_01_bibimbap.jpg",
+    "expected": "비빔밥",
+    "commons_title": "File:Korean cuisine-Bibimbap-01.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean_cuisine-Bibimbap-01.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/80315254@N00\">Jerine Lay</a>",
+    "license": "CC BY 2.0"
+  },
+  {
+    "file": "public_02_kimchi_jjigae.jpg",
+    "expected": "김치찌개",
+    "commons_title": "File:Korean.cuisine-Kimchi jjigae-01.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean.cuisine-Kimchi_jjigae-01.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/avlxyz/\">by avlxyz</a>",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "file": "public_03_tteokbokki.jpg",
+    "expected": "떡볶이",
+    "commons_title": "File:Korean.snacks-Tteokbokki-08.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean.snacks-Tteokbokki-08.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/jetalone/\">by jetalone</a> (flickr)",
+    "license": "CC BY 2.0"
+  },
+  {
+    "file": "public_04_samgyeopsal.jpg",
+    "expected": "삼겹살",
+    "commons_title": "File:Dipping samgyeopsal-gui in meljeot.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Dipping_samgyeopsal-gui_in_meljeot.jpg",
+    "artist": "대경라이프",
+    "license": "CC BY-SA 4.0"
+  },
+  {
+    "file": "public_05_fried_chicken.jpg",
+    "expected": "치킨버거",
+    "commons_title": "File:Korean fried chicken sandwich with cucumber slaw and gochujang, plus French fries - Cambridge, MA.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean_fried_chicken_sandwich_with_cucumber_slaw_and_gochujang,_plus_French_fries_-_Cambridge,_MA.jpg",
+    "artist": "<a href=\"//commons.wikimedia.org/wiki/User:Daderot\" title=\"User:Daderot\">Daderot</a>",
+    "license": "CC0"
+  },
+  {
+    "file": "public_06_cheese_pizza.jpg",
+    "expected": "피자",
+    "commons_title": "File:Cheese pizza pie at Grotto Pizza Dover DE.jpeg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Cheese_pizza_pie_at_Grotto_Pizza_Dover_DE.jpeg",
+    "artist": "<a href=\"//commons.wikimedia.org/wiki/User:Dough4872\" title=\"User:Dough4872\">Dough4872</a>",
+    "license": "CC BY-SA 4.0"
+  },
+  {
+    "file": "public_07_cucumber_pickles.jpg",
+    "expected": "오이 피클",
+    "commons_title": "File:Pickled cucumber.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Pickled_cucumber.jpg",
+    "artist": "<a href=\"//commons.wikimedia.org/w/index.php?title=User:Mariuszjbie&amp;action=edit&amp;redlink=1\" class=\"new\" title=\"User:Mariuszjbie (page does not exist)\">Mariuszjbie</a>",
+    "license": "CC BY 3.0"
+  },
+  {
+    "file": "public_08_cabbage_salad.jpg",
+    "expected": "양배추",
+    "commons_title": "File:とんかつ ひなた (33045255451).jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:%E3%81%A8%E3%82%93%E3%81%8B%E3%81%A4_%E3%81%B2%E3%81%AA%E3%81%9F_(33045255451).jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/65875362@N02\">賢太郎 森川</a> from 埼玉県さいたま市浦和区, 日本",
+    "license": "CC BY 2.0"
+  },
+  {
+    "file": "public_09_japchae.jpg",
+    "expected": "잡채",
+    "commons_title": "File:Korean cuisine japchae.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean_cuisine_japchae.jpg",
+    "artist": "",
+    "license": "CC BY 2.0"
+  },
+  {
+    "file": "public_10_bulgogi.jpg",
+    "expected": "불고기",
+    "commons_title": "File:Korean.cuisine-Bulgogi-01.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean.cuisine-Bulgogi-01.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/ayustety/\">by ayustety</a>",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "file": "public_11_gimbap.jpg",
+    "expected": "김밥",
+    "commons_title": "File:Gimbap and danmuji.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Gimbap_and_danmuji.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/91049143@N00\">bryan...</a> from Taipei, Taiwan",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "file": "public_12_ramyeon.jpg",
+    "expected": "라면",
+    "commons_title": "File:Korean food-Tasty ramyeon-02.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean_food-Tasty_ramyeon-02.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/96262218@N00\">Timber Tank</a>",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "file": "public_13_cola_zero.jpg",
+    "expected": "코카콜라 제로",
+    "commons_title": "File:Coke Zero can (Share a Coke Zero with Friend).jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Coke_Zero_can_(Share_a_Coke_Zero_with_Friend).jpg",
+    "artist": "<a href=\"//commons.wikimedia.org/wiki/User:SuperArticleGuy\" title=\"User:SuperArticleGuy\">SuperArticleGuy</a>",
+    "license": "CC BY-SA 4.0"
+  },
+  {
+    "file": "public_14_cola_regular.jpg",
+    "expected": "코카콜라",
+    "commons_title": "File:Coca-Cola Glas mit Eis.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Coca-Cola_Glas_mit_Eis.jpg",
+    "artist": "<a href=\"https://de.wikipedia.org/wiki/Benutzer:Summi\" class=\"extiw\" title=\"de:Benutzer:Summi\">Summi</a> from German Wikipedia",
+    "license": "Public domain"
+  },
+  {
+    "file": "public_15_sushi.jpg",
+    "expected": "초밥",
+    "commons_title": "File:Sushi platter.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Sushi_platter.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/chidorian/\">chidorian</a> from Japan",
+    "license": "CC BY-SA 2.0"
+  },
+  {
+    "file": "public_16_laptop.jpg",
+    "commons_title": "File:Laptop on a desk (Unsplash).jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Laptop_on_a_desk_(Unsplash).jpg",
+    "artist": "Aleksi Tappura <a rel=\"nofollow\" class=\"external text\" href=\"http://unsplash.com/@a\">a</a>",
+    "license": "CC0"
+  },
+  {
+    "file": "public_17_empty_plate.jpg",
+    "commons_title": "File:Finished meal empty plate at Highgate Cricket Club, Crouch End, plan view.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Finished_meal_empty_plate_at_Highgate_Cricket_Club,_Crouch_End,_plan_view.jpg",
+    "artist": "<a href=\"//commons.wikimedia.org/wiki/User:Acabashi\" title=\"User:Acabashi\">Acabashi</a>",
+    "license": "CC BY-SA 4.0"
+  },
+  {
+    "file": "public_18_pajeon.jpg",
+    "expected": "해물파전",
+    "commons_title": "File:Korean.pancake-Pajeon-05.jpg",
+    "description_url": "https://commons.wikimedia.org/wiki/File:Korean.pancake-Pajeon-05.jpg",
+    "artist": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/photos/karendotcom127/\">by karendotcom127</a>",
+    "license": "CC BY 2.0"
+  }
+]
