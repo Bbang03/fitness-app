@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
-import { Camera, RotateCcw, AlertTriangle, Check } from 'lucide-react';
+import { Camera, RotateCcw, AlertTriangle, Check, Sparkles } from 'lucide-react';
 import { FOOD_DB, calcNutrition } from '@/lib/foodData';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -1099,7 +1099,7 @@ export default function PhotoMealScanner({
   };
 
   return (
-    <div className="px-4 pt-4 pb-8">
+    <div className={preview || loading || rows || error ? 'overflow-hidden rounded-3xl border border-blue-500/15 bg-gradient-to-br from-blue-500/10 via-zinc-900/70 to-zinc-950 px-4 pt-4 pb-5' : ''}>
       <input
         ref={inputRef}
         type="file"
@@ -1114,20 +1114,29 @@ export default function PhotoMealScanner({
 
       {/* 촬영 전 */}
       {!preview && !loading && (
-        <>
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="w-full aspect-[4/3] bg-zinc-900 border-2 border-dashed border-zinc-700 rounded-2xl flex flex-col items-center justify-center gap-3 text-zinc-500 hover:border-blue-500 hover:text-blue-400 transition-colors"
-          >
-            <Camera size={40} />
-            <span className="text-sm font-medium">사진 찍기 / 앨범에서 고르기</span>
-          </button>
-          <p className="text-xs text-zinc-600 mt-3 text-center leading-relaxed">
-            음식이 위에서 잘 보이게 찍어주세요.
-            <br />
-            인식 결과는 추정치입니다. 추가 전에 양을 확인해주세요.
-          </p>
-        </>
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="w-full overflow-hidden rounded-3xl border border-blue-500/15 bg-gradient-to-br from-blue-500/10 via-zinc-900/70 to-zinc-950 p-5 text-left"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10">
+              <Camera size={22} className="text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-semibold">사진으로 음식 찾기</p>
+                <Sparkles size={13} className="text-blue-400" />
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
+                음식 사진에서 후보를 인식하고 브랜드 메뉴·영양정보와 연결해요.
+              </p>
+              <span className="mt-3 inline-flex rounded-lg bg-zinc-800 px-2.5 py-1 text-[10px] font-medium text-zinc-500">
+                사진 선택
+              </span>
+            </div>
+          </div>
+        </button>
       )}
 
       {/* 미리보기 */}

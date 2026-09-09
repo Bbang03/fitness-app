@@ -2470,13 +2470,7 @@ function AddMealInner() {
 
       <main className="px-5 pt-5">
         <section className="mb-6">
-          <div className="overflow-hidden rounded-3xl border border-blue-500/15 bg-gradient-to-br from-blue-500/10 via-zinc-900/70 to-zinc-950">
-            <div className="flex items-center gap-1.5 px-5 pt-5">
-              <p className="text-sm font-semibold">사진으로 음식 찾기</p>
-              <Sparkles size={13} className="text-blue-400" />
-            </div>
-            <PhotoMealScanner onAddMany={handleAddMany} />
-          </div>
+          <PhotoMealScanner onAddMany={handleAddMany} />
         </section>
 
         <section>
