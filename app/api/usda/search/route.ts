@@ -23,6 +23,10 @@ const KO_EN: Record<string, string> = {
   '배스킨라빈스': 'baskin robbins',
   '하겐다즈': 'haagen-dazs',
   // ── 버거 메뉴 ───────────────────────────────────────────────────────────
+  '버거킹 불고기 와퍼': 'burger king bulgogi whopper',
+  '롯데리아 새우버거': 'lotteria shrimp burger',
+  '불고기 와퍼': 'bulgogi whopper',
+  '새우버거': 'shrimp burger',
   '와퍼': 'whopper',
   '빅맥': 'big mac',
   '쿼터파운더': 'quarter pounder',
@@ -34,11 +38,16 @@ const KO_EN: Record<string, string> = {
   '치즈버거': 'cheeseburger',
   '더블버거': 'double burger',
   // ── 사이드 / 음료 ───────────────────────────────────────────────────────
+  '코카콜라 제로': 'coca-cola zero sugar',
+  '제로 콜라': 'coca-cola zero sugar',
+  '제로콜라': 'coca-cola zero sugar',
+  '다이어트 콜라': 'diet cola',
   '감자튀김': 'french fries',
   '프렌치프라이': 'french fries',
   '어니언링': 'onion rings',
   '치킨너겟': 'chicken nuggets',
   '콜라': 'coca-cola',
+  '제로': 'zero sugar',
   '사이다': 'sprite',
   '오렌지주스': 'orange juice',
   '에너지드링크': 'energy drink',
@@ -49,6 +58,19 @@ const KO_EN: Record<string, string> = {
   '라떼': 'latte',
   '커피': 'coffee',
   '우유': 'milk',
+  '오이 피클': 'pickles cucumber dill',
+  '오이피클': 'pickles cucumber dill',
+  '피클': 'pickles cucumber dill',
+  '미소장국': 'miso soup prepared',
+  '우동국물': 'dashi broth soup',
+  '계란말이': 'omelet egg cooked',
+  '카레 소스': 'curry sauce prepared',
+  '카레라이스': 'curry rice prepared',
+  '새우튀김': 'shrimp breaded fried',
+  '튀김 (모듬)': 'tempura mixed fried',
+  '모듬튀김': 'tempura mixed fried',
+  '돈까스': 'pork cutlet breaded fried',
+  '단무지': 'pickled radish yellow',
   // ── 육류 ───────────────────────────────────────────────────────────────
   '닭가슴살': 'chicken breast',
   '닭다리': 'chicken leg',
@@ -110,6 +132,7 @@ const KO_EN: Record<string, string> = {
   '고구마': 'sweet potato',
   '감자': 'potato',
   '브로콜리': 'broccoli',
+  '양배추': 'cabbage',
   '시금치': 'spinach',
   '아보카도': 'avocado',
   '바나나': 'banana',
@@ -170,6 +193,13 @@ function pickNutrients(foodNutrients: Array<{ nutrientId: number; value?: number
   };
 }
 
+function descriptionScore(query: string, description: string) {
+  const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(token => token.length > 1);
+  const normalized = description.toLowerCase();
+  if (!tokens.length) return 0;
+  return tokens.filter(token => normalized.includes(token)).length / tokens.length;
+}
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q') ?? '';
   if (q.trim().length < 2) return NextResponse.json({ foods: [] });
@@ -200,7 +230,21 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
 
-    const foods = (data.foods ?? []).slice(0, 10).map((f: Record<string, unknown>) => {
+    const dataTypePriority: Record<string, number> = {
+      Foundation: 4,
+      'SR Legacy': 3,
+      'Survey (FNDDS)': 2,
+      Branded: 1,
+    };
+    const rankedFoods = [...(data.foods ?? [])].sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const relevance = descriptionScore(translated, String(b.description ?? ''))
+        - descriptionScore(translated, String(a.description ?? ''));
+      if (relevance !== 0) return relevance;
+      return (dataTypePriority[String(b.dataType ?? '')] ?? 0)
+        - (dataTypePriority[String(a.dataType ?? '')] ?? 0);
+    });
+
+    const foods = rankedFoods.slice(0, 10).map((f: Record<string, unknown>) => {
       const nutrients = pickNutrients((f.foodNutrients as Array<{ nutrientId: number; value?: number }>) ?? []);
       const servingSize = typeof f.servingSize === 'number' ? f.servingSize : 0;
       const servingSizeUnit = String(f.servingSizeUnit ?? 'g').toLowerCase();

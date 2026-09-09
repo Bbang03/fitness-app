@@ -24,6 +24,10 @@ yarn-error.log*
 
 # local env files
 .env*.local
+
+# local-only vision evaluation assets
+/scripts/eval/images/
+/scripts/eval/result.json
 .env
 
 # vercel
