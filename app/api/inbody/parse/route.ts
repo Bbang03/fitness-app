@@ -1,263 +1,170 @@
-import {
-  NextRequest,
-  NextResponse,
-} from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
-export const runtime =
-  'nodejs';
+const DEFAULT_OCR_API_URL =
+  'https://chagok-ocr-595235641783.asia-northeast3.run.app';
 
-export const maxDuration =
-  60;
-
-
-const MAX_FILE_BYTES =
-  12 * 1024 * 1024;
-
-
-function getOcrBaseUrl() {
-  return (
-    process.env
-      .INBODY_OCR_URL
-      ?.trim() ||
-    'http://127.0.0.1:8001'
-  ).replace(
-    /\/$/,
-    '',
-  );
-}
-
-
-export async function POST(
-  request: NextRequest,
-) {
+export async function POST(request: NextRequest) {
   try {
-    const incoming =
-      await request.formData();
+    const incomingFormData = await request.formData();
 
-    const image =
-      incoming.get(
-        'image',
-      );
+    // 기존 프론트가 "image" 또는 "file" 중 무엇을 보내더라도 대응
+    const uploaded =
+      incomingFormData.get('image') ??
+      incomingFormData.get('file');
 
-    if (
-      !(image instanceof File)
-    ) {
+    if (!(uploaded instanceof File)) {
       return NextResponse.json(
         {
-          error:
-            'image_missing',
-
-          message:
-            '인바디 이미지를 선택해주세요.',
+          error: '이미지 파일이 필요합니다.',
         },
-
         {
           status: 400,
         },
       );
     }
 
-    if (
-      image.size === 0
-    ) {
+    if (uploaded.size === 0) {
       return NextResponse.json(
         {
-          error:
-            'empty_image',
-
-          message:
-            '빈 이미지 파일입니다.',
+          error: '빈 이미지 파일입니다.',
         },
-
         {
           status: 400,
         },
       );
     }
 
-    if (
-      image.size >
-      MAX_FILE_BYTES
-    ) {
+    const allowedTypes = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ]);
+
+    if (!allowedTypes.has(uploaded.type)) {
       return NextResponse.json(
         {
           error:
-            'image_too_large',
-
-          message:
-            '이미지는 12MB 이하로 업로드해주세요.',
+            'JPG, PNG, WEBP 이미지만 지원합니다.',
         },
-
-        {
-          status: 413,
-        },
-      );
-    }
-
-    if (
-      !image.type.startsWith(
-        'image/',
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'unsupported_file',
-
-          message:
-            '이미지 파일만 업로드할 수 있습니다.',
-        },
-
         {
           status: 415,
         },
       );
     }
 
-    const body =
-      new FormData();
+    const maxFileSize = 12 * 1024 * 1024;
 
-    body.append(
-      'image',
-      image,
-      image.name ||
-        'inbody-image',
-    );
-
-    const response =
-      await fetch(
-        `${getOcrBaseUrl()}/parse-inbody`,
-        {
-          method:
-            'POST',
-
-          body,
-
-          cache:
-            'no-store',
-
-          signal:
-            AbortSignal.timeout(
-              60_000,
-            ),
-        },
-      );
-
-    const responseText =
-      await response.text();
-
-    let payload:
-      unknown;
-
-    try {
-      payload =
-        JSON.parse(
-          responseText,
-        );
-    } catch {
-      console.error(
-        '[api/inbody/parse] OCR server returned invalid JSON:',
-        responseText.slice(
-          0,
-          1000,
-        ),
-      );
-
+    if (uploaded.size > maxFileSize) {
       return NextResponse.json(
         {
           error:
-            'ocr_invalid_response',
-
-          message:
-            'OCR 서버 응답 형식이 올바르지 않습니다.',
+            '이미지는 12MB 이하로 업로드해주세요.',
         },
-
         {
-          status: 502,
+          status: 413,
         },
       );
     }
 
-    if (
-      !response.ok
-    ) {
+    const ocrApiUrl =
+      process.env.INBODY_OCR_API_URL?.trim() ||
+      DEFAULT_OCR_API_URL;
+
+    const upstreamFormData = new FormData();
+
+    // Cloud Run FastAPI는 반드시 "image" 필드로 받는다.
+    upstreamFormData.append(
+      'image',
+      uploaded,
+      uploaded.name || 'inbody-image',
+    );
+
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 290_000);
+
+    let upstreamResponse: Response;
+
+    try {
+      upstreamResponse = await fetch(
+        `${ocrApiUrl.replace(/\/+$/, '')}/parse-inbody`,
+        {
+          method: 'POST',
+          body: upstreamFormData,
+          cache: 'no-store',
+          signal: controller.signal,
+        },
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const responseText =
+      await upstreamResponse.text();
+
+    let responseBody: unknown;
+
+    try {
+      responseBody =
+        JSON.parse(responseText);
+    } catch {
+      responseBody = {
+        error:
+          responseText ||
+          'OCR 서버에서 올바르지 않은 응답을 반환했습니다.',
+      };
+    }
+
+    if (!upstreamResponse.ok) {
       console.error(
-        '[api/inbody/parse] OCR server error:',
-        response.status,
-        payload,
+        '[InBody OCR Proxy] upstream error:',
+        upstreamResponse.status,
+        responseBody,
       );
 
-      const detail =
-        typeof payload ===
-          'object' &&
-        payload !== null &&
-        'detail' in payload &&
-        typeof (
-          payload as {
-            detail?: unknown;
-          }
-        ).detail ===
-          'string'
-
-          ? (
-              payload as {
-                detail:
-                  string;
-              }
-            ).detail
-
-          :
-            'OCR 분석에 실패했습니다.';
-
       return NextResponse.json(
-        {
-          error:
-            'ocr_server_error',
-
-          message:
-            detail,
-        },
-
+        responseBody,
         {
           status:
-            response.status,
+            upstreamResponse.status,
+          headers: {
+            'Cache-Control':
+              'no-store',
+          },
         },
       );
     }
 
     return NextResponse.json(
-      payload,
-
+      responseBody,
       {
+        status: 200,
         headers: {
           'Cache-Control':
             'no-store',
         },
       },
     );
-
-  } catch (
-    error
-  ) {
+  } catch (error) {
     if (
       error instanceof Error &&
-      (
-        error.name ===
-          'TimeoutError' ||
-        error.name ===
-          'AbortError'
-      )
+      error.name === 'AbortError'
     ) {
+      console.error(
+        '[InBody OCR Proxy] request timeout',
+      );
+
       return NextResponse.json(
         {
           error:
-            'ocr_timeout',
-
-          message:
-            'OCR 분석 시간이 초과되었습니다. 다시 시도해주세요.',
+            'OCR 분석 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.',
         },
-
         {
           status: 504,
         },
@@ -265,19 +172,15 @@ export async function POST(
     }
 
     console.error(
-      '[api/inbody/parse]',
+      '[InBody OCR Proxy] request failed:',
       error,
     );
 
     return NextResponse.json(
       {
         error:
-          'ocr_unavailable',
-
-        message:
-          '로컬 OCR 서버에 연결하지 못했습니다. PaddleOCR 서버가 실행 중인지 확인해주세요.',
+          'OCR 서버에 연결하지 못했습니다.',
       },
-
       {
         status: 503,
       },
