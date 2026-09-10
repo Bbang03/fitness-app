@@ -1,0 +1,95 @@
+{
+  "model_name": "FitTrack Production Model",
+  "model_version": "1.0.0",
+  "created_at_utc": "2026-09-10T11:48:12.552111+00:00",
+  "estimator": "CatBoostRegressor",
+  "estimator_params": {
+    "iterations": 500,
+    "depth": 5,
+    "learning_rate": 0.035,
+    "loss_function": "MAE",
+    "eval_metric": "MAE"
+  },
+  "training_rows": 975,
+  "training_participants": 128,
+  "endpoint_window": "28-35 days",
+  "targets": {
+    "weight_kg": "actual future Weight",
+    "fat_mass_kg": "actual future Fat Mass",
+    "smm_actual_kg": "actual observed InBody skeletal muscle mass"
+  },
+  "prediction_equation": "future = current + alpha * predicted_delta",
+  "bf_contract": "bf_pct = 100 * predicted_fat_mass_kg / predicted_weight_kg",
+  "participant_weighting": "sample_weight = (1 / participant_row_count) / mean(1 / participant_row_count)",
+  "selected_config": {
+    "weight_kg": {
+      "feature_set": "rolling",
+      "policy": "row",
+      "alpha": 0.75,
+      "macro_mae": 1.0752435248182173,
+      "feature_order": 2,
+      "policy_order": 1
+    },
+    "fat_mass_kg": {
+      "feature_set": "rolling",
+      "policy": "row",
+      "alpha": 0.75,
+      "bf_macro_mae": 1.047835670069441,
+      "fat_macro_mae": 0.9376358377813254,
+      "feature_order": 2,
+      "policy_order": 1
+    },
+    "smm_actual_kg": {
+      "feature_set": "rolling",
+      "policy": "row",
+      "alpha": 0.5,
+      "macro_mae": 0.5591475008631315,
+      "feature_order": 2,
+      "policy_order": 1
+    }
+  },
+  "model_files": {
+    "weight_kg": "weight_model.cbm",
+    "fat_mass_kg": "fat_mass_model.cbm",
+    "smm_actual_kg": "smm_model.cbm"
+  },
+  "validation": {
+    "benchmark": "v6.2 history_nested nested OOF",
+    "scope": "internal participant-safe validation; not independent external validation",
+    "metrics": {
+      "bf_pct": {
+        "row_mae": 1.188467799810795,
+        "participant_macro_mae": 1.0433504767778632
+      },
+      "fat_mass_kg": {
+        "row_mae": 1.034433181736206,
+        "participant_macro_mae": 0.9478541658555264
+      },
+      "smm_actual_kg": {
+        "row_mae": 0.629251194565202,
+        "participant_macro_mae": 0.5620760201931836
+      },
+      "weight_kg": {
+        "row_mae": 1.2612702627069363,
+        "participant_macro_mae": 1.1044317711958265
+      }
+    },
+    "note": "Production-selection CV scores are NOT reported as unbiased deployment accuracy."
+  },
+  "provenance": {
+    "canonical_file": "/content/drive/MyDrive/fittrack_body_prediction/data_collected_v1/processed/fittrack_unified_actual_benchmark_v6_0_1/canonical_actual_benchmark_rows_v6_0_1.parquet",
+    "canonical_sha256": "ae9a482063241eaabbff29f9ec05eec4af4d686ed68c156917f59eb3d6871ca3",
+    "history_file": "/content/drive/MyDrive/fittrack_body_prediction/data_collected_v1/processed/fittrack_longitudinal_history_v6_2/history_features_v6_2.parquet",
+    "history_sha256": "51ad1f2da023e279553af957ecdb178347ef51f0055fb3b0176d6f2a07771083",
+    "outer_fold_file": "/content/drive/MyDrive/fittrack_body_prediction/data_collected_v1/processed/fittrack_unified_actual_benchmark_v6_0_1/outer_participant_folds_v6_0_1.csv",
+    "outer_fold_sha256": "1c81697baab540cece84a34774c0c89a11a92675ccd4559150db4fc33e288d6a"
+  },
+  "libraries": {
+    "python": "3.13.15",
+    "numpy": "2.1.3",
+    "pandas": "2.2.3",
+    "sklearn": "1.6.1",
+    "catboost": "1.2.10",
+    "joblib": "1.6.0"
+  }
+}

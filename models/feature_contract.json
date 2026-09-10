@@ -1,0 +1,83 @@
+{
+  "core4": [
+    "weight0_kg",
+    "fat0_kg",
+    "smm0_kg",
+    "bf0_pct"
+  ],
+  "minimal_history_only": [
+    "has_prev",
+    "days_since_prev",
+    "slope30_from_prev_weight",
+    "slope30_from_prev_fat",
+    "slope30_from_prev_smm",
+    "slope30_from_prev_bf"
+  ],
+  "rolling_extra": [
+    "has_prev2",
+    "days_between_prev1_prev2",
+    "history_n_prior",
+    "history_count_30d",
+    "history_count_90d",
+    "history_count_180d",
+    "slope30_prevtrend_weight",
+    "slope30_prevtrend_fat",
+    "slope30_prevtrend_smm",
+    "slope30_prevtrend_bf",
+    "ols30_90d_weight",
+    "ols30_90d_fat",
+    "ols30_90d_smm",
+    "ols30_90d_bf",
+    "ols30_180d_weight",
+    "ols30_180d_fat",
+    "ols30_180d_smm",
+    "ols30_180d_bf"
+  ],
+  "feature_sets": {
+    "minimal": [
+      "weight0_kg",
+      "fat0_kg",
+      "smm0_kg",
+      "bf0_pct",
+      "has_prev",
+      "days_since_prev",
+      "slope30_from_prev_weight",
+      "slope30_from_prev_fat",
+      "slope30_from_prev_smm",
+      "slope30_from_prev_bf"
+    ],
+    "rolling": [
+      "weight0_kg",
+      "fat0_kg",
+      "smm0_kg",
+      "bf0_pct",
+      "has_prev",
+      "days_since_prev",
+      "slope30_from_prev_weight",
+      "slope30_from_prev_fat",
+      "slope30_from_prev_smm",
+      "slope30_from_prev_bf",
+      "has_prev2",
+      "days_between_prev1_prev2",
+      "history_n_prior",
+      "history_count_30d",
+      "history_count_90d",
+      "history_count_180d",
+      "slope30_prevtrend_weight",
+      "slope30_prevtrend_fat",
+      "slope30_prevtrend_smm",
+      "slope30_prevtrend_bf",
+      "ols30_90d_weight",
+      "ols30_90d_fat",
+      "ols30_90d_smm",
+      "ols30_90d_bf",
+      "ols30_180d_weight",
+      "ols30_180d_fat",
+      "ols30_180d_smm",
+      "ols30_180d_bf"
+    ]
+  },
+  "history_time_rule": "measurement_time < t0",
+  "duplicate_timestamp_policy": "median collapse",
+  "missing_history_behavior": "CatBoost native missing-value handling; has_prev/has_prev2/count fields encode availability."
+}
