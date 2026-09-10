@@ -39,3 +39,5 @@ next-env.d.ts
 
 __pycache__/
 *.py[cod]
+.env*
+!.env.example
