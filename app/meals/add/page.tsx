@@ -1837,6 +1837,9 @@ function AddMealInner() {
     : null;
   const isGuest = Boolean(storedUser?.is_guest);
 
+  const fatSecretEnabled =
+    process.env.NEXT_PUBLIC_FATSECRET_ENABLED === 'true';
+
   const date = searchParams.get('date') ?? localTodayKey();
   const requestedMealType = searchParams.get('type');
   const mealType: MealType = MEAL_TYPES.includes(requestedMealType as MealType)
@@ -2201,27 +2204,33 @@ function AddMealInner() {
           // ─────────────────────────────────────
           setMfdsResults([]);
 
-          const [
-            offResponse,
-            fatSecretResponse,
-          ] =
-            await Promise.allSettled([
-              fetch(
-                `/api/openfoodfacts/search?q=${encodeURIComponent(
-                  trimmed,
-                )}`,
-              ).then(
-                readJson,
-              ),
-
-              fetch(
+          const offRequest = fetch(
+            `/api/openfoodfacts/search?q=${encodeURIComponent(
+              trimmed,
+            )}`,
+          ).then(
+            readJson,
+          );
+          
+          const fatSecretRequest = fatSecretEnabled
+            ? fetch(
                 `/api/fatsecret/search?q=${encodeURIComponent(
                   trimmed,
                 )}`,
               ).then(
                 readJson,
-              ),
-            ]);
+              )
+            : Promise.resolve({
+                foods: [] as FatSecretSearchFood[],
+              });
+
+          const [
+            offResponse,
+            fatSecretResponse,
+          ] = await Promise.allSettled([
+            offRequest,
+            fatSecretRequest,
+          ]);
 
           if (
             cancelled
@@ -2528,7 +2537,9 @@ function AddMealInner() {
               <p className="mt-2 px-1 text-[10px] text-zinc-700">
                 {isKoreanQuery
                   ? '한글 검색은 식약처 기준 데이터에 검증된 탄·단·지 보완값을 결합합니다.'
-                  : '영문 검색은 FatSecret · OpenFoodFacts 글로벌 DB를 사용합니다.'}
+                  : fatSecretEnabled
+                    ? '영문 검색은 FatSecret · OpenFoodFacts 글로벌 DB를 사용합니다.'
+                    : '영문 검색은 OpenFoodFacts 글로벌 DB를 사용합니다.'}
               </p>
             </div>
 
@@ -2569,7 +2580,7 @@ function AddMealInner() {
                 </FoodSourceCard>
               )}
 
-              {hasQuery && !isKoreanQuery && (
+              {fatSecretEnabled && hasQuery && !isKoreanQuery && (
                 <FoodSourceCard
                   title="FatSecret · 글로벌"
                   loading={externalLoading && fsResults.length === 0}

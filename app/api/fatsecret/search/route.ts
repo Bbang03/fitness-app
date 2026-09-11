@@ -12,6 +12,20 @@ interface FsRawFood {
 }
 
 export async function GET(req: NextRequest) {
+  const fatSecretEnabled =
+    process.env.NEXT_PUBLIC_FATSECRET_ENABLED === 'true';
+
+  if (!fatSecretEnabled) {
+    return NextResponse.json({
+      foods: [],
+      meta: {
+        source: 'fatsecret-disabled',
+        count: 0,
+        enabled: false,
+      },
+    });
+  }
+
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
 
   if (q.length < 2) {
@@ -62,6 +76,7 @@ export async function GET(req: NextRequest) {
       meta: {
         source: 'fatsecret-basic',
         count: foods.length,
+        enabled: true,
       },
     });
   } catch (error) {
