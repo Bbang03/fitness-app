@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import io
 import math
+import os
 import re
+import secrets
 import threading
 from collections import Counter
 from dataclasses import dataclass
@@ -10,7 +12,7 @@ from statistics import median
 from typing import Any
 
 import numpy as np
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from paddleocr import PaddleOCR
 from PIL import Image, ImageEnhance, ImageOps, UnidentifiedImageError
@@ -20,6 +22,11 @@ from starlette.concurrency import run_in_threadpool
 MAX_FILE_BYTES = 12 * 1024 * 1024
 MIN_OCR_LONG_SIDE = 1800
 MAX_OCR_LONG_SIDE = 3000
+
+OCR_API_KEY = os.environ.get(
+    "INBODY_OCR_API_KEY",
+    "",
+).strip()
 
 # 검사일시는 문서 상단의 날짜/시간 텍스트만 별도 OCR한다.
 DATE_ROI = (0.515, 0.058, 0.665, 0.098)
@@ -1867,7 +1874,29 @@ def health() -> dict[str, Any]:
 @app.post("/parse-inbody")
 async def parse_inbody_endpoint(
     image: UploadFile = File(...),
+    x_ocr_api_key: str | None = Header(
+        default=None,
+        alias="X-OCR-API-Key",
+    ),
 ) -> JSONResponse:
+    if not OCR_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="OCR API authentication is not configured.",
+        )
+
+    if (
+        x_ocr_api_key is None
+        or not secrets.compare_digest(
+            x_ocr_api_key,
+            OCR_API_KEY,
+        )
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized.",
+        )
+
     if image.content_type not in {
         "image/jpeg",
         "image/png",

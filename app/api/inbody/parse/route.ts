@@ -74,6 +74,25 @@ export async function POST(request: NextRequest) {
       process.env.INBODY_OCR_API_URL?.trim() ||
       DEFAULT_OCR_API_URL;
 
+    const ocrApiKey =
+      process.env.INBODY_OCR_API_KEY?.trim();
+
+    if (!ocrApiKey) {
+      console.error(
+        '[InBody OCR Proxy] INBODY_OCR_API_KEY is not configured.',
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            'OCR 서버 인증 설정이 완료되지 않았습니다.',
+        },
+        {
+          status: 503,
+        },
+      );
+    }
+
     const upstreamFormData = new FormData();
 
     // Cloud Run FastAPI는 반드시 "image" 필드로 받는다.
@@ -96,6 +115,9 @@ export async function POST(request: NextRequest) {
         `${ocrApiUrl.replace(/\/+$/, '')}/parse-inbody`,
         {
           method: 'POST',
+          headers: {
+            'X-OCR-API-Key': ocrApiKey,
+          },
           body: upstreamFormData,
           cache: 'no-store',
           signal: controller.signal,
