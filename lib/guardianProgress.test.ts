@@ -53,3 +53,9 @@ test('known core and custom cardio exercises are classified', () => {
   assert.equal(result.corePoints, 1);
   assert.equal(result.cardioPoints, 1);
 });
+
+test('cardio-only training wakes the guardian', () => {
+  const result = buildGuardianProgress([workout(['아침 달리기'])]);
+  assert.equal(result.cardioPoints, 1);
+  assert.notEqual(result.balance, 'sleeping');
+});

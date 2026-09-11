@@ -104,7 +104,7 @@ export function buildGuardianProgress(logs: WorkoutLog[]): GuardianProgress {
 
   let balance: GuardianBalance;
   let message: string;
-  if (physiquePoints === 0) {
+  if (growthPoints === 0) {
     balance = 'sleeping';
     message = '첫 운동을 기록하면 돌 정령이 깨어나요.';
   } else if (points.upper + points.lower < 6) {
