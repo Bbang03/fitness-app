@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Intro: finish the first-tab animation; repeat visits and reduced motion skip the hold. */
+.chagok-app .chagok-loading-logo { animation-duration: .25s; animation-delay: 1.5s; }
+.chagok-app .chagok-blocks > span { animation-duration: .46s; }
+.chagok-intro-gate { opacity: 1; transition: opacity 180ms var(--ease-out); }
+.chagok-intro-gate.is-leaving { opacity: 0; }
+.chagok-intro-gate.is-static .chagok-blocks > span,
+.chagok-intro-gate.is-static .chagok-loading-logo { animation: none !important; opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .chagok-intro-gate { transition: none; } }
+
+.chagok-icon { flex-shrink: 0; vertical-align: middle; }
+
 :root {
   --bottom-nav-height: 72px;
 
@@ -233,6 +244,47 @@ input[type='number'] {
 ::-webkit-scrollbar-thumb {
   background: #27272a;
   border-radius: 999px;
+}
+
+/* Local ChaGOK presentation layer. Existing interaction/data ownership is preserved. */
+html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color: var(--color-ink); color-scheme: light; }
+.chagok-app { font-variant-numeric: tabular-nums; }
+.chagok-app .fittrack-apple { background: var(--color-canvas); }
+.chagok-app [class*='bg-white'], .chagok-app [class*='bg-zinc-9'] { background-color: var(--color-surface) !important; }
+.chagok-app [class*='bg-zinc-950'] { background-color: var(--color-canvas) !important; }
+.chagok-app [class*='bg-zinc-1'], .chagok-app [class*='bg-zinc-2'], .chagok-app [class*='bg-zinc-7'], .chagok-app [class*='bg-zinc-8'] { background-color: var(--color-surface-muted) !important; }
+.chagok-app [class*='text-zinc-8'], .chagok-app [class*='text-zinc-9'] { color: var(--color-ink) !important; }
+.chagok-app [class*='text-zinc-50'], .chagok-app [class*='text-zinc-100'] { color: var(--color-ink) !important; }
+.chagok-app [class*='text-blue-'], .chagok-app [class*='text-cyan-'], .chagok-app [class*='text-indigo-'] { color: var(--color-accent) !important; }
+.chagok-app [class*='bg-blue-'], .chagok-app [class*='bg-indigo-'], .chagok-app [class*='bg-cyan-'] { background-color: var(--color-accent-soft) !important; }
+.chagok-app .bg-blue-600, .chagok-app .bg-blue-500 { background-color: var(--color-accent) !important; color: var(--color-accent-ink) !important; }
+.chagok-app .bg-blue-600.text-white, .chagok-app .bg-blue-500.text-white { color: var(--color-accent-ink) !important; }
+.chagok-app [class*='border-blue-'], .chagok-app [class*='border-indigo-'] { border-color: var(--color-accent) !important; }
+.chagok-app [class*='text-emerald-'], .chagok-app [class*='text-green-'] { color: var(--color-accent) !important; }
+.chagok-app [class*='text-amber-'], .chagok-app [class*='text-orange-'], .chagok-app [class*='text-yellow-'] { color: var(--color-ink-secondary) !important; }
+.chagok-app [class*='text-rose-'], .chagok-app [class*='text-red-'] { color: var(--color-negative) !important; }
+.chagok-app [class*='text-purple-'], .chagok-app [class*='text-violet-'] { color: var(--color-chart-purple) !important; }
+.chagok-app [class*='rounded-3xl'], .chagok-app [class*='rounded-2xl'] { border-radius: var(--radius-card); }
+.chagok-app button, .chagok-app input:not([type='checkbox']):not([type='file']), .chagok-app select { min-height: 44px; }
+.chagok-app button { transition-property: transform, opacity; }
+.chagok-app button:active:not(:disabled) { transform: translateY(1px); }
+.chagok-app button:disabled { cursor: not-allowed; }
+.chagok-app input, .chagok-app textarea, .chagok-app select { accent-color: var(--color-accent); border-radius: var(--radius-control); }
+.chagok-app input[aria-invalid='true'] { border-color: var(--color-negative); }
+.chagok-app .apple-accent-surface :is(span,p,svg) { color: var(--color-accent-ink) !important; }
+.chagok-wordmark { display:inline-flex;gap:3px;color:var(--color-accent);--pixel-size:3px; }
+.chagok-glyph { display:grid;grid-template-columns:repeat(5,var(--pixel-size));grid-template-rows:repeat(7,var(--pixel-size)); }
+.chagok-pixel { background:currentColor; }
+.chagok-loading { position:relative;min-height:100svh;display:grid;place-items:center;background:var(--color-canvas);color:var(--color-ink); }
+.chagok-loading-scene { width:264px;height:230px;position:relative; }
+.chagok-loading-logo { display:flex;justify-content:center;opacity:0;animation:chagok-logo .7s var(--ease-out) 2.05s forwards; }
+.chagok-loading-logo .chagok-wordmark { --pixel-size:6px;gap:6px; }
+.chagok-blocks { position:absolute;top:100px;left:50%;width:110px;height:110px;transform:translateX(-50%); }
+.chagok-blocks > span { position:absolute;width:34px;height:34px;left:calc(var(--block-x) * 38px);top:calc(var(--block-y) * 38px);background:var(--block-color);border-radius:2px;opacity:0;transform-origin:center bottom;animation:chagok-drop .56s linear var(--block-delay) both; }
+@keyframes chagok-drop { 0% {opacity:0;transform:translateY(-330px);animation-timing-function:cubic-bezier(.65,0,1,.65)} 8% {opacity:1} 58% {opacity:1;transform:translateY(0)} 66% {opacity:1;transform:translateY(2px) scaleY(.94)} 80% {opacity:1;transform:translateY(-3px)} 100% {opacity:1;transform:translateY(0)} }
+@keyframes chagok-logo { from {opacity:0;transform:translateY(12px)} to {opacity:1;transform:translateY(0)} }
+@media (prefers-reduced-motion:reduce) {
+  .chagok-app .chagok-blocks > span, .chagok-app .chagok-loading-logo { animation:none !important;opacity:1;transform:none; }
 }
 
 /* Hallmark · component: workout-derived stone guardian · craft: tier-B SVG */

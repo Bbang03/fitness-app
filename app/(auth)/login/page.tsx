@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import {
   Dumbbell,
   Loader2,
-} from 'lucide-react';
+} from '@/components/ChagokIcons';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -397,7 +397,7 @@ export default function LoginPage() {
         </div>
 
         <h1 className="text-2xl font-bold tracking-tight">
-          FitTrack
+          차곡
         </h1>
 
         <p className="text-zinc-400 mt-1 text-sm">

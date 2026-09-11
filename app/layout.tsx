@@ -5,13 +5,13 @@ import InstallBanner from '@/components/InstallBanner';
 import AuthSessionSync from '@/components/AuthSessionSync';
 
 export const metadata: Metadata = {
-  title: 'FitTrack',
+  title: '차곡 · ChaGOK',
   description: '운동 트래커 + 식단 기록 + 인바디 예측',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'FitTrack',
+    title: '차곡',
   },
   icons: {
     icon: '/icon-192.png',
@@ -24,13 +24,13 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#f5f5f7',
+  themeColor: '#f5f1e7',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className="bg-zinc-950 text-white antialiased">
+      <body className="fittrack-apple chagok-app antialiased">
         <ServiceWorkerRegistrar />
 
         <AuthSessionSync>

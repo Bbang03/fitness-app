@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useStore } from '@/lib/store';
+import ChagokLoading from '@/components/ChagokLoading';
 
 export default function AuthSessionSync({
   children,
@@ -11,6 +12,36 @@ export default function AuthSessionSync({
   children: ReactNode;
 }) {
   const [ready, setReady] = useState(false);
+  const [introReady, setIntroReady] = useState(false);
+  const [skipIntro, setSkipIntro] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [introClosed, setIntroClosed] = useState(false);
+
+  useEffect(() => {
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let seen = false;
+    try { seen = sessionStorage.getItem('chagok-intro-seen') === '1'; } catch { /* Storage may be unavailable. */ }
+    const skip = seen || motion.matches;
+    setSkipIntro(skip);
+    const timer = window.setTimeout(() => setIntroReady(true), skip ? 0 : 1900);
+    const onMotionChange = () => {
+      if (motion.matches) { setSkipIntro(true); setIntroReady(true); }
+    };
+    motion.addEventListener('change', onMotionChange);
+    return () => { window.clearTimeout(timer); motion.removeEventListener('change', onMotionChange); };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !introReady) return;
+    const finish = () => {
+      try { sessionStorage.setItem('chagok-intro-seen', '1'); } catch { /* Optional presentation preference. */ }
+      setIntroClosed(true);
+    };
+    if (skipIntro) { finish(); return; }
+    setLeaving(true);
+    const timer = window.setTimeout(finish, 180);
+    return () => window.clearTimeout(timer);
+  }, [ready, introReady, skipIntro]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -105,10 +136,10 @@ export default function AuthSessionSync({
   }, []);
 
   // 인증 상태 확인 전에 각 페이지가 잘못 redirect하는 것을 방지
-  if (!ready) {
+  if (!ready || !introClosed) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-zinc-500 text-sm">
-        FitTrack 불러오는 중...
+      <div className={`chagok-intro-gate${leaving ? ' is-leaving' : ''}${skipIntro ? ' is-static' : ''}`}>
+        <ChagokLoading />
       </div>
     );
   }
