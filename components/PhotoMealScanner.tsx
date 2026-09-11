@@ -729,13 +729,15 @@ export default function PhotoMealScanner({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
     setPreview(null);
     setRows(null);
     setError('');
-    if (inputRef.current) inputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
   const handleFile = useCallback(async (file: File) => {
@@ -1101,8 +1103,9 @@ export default function PhotoMealScanner({
 
   return (
     <div className={preview || loading || rows || error ? 'overflow-hidden rounded-3xl border border-blue-500/15 bg-gradient-to-br from-blue-500/10 via-zinc-900/70 to-zinc-950 px-4 pt-4 pb-5' : ''}>
+      {/* 카메라 촬영 */}
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -1112,32 +1115,57 @@ export default function PhotoMealScanner({
           if (f) handleFile(f);
         }}
       />
-
+      
+      {/* 앨범 / 저장된 이미지 선택 */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => {
+          const f = e.target.files?.[0];
+          if (f) handleFile(f);
+        }}
+      />
+      
       {/* 촬영 전 */}
       {!preview && !loading && (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          className="apple-card w-full overflow-hidden p-5 text-left"
-        >
+        <div className="apple-card w-full overflow-hidden p-5">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10">
               <Camera size={22} className="text-blue-400" />
             </div>
+      
             <div className="flex-1">
               <div className="flex items-center gap-1.5">
                 <p className="text-sm font-semibold">사진으로 음식 찾기</p>
                 <Sparkles size={13} className="text-blue-400" />
               </div>
+      
               <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
-                음식 사진에서 후보를 인식하고 브랜드 메뉴·영양정보와 연결해요.
+                음식 사진을 촬영하거나 앨범에서 선택하면 AI가 음식을 인식하고 영양정보를 찾아드려요.
               </p>
-              <span className="apple-accent-surface mt-3 inline-flex min-h-11 items-center rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white">
-                사진 선택
-              </span>
+      
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="apple-accent-surface flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-3 py-2 text-xs font-semibold text-white"
+                >
+                  사진 촬영
+                </button>
+      
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-xs font-semibold text-zinc-200"
+                >
+                  앨범에서 선택
+                </button>
+              </div>
             </div>
           </div>
-        </button>
+        </div>
       )}
 
       {/* 미리보기 */}

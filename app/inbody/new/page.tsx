@@ -1029,14 +1029,15 @@ export default function NewInbodyPage() {
                 결과지 이미지 선택
               </p>
 
-              <p className="mt-1 text-[10px] text-zinc-600">
-                JPG, PNG · 최대 12MB
+              <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
+                인바디 앱에서 저장한 결과지 이미지를 선택해주세요.
+                <br />
+                JPG, PNG, WEBP · 최대 12MB
               </p>
 
               <input
                 type="file"
-                accept="image/*"
-                capture="environment"
+                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                 onChange={
                   handleImageChange
                 }
