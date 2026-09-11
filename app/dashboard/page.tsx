@@ -30,6 +30,11 @@ import {
 } from 'lucide-react';
 
 import AppShell from '@/components/AppShell';
+import GuardianProgressCard from '@/components/GuardianProgressCard';
+
+import {
+  buildGuardianProgress,
+} from '@/lib/guardianProgress';
 
 import {
   predict,
@@ -695,6 +700,15 @@ export default function DashboardPage() {
       ],
     );
 
+  const guardianProgress =
+    useMemo(
+      () =>
+        buildGuardianProgress(
+          myLogs,
+        ),
+      [myLogs],
+    );
+
   const weekLogs =
     useMemo(
       () => {
@@ -1144,6 +1158,8 @@ export default function DashboardPage() {
             />
           </button>
         </div>
+
+        <GuardianProgressCard progress={guardianProgress} />
 
         <Link href="/meals" className="apple-card mt-6 block p-5">
           <div className="flex items-end justify-between gap-4">

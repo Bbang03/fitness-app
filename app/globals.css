@@ -234,3 +234,58 @@ input[type='number'] {
   background: #27272a;
   border-radius: 999px;
 }
+
+/* Hallmark · component: workout-derived stone guardian · craft: tier-B SVG */
+.guardian-card {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 8.5rem;
+  gap:var(--space-4);
+  margin-top:var(--space-5);
+  padding:var(--space-5);
+  overflow:hidden;
+  background:var(--color-surface);
+  border:var(--rule-hairline) solid var(--color-rule);
+  border-radius:var(--radius-card);
+}
+.guardian-card__copy { min-width:0; }
+.guardian-card__heading { display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-3); }
+.guardian-card__label { color:var(--color-ink-secondary);font-size:var(--text-caption);font-weight:700; }
+.guardian-card h2 { margin-top:var(--space-1);font-family:var(--font-display);font-size:1.25rem;font-weight:700;letter-spacing:-.025em;line-height:1.2; }
+.guardian-card__heading > span { flex:none;padding:var(--space-1) var(--space-2);border-radius:var(--radius-pill);background:var(--color-accent-soft);color:var(--color-accent);font-size:var(--text-caption);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap; }
+.guardian-card__message { margin-top:var(--space-3);color:var(--color-ink-secondary);font-size:var(--text-body);line-height:1.55; }
+.guardian-card__regions { display:grid;gap:var(--space-2);margin-top:var(--space-4); }
+.guardian-meter__label { display:flex;justify-content:space-between;gap:var(--space-2);font-size:var(--text-caption);font-variant-numeric:tabular-nums; }
+.guardian-meter__label span { color:var(--color-ink-secondary); }
+.guardian-meter__label strong { color:var(--color-ink);font-weight:700; }
+.guardian-meter progress,.guardian-card__next progress { display:block;width:100%;height:var(--space-1);margin-top:var(--space-1);overflow:hidden;border:0;border-radius:var(--radius-pill);background:var(--color-surface-muted);appearance:none; }
+.guardian-meter progress::-webkit-progress-bar,.guardian-card__next progress::-webkit-progress-bar { background:var(--color-surface-muted); }
+.guardian-meter progress::-webkit-progress-value,.guardian-card__next progress::-webkit-progress-value { background:var(--color-accent);border-radius:var(--radius-pill); }
+.guardian-meter progress::-moz-progress-bar,.guardian-card__next progress::-moz-progress-bar { background:var(--color-accent);border-radius:var(--radius-pill); }
+.guardian-card__figure { align-self:center;margin:0;text-align:center; }
+.guardian-card__figure figcaption { margin-top:calc(var(--space-2) * -1);color:var(--color-ink-secondary);font-size:var(--text-caption);line-height:1.35; }
+.guardian-card__next { grid-column:1 / -1;display:grid;grid-template-columns:minmax(0,1fr) 7rem;align-items:center;gap:var(--space-4);padding-top:var(--space-4);border-top:var(--rule-hairline) solid var(--color-rule); }
+.guardian-card__next span,.guardian-card__next small { display:block; }
+.guardian-card__next span { font-size:var(--text-body);font-weight:700; }
+.guardian-card__next small { margin-top:var(--space-1);color:var(--color-ink-secondary);font-size:var(--text-caption); }
+.guardian-card__next progress { margin:0; }
+.stone-guardian { display:block;width:100%;height:auto;overflow:visible; }
+.stone-guardian__shadow { fill:var(--color-surface-muted); }
+.stone-guardian__stone { fill:var(--color-olive);stroke:var(--color-ink);stroke-width:2.5;stroke-linejoin:bevel; }
+.stone-guardian__stone--mid { fill:var(--color-brown); }
+.stone-guardian__stone--dark { fill:var(--color-accent); }
+.stone-guardian__stone--light { fill:var(--color-accent-soft); }
+.stone-guardian__crack,.stone-guardian__face,.stone-guardian__brow { fill:none;stroke:var(--color-ink);stroke-width:3;stroke-linecap:square;stroke-linejoin:bevel; }
+.stone-guardian__crack { opacity:.42;stroke-width:2; }
+.stone-guardian__eye { fill:var(--color-ink); }
+.stone-guardian__core-mark { fill:var(--color-warning);stroke:var(--color-ink);stroke-width:2;stroke-linejoin:bevel; }
+.stone-guardian__core-ring,.stone-guardian__rune { fill:none;stroke:var(--color-warning);stroke-width:2;stroke-linecap:square;stroke-linejoin:bevel; }
+.stone-guardian__core-ring { opacity:.65; }
+.stone-guardian__chip { fill:var(--color-surface);stroke:var(--color-ink);stroke-width:2;stroke-linejoin:bevel; }
+.stone-guardian__growth-chip { fill:var(--color-warning-soft);stroke:var(--color-ink);stroke-width:2;stroke-linejoin:bevel; }
+.stone-guardian__shoulder { fill:var(--color-olive); }
+.stone-guardian__foot { fill:var(--color-accent); }
+@media (max-width:23.4rem) {
+  .guardian-card { grid-template-columns:minmax(0,1fr) 6.75rem;padding:var(--space-4);gap:var(--space-3); }
+  .guardian-card__message { font-size:.875rem; }
+  .guardian-card__next { grid-template-columns:1fr;gap:var(--space-2); }
+}
