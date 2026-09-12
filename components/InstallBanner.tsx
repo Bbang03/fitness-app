@@ -43,11 +43,15 @@ export default function InstallBanner() {
 
   return (
     <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto bg-zinc-800 border border-zinc-700 rounded-2xl p-4 flex items-center gap-3 shadow-2xl z-50 animate-in slide-in-from-bottom-4">
-      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0 text-lg">
-        💪
-      </div>
+      <img
+        src="/icon-192.png"
+        width={40}
+        height={40}
+        alt=""
+        className="w-10 h-10 rounded-xl flex-shrink-0"
+      />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold">FitTrack 앱으로 설치</p>
+        <p className="text-sm font-semibold">차곡 앱으로 설치</p>
         <p className="text-xs text-zinc-400 mt-0.5">홈 화면에 추가하면 오프라인에서도 사용 가능</p>
       </div>
       <button
