@@ -257,8 +257,11 @@ export default function DashboardPage() {
                     exercise_name,
                     target_sets,
                     target_reps,
+                    target_weight_kg,
+                    set_targets,
                     rest_seconds,
-                    record_type
+                    record_type,
+                    superset_group
                   )
                 `)
                 .eq(
@@ -391,14 +394,106 @@ export default function DashboardPage() {
                       routine.routine_items ??
                       []
                     ),
-                  ].sort(
-                    (
-                      a,
-                      b,
-                    ) =>
-                      a.order -
-                      b.order,
-                  ),
+                  ]
+                    .sort(
+                      (
+                        a,
+                        b,
+                      ) =>
+                        a.order -
+                        b.order,
+                    )
+                    .map(
+                      (
+                        item,
+                        index,
+                      ) => {
+                        const recordType =
+                          item.record_type ===
+                            'reps_only' ||
+                          item.record_type ===
+                            'time'
+                            ? item.record_type
+                            : 'weight_reps';
+
+                        return {
+                          id:
+                            item.id,
+
+                          order:
+                            Number.isFinite(
+                              Number(
+                                item.order,
+                              ),
+                            )
+                              ? Number(
+                                  item.order,
+                                )
+                              : index,
+
+                          exercise_name:
+                            item.exercise_name,
+
+                          target_sets:
+                            Math.max(
+                              1,
+                              Number(
+                                item.target_sets ??
+                                  3,
+                              ),
+                            ),
+
+                          target_reps:
+                            Math.max(
+                              1,
+                              Number(
+                                item.target_reps ??
+                                  (
+                                    recordType ===
+                                    'time'
+                                      ? 60
+                                      : 10
+                                  ),
+                              ),
+                            ),
+
+                          target_weight_kg:
+                            recordType ===
+                            'weight_reps'
+                              ? Math.max(
+                                  0,
+                                  Number(
+                                    item.target_weight_kg ??
+                                      0,
+                                  ),
+                                )
+                              : 0,
+
+                          set_targets:
+                            Array.isArray(
+                              item.set_targets,
+                            )
+                              ? item.set_targets
+                              : [],
+
+                          rest_seconds:
+                            Math.max(
+                              0,
+                              Number(
+                                item.rest_seconds ??
+                                  90,
+                              ),
+                            ),
+
+                          record_type:
+                            recordType,
+
+                          superset_group:
+                            item.superset_group ??
+                            null,
+                        };
+                      },
+                    ),
                 }),
               );
 

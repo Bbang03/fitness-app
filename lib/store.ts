@@ -8,6 +8,201 @@ import {
 } from './types';
 import { generateId } from './utils';
 
+function normalizeRoutineItem(
+  item: RoutineItem,
+): RoutineItem {
+  const recordType =
+    item.record_type ??
+    'weight_reps';
+
+  const targetSets =
+    Math.max(
+      1,
+      Number(
+        item.target_sets ??
+          3,
+      ) || 3,
+    );
+
+  const fallbackReps =
+    Math.max(
+      1,
+      Number(
+        item.target_reps ??
+          (recordType ===
+          'time'
+            ? 60
+            : 10),
+      ) ||
+        (recordType ===
+        'time'
+          ? 60
+          : 10),
+    );
+
+  const parsedWeight =
+    Number(
+      item.target_weight_kg ??
+        0,
+    );
+
+  const fallbackWeight =
+    recordType ===
+      'weight_reps' &&
+    Number.isFinite(
+      parsedWeight,
+    )
+      ? Math.max(
+          0,
+          parsedWeight,
+        )
+      : 0;
+
+  const sourceTargets =
+    Array.isArray(
+      item.set_targets,
+    )
+      ? item.set_targets
+      : [];
+
+  const setTargets =
+    Array.from({
+      length: targetSets,
+    }).map(
+      (_, index) => {
+        const current =
+          sourceTargets[
+            index
+          ];
+
+        if (
+          recordType ===
+          'weight_reps'
+        ) {
+          const weight =
+            Number(
+              current?.weight_kg,
+            );
+
+          const reps =
+            Number(
+              current?.reps,
+            );
+
+          return {
+            weight_kg:
+              Number.isFinite(
+                weight,
+              )
+                ? Math.max(
+                    0,
+                    weight,
+                  )
+                : fallbackWeight,
+
+            reps:
+              Number.isFinite(
+                reps,
+              )
+                ? Math.max(
+                    1,
+                    Math.round(
+                      reps,
+                    ),
+                  )
+                : fallbackReps,
+
+            duration_seconds: 0,
+          };
+        }
+
+        if (
+          recordType ===
+          'reps_only'
+        ) {
+          const reps =
+            Number(
+              current?.reps,
+            );
+
+          return {
+            weight_kg: 0,
+
+            reps:
+              Number.isFinite(
+                reps,
+              )
+                ? Math.max(
+                    1,
+                    Math.round(
+                      reps,
+                    ),
+                  )
+                : fallbackReps,
+
+            duration_seconds: 0,
+          };
+        }
+
+        const duration =
+          Number(
+            current?.duration_seconds,
+          );
+
+        return {
+          weight_kg: 0,
+          reps: 0,
+          duration_seconds:
+            Number.isFinite(
+              duration,
+            )
+              ? Math.max(
+                  1,
+                  Math.round(
+                    duration,
+                  ),
+                )
+              : fallbackReps,
+        };
+      },
+    );
+
+  const firstTarget =
+    setTargets[0];
+
+  return {
+    ...item,
+
+    target_sets:
+      targetSets,
+
+    record_type:
+      recordType,
+
+    target_weight_kg:
+      recordType ===
+      'weight_reps'
+        ? firstTarget?.weight_kg ??
+          fallbackWeight
+        : 0,
+
+    target_reps:
+      recordType ===
+      'time'
+        ? firstTarget?.duration_seconds ??
+          fallbackReps
+        : firstTarget?.reps ??
+          fallbackReps,
+
+    set_targets:
+      setTargets,
+
+    superset_group:
+      item.superset_group ??
+      null,
+  };
+}
+
 interface StoreState {
   // Auth
   users: StoredUser[];
@@ -255,7 +450,20 @@ export const useStore = create<Store>()(
       clearEditRoutineDraft: () => set({ editRoutineDraft: null }),
 
       // ── Routines ──────────────────────────────────────────────────────────
-      setRoutines: (routines) => set({ routines }),
+      setRoutines: (routines) =>
+        set({
+          routines:
+            routines.map(
+              (routine) => ({
+                ...routine,
+
+                items:
+                  routine.items.map(
+                    normalizeRoutineItem,
+                  ),
+              }),
+            ),
+        }),
 
       addRoutine: async (name, items) => {
         const user = get().currentUser();
@@ -269,11 +477,14 @@ export const useStore = create<Store>()(
             id: generateId(),
             user_id: user.id,
             name,
-            items: items.map((item, idx) => ({
-              ...item,
-              id: generateId(),
-              order: idx,
-            })),
+            items: items.map(
+              (item, idx) =>
+                normalizeRoutineItem({
+                  ...item,
+                  id: generateId(),
+                  order: idx,
+                }),
+            ),
             created_at: new Date().toISOString(),
           };
       
@@ -305,11 +516,15 @@ export const useStore = create<Store>()(
         }
       
         // 2. 루틴 운동 항목 생성
-        const routineItems: RoutineItem[] = items.map((item, idx) => ({
-          ...item,
-          id: crypto.randomUUID(),
-          order: idx,
-        }));
+        const routineItems: RoutineItem[] =
+          items.map(
+            (item, idx) =>
+              normalizeRoutineItem({
+                ...item,
+                id: crypto.randomUUID(),
+                order: idx,
+              }),
+          );
       
         const { error: itemsError } = await supabase
           .from('routine_items')
@@ -321,8 +536,16 @@ export const useStore = create<Store>()(
               exercise_name: item.exercise_name,
               target_sets: item.target_sets,
               target_reps: item.target_reps,
+              target_weight_kg:
+                item.target_weight_kg,
+              set_targets:
+                item.set_targets ??
+                [],
               rest_seconds: item.rest_seconds,
               record_type: item.record_type,
+              superset_group:
+                item.superset_group ??
+                null,
             })),
           );
       
@@ -369,11 +592,14 @@ export const useStore = create<Store>()(
                 : {
                     ...r,
                     name,
-                    items: items.map((item, idx) => ({
-                      ...item,
-                      id: generateId(),
-                      order: idx,
-                    })),
+                    items: items.map(
+                      (item, idx) =>
+                        normalizeRoutineItem({
+                          ...item,
+                          id: generateId(),
+                          order: idx,
+                        }),
+                    ),
                   },
             ),
           }));
@@ -424,11 +650,15 @@ export const useStore = create<Store>()(
         }
       
         // 3. 수정된 운동 항목 생성
-        const updatedItems: RoutineItem[] = items.map((item, idx) => ({
-          ...item,
-          id: crypto.randomUUID(),
-          order: idx,
-        }));
+        const updatedItems: RoutineItem[] =
+          items.map(
+            (item, idx) =>
+              normalizeRoutineItem({
+                ...item,
+                id: crypto.randomUUID(),
+                order: idx,
+              }),
+          );
       
         if (updatedItems.length > 0) {
           const { error: insertItemsError } = await supabase
@@ -441,6 +671,11 @@ export const useStore = create<Store>()(
                 exercise_name: item.exercise_name,
                 target_sets: item.target_sets,
                 target_reps: item.target_reps,
+                target_weight_kg:
+                  item.target_weight_kg,
+                set_targets:
+                  item.set_targets ??
+                  [],
                 rest_seconds: item.rest_seconds,
                 record_type: item.record_type,
                 superset_group:
@@ -467,8 +702,19 @@ export const useStore = create<Store>()(
                     exercise_name: item.exercise_name,
                     target_sets: item.target_sets,
                     target_reps: item.target_reps,
+                    target_weight_kg:
+                      item.target_weight_kg ??
+                      0,
+                    set_targets:
+                      item.set_targets ??
+                      [],
                     rest_seconds: item.rest_seconds,
-                    record_type: item.record_type,
+                    record_type:
+                      item.record_type ??
+                      'weight_reps',
+                    superset_group:
+                      item.superset_group ??
+                      null,
                   })),
                 );
             }
@@ -549,7 +795,17 @@ export const useStore = create<Store>()(
       startWorkout: (routineId) => {
         const routine = get().routines.find((r) => r.id === routineId);
         if (!routine) return;
-        const sorted = [...routine.items].sort((a, b) => a.order - b.order);
+        const sorted = [
+          ...routine.items,
+        ]
+          .sort(
+            (a, b) =>
+              a.order -
+              b.order,
+          )
+          .map(
+            normalizeRoutineItem,
+          );
         const workout: ActiveWorkout = {
           workoutLogId: generateId(),
           routineId,

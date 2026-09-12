@@ -5,10 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
-} from 'react';
-
-import type {
-  PointerEvent as ReactPointerEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
 
 import Link from 'next/link';
@@ -72,13 +69,6 @@ export default function RoutinesPage() {
   const [
     deletingId,
     setDeletingId,
-  ] = useState<
-    string | null
-  >(null);
-
-  const [
-    openSwipeId,
-    setOpenSwipeId,
   ] = useState<
     string | null
   >(null);
@@ -161,6 +151,8 @@ export default function RoutinesPage() {
                   exercise_name,
                   target_sets,
                   target_reps,
+                  target_weight_kg,
+                  set_targets,
                   rest_seconds,
                   record_type,
                   superset_group
@@ -251,14 +243,106 @@ export default function RoutinesPage() {
                       routine.routine_items ??
                       []
                     ),
-                  ].sort(
-                    (
-                      a,
-                      b,
-                    ) =>
-                      a.order -
-                      b.order,
-                  ),
+                  ]
+                    .sort(
+                      (
+                        a,
+                        b,
+                      ) =>
+                        a.order -
+                        b.order,
+                    )
+                    .map(
+                      (
+                        item,
+                        index,
+                      ) => {
+                        const recordType =
+                          item.record_type ===
+                            'reps_only' ||
+                          item.record_type ===
+                            'time'
+                            ? item.record_type
+                            : 'weight_reps';
+
+                        return {
+                          id:
+                            item.id,
+
+                          order:
+                            Number.isFinite(
+                              Number(
+                                item.order,
+                              ),
+                            )
+                              ? Number(
+                                  item.order,
+                                )
+                              : index,
+
+                          exercise_name:
+                            item.exercise_name,
+
+                          target_sets:
+                            Math.max(
+                              1,
+                              Number(
+                                item.target_sets ??
+                                  3,
+                              ),
+                            ),
+
+                          target_reps:
+                            Math.max(
+                              1,
+                              Number(
+                                item.target_reps ??
+                                  (
+                                    recordType ===
+                                    'time'
+                                      ? 60
+                                      : 10
+                                  ),
+                              ),
+                            ),
+
+                          target_weight_kg:
+                            recordType ===
+                            'weight_reps'
+                              ? Math.max(
+                                  0,
+                                  Number(
+                                    item.target_weight_kg ??
+                                      0,
+                                  ),
+                                )
+                              : 0,
+
+                          set_targets:
+                            Array.isArray(
+                              item.set_targets,
+                            )
+                              ? item.set_targets
+                              : [],
+
+                          rest_seconds:
+                            Math.max(
+                              0,
+                              Number(
+                                item.rest_seconds ??
+                                  90,
+                              ),
+                            ),
+
+                          record_type:
+                            recordType,
+
+                          superset_group:
+                            item.superset_group ??
+                            null,
+                        };
+                      },
+                    ),
                 }),
               );
 
@@ -474,15 +558,19 @@ export default function RoutinesPage() {
   // Delete
   // ─────────────────────────────────────────────
 
-  const handleDeleteRoutine =
+  const handleDelete =
     async (
       id: string,
     ) => {
-      if (deletingId) {
+      if (
+        deletingId
+      ) {
         return;
       }
 
-      setDeletingId(id);
+      setDeletingId(
+        id,
+      );
 
       const success =
         await deleteRoutine(
@@ -490,10 +578,6 @@ export default function RoutinesPage() {
         );
 
       setDeletingId(
-        null,
-      );
-
-      setOpenSwipeId(
         null,
       );
 
@@ -765,50 +849,22 @@ export default function RoutinesPage() {
                   routine={
                     routine
                   }
-                  isOpen={
-                    openSwipeId ===
-                    routine.id
-                  }
-                  isDeleting={
+                  deleting={
                     deletingId ===
                     routine.id
                   }
                   onOpen={() =>
-                    setOpenSwipeId(
-                      routine.id,
-                    )
-                  }
-                  onClose={() =>
-                    setOpenSwipeId(
-                      (
-                        current,
-                      ) =>
-                        current ===
-                        routine.id
-                          ? null
-                          : current,
-                    )
-                  }
-                  onEdit={() => {
-                    setOpenSwipeId(
-                      null,
-                    );
-
                     router.push(
                       `/routines/${routine.id}`,
-                    );
-                  }}
-                  onStart={() => {
-                    setOpenSwipeId(
-                      null,
-                    );
-
+                    )
+                  }
+                  onStart={() =>
                     router.push(
                       `/routines/${routine.id}/workout`,
-                    );
-                  }}
+                    )
+                  }
                   onDelete={() => {
-                    void handleDeleteRoutine(
+                    void handleDelete(
                       routine.id,
                     );
                   }}
@@ -825,87 +881,47 @@ export default function RoutinesPage() {
 }
 
 
-const DELETE_WIDTH = 84;
-
 function SwipeRoutineCard({
   routine,
-  isOpen,
-  isDeleting,
+  deleting,
   onOpen,
-  onClose,
-  onEdit,
   onStart,
   onDelete,
 }: {
   routine: Routine;
-  isOpen: boolean;
-  isDeleting: boolean;
+  deleting: boolean;
   onOpen: () => void;
-  onClose: () => void;
-  onEdit: () => void;
   onStart: () => void;
   onDelete: () => void;
 }) {
   const [
     offsetX,
     setOffsetX,
-  ] = useState(
-    isOpen
-      ? -DELETE_WIDTH
-      : 0,
-  );
+  ] = useState(0);
 
-  const offsetXRef =
-    useRef(offsetX);
-
-  const suppressClickRef =
-    useRef(false);
-
-  const gestureRef =
-    useRef({
-      pointerId:
-        null as number | null,
-
-      startX: 0,
-      startY: 0,
-
-      baseOffset: 0,
-
-      axis:
-        null as
-          | 'horizontal'
-          | 'vertical'
-          | null,
-    });
-
-  useEffect(() => {
-    const next =
-      isOpen
-        ? -DELETE_WIDTH
-        : 0;
-
-    offsetXRef.current =
-      next;
-
-    setOffsetX(
-      next,
+  const dragRef =
+    useRef<{
+      pointerId: number;
+      startX: number;
+      startY: number;
+      startOffset: number;
+      direction:
+        | 'horizontal'
+        | 'vertical'
+        | null;
+      moved: boolean;
+    } | null>(
+      null,
     );
-  }, [isOpen]);
 
   const sortedItems =
-    useMemo(
-      () =>
-        [
-          ...routine.items,
-        ].sort(
-          (
-            a,
-            b,
-          ) =>
-            a.order -
-            b.order,
-        ),
-      [routine.items],
+    [...routine.items].sort(
+      (
+        a,
+        b,
+      ) =>
+        a.order -
+        b.order,
     );
 
   const totalSets =
@@ -932,301 +948,192 @@ function SwipeRoutineCard({
         visibleExercises.length,
     );
 
-  const setOffset = (
-    value: number,
+  const DELETE_WIDTH =
+    92;
+
+  const handlePointerDown = (
+    event:
+      ReactPointerEvent<HTMLDivElement>,
   ) => {
-    const clamped =
-      Math.max(
-        -DELETE_WIDTH,
-        Math.min(
-          0,
-          value,
+    if (
+      deleting
+    ) {
+      return;
+    }
+
+    dragRef.current = {
+      pointerId:
+        event.pointerId,
+
+      startX:
+        event.clientX,
+
+      startY:
+        event.clientY,
+
+      startOffset:
+        offsetX,
+
+      direction: null,
+
+      moved: false,
+    };
+  };
+
+  const handlePointerMove = (
+    event:
+      ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    const drag =
+      dragRef.current;
+
+    if (
+      !drag ||
+      drag.pointerId !==
+        event.pointerId
+    ) {
+      return;
+    }
+
+    const dx =
+      event.clientX -
+      drag.startX;
+
+    const dy =
+      event.clientY -
+      drag.startY;
+
+    if (
+      drag.direction ===
+      null
+    ) {
+      if (
+        Math.abs(dx) <
+          7 &&
+        Math.abs(dy) <
+          7
+      ) {
+        return;
+      }
+
+      drag.direction =
+        Math.abs(dx) >
+        Math.abs(dy)
+          ? 'horizontal'
+          : 'vertical';
+    }
+
+    if (
+      drag.direction !==
+      'horizontal'
+    ) {
+      return;
+    }
+
+    drag.moved = true;
+
+    const next =
+      Math.min(
+        0,
+        Math.max(
+          -DELETE_WIDTH,
+          drag.startOffset +
+            dx,
         ),
       );
 
-    offsetXRef.current =
-      clamped;
-
     setOffsetX(
-      clamped,
+      next,
     );
   };
 
-  const resetGesture =
-    () => {
-      gestureRef.current = {
-        pointerId: null,
+  const finishPointer = (
+    event:
+      ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    const drag =
+      dragRef.current;
 
-        startX: 0,
-        startY: 0,
-
-        baseOffset: 0,
-
-        axis: null,
-      };
-    };
-
-  const handlePointerDown =
-    (
-      event:
-        ReactPointerEvent<HTMLElement>,
-    ) => {
-      if (isDeleting) {
-        return;
-      }
-
-      if (
-        event.pointerType ===
-          'mouse' &&
-        event.button !== 0
-      ) {
-        return;
-      }
-
-      const target =
-        event.target as HTMLElement;
-
-      if (
-        target.closest(
-          'button, a',
-        )
-      ) {
-        return;
-      }
-
-      gestureRef.current = {
-        pointerId:
-          event.pointerId,
-
-        startX:
-          event.clientX,
-
-        startY:
-          event.clientY,
-
-        baseOffset:
-          offsetXRef.current,
-
-        axis: null,
-      };
-
-      try {
-        event.currentTarget.setPointerCapture(
-          event.pointerId,
-        );
-      } catch {
-        // ignore
-      }
-    };
-
-  const handlePointerMove =
-    (
-      event:
-        ReactPointerEvent<HTMLElement>,
-    ) => {
-      const gesture =
-        gestureRef.current;
-
-      if (
-        gesture.pointerId !==
+    if (
+      !drag ||
+      drag.pointerId !==
         event.pointerId
-      ) {
-        return;
-      }
+    ) {
+      return;
+    }
 
-      const dx =
-        event.clientX -
-        gesture.startX;
-
-      const dy =
-        event.clientY -
-        gesture.startY;
-
-      if (
-        gesture.axis ===
-        null
-      ) {
-        if (
-          Math.abs(dx) <
-            6 &&
-          Math.abs(dy) <
-            6
-        ) {
-          return;
-        }
-
-        gesture.axis =
-          Math.abs(dx) >
-          Math.abs(dy)
-            ? 'horizontal'
-            : 'vertical';
-      }
-
-      if (
-        gesture.axis !==
-        'horizontal'
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-
-      if (
-        Math.abs(dx) >
-        8
-      ) {
-        suppressClickRef.current =
-          true;
-      }
-
-      setOffset(
-        gesture.baseOffset +
-          dx,
-      );
-    };
-
-  const finishGesture =
-    (
-      event:
-        ReactPointerEvent<HTMLElement>,
-    ) => {
-      const gesture =
-        gestureRef.current;
-
-      if (
-        gesture.pointerId !==
-        event.pointerId
-      ) {
-        return;
-      }
-
-      if (
-        gesture.axis ===
-        'horizontal'
-      ) {
-        const shouldOpen =
-          offsetXRef.current <=
-          -DELETE_WIDTH *
-            0.42;
-
-        if (shouldOpen) {
-          setOffset(
-            -DELETE_WIDTH,
-          );
-
-          onOpen();
-        } else {
-          setOffset(0);
-
-          onClose();
-        }
-
-        window.setTimeout(
-          () => {
-            suppressClickRef.current =
-              false;
-          },
-          80,
-        );
-      }
-
-      try {
-        event.currentTarget.releasePointerCapture(
-          event.pointerId,
-        );
-      } catch {
-        // ignore
-      }
-
-      resetGesture();
-    };
-
-  const cancelGesture =
-    () => {
-      setOffset(
-        isOpen
+    if (
+      drag.direction ===
+      'horizontal'
+    ) {
+      setOffsetX(
+        offsetX <
+          -DELETE_WIDTH /
+            2
           ? -DELETE_WIDTH
           : 0,
       );
+    }
 
-      resetGesture();
-
-      window.setTimeout(
-        () => {
-          suppressClickRef.current =
-            false;
-        },
-        80,
-      );
-    };
+    window.setTimeout(
+      () => {
+        dragRef.current =
+          null;
+      },
+      0,
+    );
+  };
 
   const handleCardClick =
     () => {
+      const drag =
+        dragRef.current;
+
       if (
-        suppressClickRef.current
+        drag?.moved
       ) {
         return;
       }
 
-      if (isOpen) {
-        onClose();
+      if (
+        offsetX <
+        0
+      ) {
+        setOffsetX(
+          0,
+        );
 
         return;
       }
 
-      onEdit();
+      onOpen();
     };
 
   return (
-    <div className="relative overflow-hidden rounded-3xl">
-      {/* Delete action underneath */}
+    <div className="relative overflow-hidden rounded-3xl bg-red-600">
       <button
         type="button"
-        onClick={(
-          event,
-        ) => {
-          event.stopPropagation();
-
-          if (
-            isDeleting
-          ) {
-            return;
-          }
-
-          onDelete();
-        }}
-        disabled={
-          isDeleting
+        onClick={
+          onDelete
         }
-        className="absolute inset-y-0 right-0 flex w-[84px] items-center justify-center rounded-r-3xl bg-red-600 text-white transition-colors active:bg-red-500 disabled:opacity-70"
+        disabled={
+          deleting
+        }
+        className="absolute inset-y-0 right-0 flex w-[92px] flex-col items-center justify-center gap-1.5 text-white disabled:opacity-60"
         aria-label={`${routine.name} 삭제`}
       >
         <Trash2
-          size={21}
+          size={19}
         />
+
+        <span className="text-[11px] font-bold">
+          {deleting
+            ? '삭제 중'
+            : '삭제'}
+        </span>
       </button>
 
-      {/* Foreground routine card */}
-      <article
-        role="button"
-        tabIndex={0}
-        onClick={
-          handleCardClick
-        }
-        onKeyDown={(
-          event,
-        ) => {
-          if (
-            event.key ===
-              'Enter' ||
-            event.key ===
-              ' '
-          ) {
-            event.preventDefault();
-
-            handleCardClick();
-          }
-        }}
+      <div
         onPointerDown={
           handlePointerDown
         }
@@ -1234,25 +1141,21 @@ function SwipeRoutineCard({
           handlePointerMove
         }
         onPointerUp={
-          finishGesture
+          finishPointer
         }
         onPointerCancel={
-          cancelGesture
+          finishPointer
+        }
+        onClick={
+          handleCardClick
         }
         style={{
-          transform: `translateX(${offsetX}px)`,
-
-          transition:
-            gestureRef.current
-              .axis ===
-            'horizontal'
-              ? 'none'
-              : 'transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
-
+          transform:
+            `translateX(${offsetX}px)`,
           touchAction:
             'pan-y',
         }}
-        className="relative z-10 cursor-pointer rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 outline-none transition-colors hover:bg-zinc-900/85 focus-visible:ring-2 focus-visible:ring-blue-500/40"
+        className="relative cursor-pointer rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 transition-transform duration-200"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -1264,8 +1167,7 @@ function SwipeRoutineCard({
 
             <p className="mt-1 text-xs text-zinc-500">
               {
-                routine.items
-                  .length
+                routine.items.length
               }{' '}
               가지 운동 ·{' '}
               {
@@ -1289,7 +1191,7 @@ function SwipeRoutineCard({
 
               onStart();
             }}
-            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white transition-colors hover:bg-blue-500 active:scale-[0.97]"
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white transition-colors active:bg-blue-500"
             aria-label={`${routine.name} 운동 시작`}
           >
             <Play
@@ -1330,7 +1232,11 @@ function SwipeRoutineCard({
             )}
           </div>
         )}
-      </article>
+
+        <p className="mt-4 text-[10px] text-zinc-700">
+          눌러서 편집 · 왼쪽으로 밀어서 삭제
+        </p>
+      </div>
     </div>
   );
 }

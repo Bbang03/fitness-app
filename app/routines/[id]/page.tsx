@@ -19,6 +19,7 @@ import {
 import {
   Check,
   ChevronLeft,
+  Minus,
   MoreHorizontal,
   Play,
   Plus,
@@ -35,10 +36,23 @@ import {
 import type {
   RecordType,
   RoutineItem,
+  RoutineSetTarget,
 } from '@/lib/types';
 
 type DraftItem =
   Omit<RoutineItem, 'id'>;
+
+const MULTI_EXERCISE_SELECTION_KEY =
+  'chagok-routine-multi-exercise-selection-v1';
+
+type MultiExerciseSelection = {
+  targetIndex: number;
+
+  exercises: Array<{
+    name: string;
+    record_type: RecordType;
+  }>;
+};
 
 type CardMetric = {
   top: number;
@@ -84,6 +98,26 @@ const DEFAULT_ITEM = (
   target_sets: 3,
   target_reps: 10,
 
+  target_weight_kg: 0,
+
+  set_targets: [
+    {
+      weight_kg: 0,
+      reps: 10,
+      duration_seconds: 0,
+    },
+    {
+      weight_kg: 0,
+      reps: 10,
+      duration_seconds: 0,
+    },
+    {
+      weight_kg: 0,
+      reps: 10,
+      duration_seconds: 0,
+    },
+  ],
+
   rest_seconds: 90,
 
   record_type:
@@ -91,6 +125,55 @@ const DEFAULT_ITEM = (
 
   superset_group: null,
 });
+
+function createExerciseItem(
+  order: number,
+  exerciseName: string,
+  recordType: RecordType,
+): DraftItem {
+  return {
+    ...DEFAULT_ITEM(
+      order,
+    ),
+
+    exercise_name:
+      exerciseName,
+
+    record_type:
+      recordType,
+
+    target_reps:
+      recordType ===
+      'time'
+        ? 60
+        : 10,
+
+    target_weight_kg: 0,
+
+    set_targets:
+      Array.from({
+        length: 3,
+      }).map(() => ({
+        weight_kg: 0,
+        reps:
+          recordType ===
+          'time'
+            ? 0
+            : 10,
+        duration_seconds:
+          recordType ===
+          'time'
+            ? 60
+            : 0,
+      })),
+
+    rest_seconds:
+      recordType ===
+      'weight_reps'
+        ? 90
+        : 60,
+  };
+}
 
 function createEmptyDragRuntime(): DragRuntime {
   return {
@@ -110,6 +193,167 @@ function createEmptyDragRuntime(): DragRuntime {
 
     metrics: [],
   };
+}
+
+function normalizeSetTargets(
+  item: DraftItem,
+): RoutineSetTarget[] {
+  const recordType =
+    item.record_type ??
+    'weight_reps';
+
+  const targetSets =
+    Math.max(
+      1,
+      Number(
+        item.target_sets ??
+          3,
+      ) || 3,
+    );
+
+  const fallbackWeight =
+    Math.max(
+      0,
+      Number(
+        item.target_weight_kg ??
+          0,
+      ) || 0,
+    );
+
+  const fallbackReps =
+    Math.max(
+      1,
+      Number(
+        item.target_reps ??
+          (
+            recordType ===
+            'time'
+              ? 60
+              : 10
+          ),
+      ) ||
+        (
+          recordType ===
+          'time'
+            ? 60
+            : 10
+        ),
+    );
+
+  const sourceTargets =
+    Array.isArray(
+      item.set_targets,
+    )
+      ? item.set_targets
+      : [];
+
+  const fallbackTarget =
+    (index: number) => {
+      const previous =
+        sourceTargets[
+          Math.max(
+            0,
+            Math.min(
+              index,
+              sourceTargets.length -
+                1,
+            ),
+          )
+        ];
+
+      if (
+        recordType ===
+        'weight_reps'
+      ) {
+        return {
+          weight_kg:
+            Number.isFinite(
+              Number(
+                previous?.weight_kg,
+              ),
+            )
+              ? Math.max(
+                  0,
+                  Number(
+                    previous?.weight_kg,
+                  ),
+                )
+              : fallbackWeight,
+
+          reps:
+            Number.isFinite(
+              Number(
+                previous?.reps,
+              ),
+            )
+              ? Math.max(
+                  1,
+                  Math.round(
+                    Number(
+                      previous?.reps,
+                    ),
+                  ),
+                )
+              : fallbackReps,
+
+          duration_seconds: 0,
+        };
+      }
+
+      if (
+        recordType ===
+        'reps_only'
+      ) {
+        return {
+          weight_kg: 0,
+          reps:
+            Number.isFinite(
+              Number(
+                previous?.reps,
+              ),
+            )
+              ? Math.max(
+                  1,
+                  Math.round(
+                    Number(
+                      previous?.reps,
+                    ),
+                  ),
+                )
+              : fallbackReps,
+          duration_seconds: 0,
+        };
+      }
+
+      return {
+        weight_kg: 0,
+        reps: 0,
+        duration_seconds:
+          Number.isFinite(
+            Number(
+              previous?.duration_seconds,
+            ),
+          )
+            ? Math.max(
+                1,
+                Math.round(
+                  Number(
+                    previous?.duration_seconds,
+                  ),
+                ),
+              )
+            : fallbackReps,
+      };
+    };
+
+  return Array.from({
+    length: targetSets,
+  }).map(
+    (_, index) =>
+      fallbackTarget(
+        index,
+      ),
+  );
 }
 
 function normalizeItems(
@@ -134,21 +378,76 @@ function normalizeItems(
   });
 
   return source.map(
-    (item, index) => ({
-      ...item,
+    (item, index) => {
+      const recordType =
+        item.record_type ??
+        'weight_reps';
 
-      order: index,
+      const targetSets =
+        Math.max(
+          1,
+          Number(
+            item.target_sets ??
+              3,
+          ) || 3,
+        );
 
-      superset_group:
-        item.superset_group &&
-        (
-          groupCounts.get(
-            item.superset_group,
-          ) ?? 0
-        ) >= 2
-          ? item.superset_group
-          : null,
-    }),
+      const normalizedItem: DraftItem = {
+        ...item,
+        order: index,
+        target_sets:
+          targetSets,
+        record_type:
+          recordType,
+        target_weight_kg:
+          recordType ===
+          'weight_reps'
+            ? Math.max(
+                0,
+                Number(
+                  item.target_weight_kg ??
+                    0,
+                ) || 0,
+              )
+            : 0,
+        superset_group:
+          item.superset_group &&
+          (
+            groupCounts.get(
+              item.superset_group,
+            ) ?? 0
+          ) >= 2
+            ? item.superset_group
+            : null,
+      };
+
+      const setTargets =
+        normalizeSetTargets(
+          normalizedItem,
+        );
+
+      const firstTarget =
+        setTargets[0];
+
+      return {
+        ...normalizedItem,
+        set_targets:
+          setTargets,
+        target_weight_kg:
+          recordType ===
+          'weight_reps'
+            ? firstTarget?.weight_kg ??
+              0
+            : 0,
+        target_reps:
+          recordType ===
+          'time'
+            ? firstTarget?.duration_seconds ??
+              60
+            : firstTarget?.reps ??
+              10,
+      };
+    },
   );
 }
 
@@ -172,6 +471,16 @@ function recordTypeLabel(
   return '시간';
 }
 
+function formatWeight(
+  value: number,
+) {
+  return Number.isInteger(
+    value,
+  )
+    ? String(value)
+    : value.toFixed(1);
+}
+
 function exerciseSummary(
   item: DraftItem,
 ) {
@@ -181,7 +490,12 @@ function exerciseSummary(
       ? formatDuration(
           item.target_reps,
         )
-      : `${item.target_reps}회`;
+      : item.record_type ===
+          'weight_reps'
+        ? `${formatWeight(
+            item.target_weight_kg,
+          )}kg · ${item.target_reps}회`
+        : `${item.target_reps}회`;
 
   return `${item.target_sets}세트 · ${target} · 휴식 ${formatDuration(
     item.rest_seconds,
@@ -449,31 +763,66 @@ export default function RoutineDetailPage() {
 
     setItems(
       (previous) => {
-        const next =
-          [...previous];
+        const safeIndex =
+          Math.min(
+            Math.max(
+              targetIndex,
+              0,
+            ),
+            previous.length,
+          );
 
         if (
-          targetIndex >= 0 &&
-          targetIndex <
-            next.length
+          safeIndex <
+          previous.length
         ) {
+          const next =
+            [...previous];
+
           next[
-            targetIndex
+            safeIndex
           ] = {
             ...next[
-              targetIndex
+              safeIndex
             ],
 
             exercise_name:
               exerciseName,
 
             record_type,
+
+            target_weight_kg:
+              0,
+
+            set_targets: [],
+
+            target_reps:
+              record_type ===
+              'time'
+                ? 60
+                : 10,
+
+            rest_seconds:
+              record_type ===
+              'weight_reps'
+                ? 90
+                : 60,
           };
+
+          return normalizeItems(
+            next,
+          );
         }
 
-        return normalizeItems(
-          next,
-        );
+        return normalizeItems([
+          ...previous,
+
+          createExerciseItem(
+            safeIndex,
+            exerciseName,
+            record_type,
+          ),
+        ]);
       },
     );
 
@@ -487,6 +836,94 @@ export default function RoutineDetailPage() {
     pendingExercise,
     setPendingExercise,
   ]);
+
+  // ─────────────────────────────────────────────
+  // Multi exercise picker result
+  // 운동 추가에서는 선택한 순서 그대로 기존 루틴 맨 아래에 붙는다.
+  // ─────────────────────────────────────────────
+
+  useEffect(() => {
+    const raw =
+      window.sessionStorage.getItem(
+        MULTI_EXERCISE_SELECTION_KEY,
+      );
+
+    if (!raw) {
+      return;
+    }
+
+    window.sessionStorage.removeItem(
+      MULTI_EXERCISE_SELECTION_KEY,
+    );
+
+    try {
+      const selection =
+        JSON.parse(
+          raw,
+        ) as MultiExerciseSelection;
+
+      if (
+        !Array.isArray(
+          selection.exercises,
+        ) ||
+        selection.exercises.length ===
+          0
+      ) {
+        return;
+      }
+
+      setItems(
+        (previous) => {
+          const safeIndex =
+            Math.min(
+              Math.max(
+                Number(
+                  selection.targetIndex,
+                ) ||
+                  previous.length,
+                0,
+              ),
+              previous.length,
+            );
+
+          const selectedItems =
+            selection.exercises.map(
+              (
+                exercise,
+                selectedIndex,
+              ) =>
+                createExerciseItem(
+                  safeIndex +
+                    selectedIndex,
+                  exercise.name,
+                  exercise.record_type,
+                ),
+            );
+
+          return normalizeItems([
+            ...previous.slice(
+              0,
+              safeIndex,
+            ),
+
+            ...selectedItems,
+
+            ...previous.slice(
+              safeIndex,
+            ),
+          ]);
+        },
+      );
+
+      setSaved(false);
+      setError('');
+    } catch (loadError) {
+      console.error(
+        '운동 선택 결과를 불러오지 못했습니다.',
+        loadError,
+      );
+    }
+  }, []);
 
   // ─────────────────────────────────────────────
   // Preserve edit draft
@@ -632,20 +1069,148 @@ export default function RoutineDetailPage() {
   ) => {
     setItems(
       (previous) =>
-        previous.map(
-          (
-            item,
-            itemIndex,
-          ) =>
-            itemIndex ===
-            index
-              ? {
-                  ...item,
+        normalizeItems(
+          previous.map(
+            (
+              item,
+              itemIndex,
+            ) => {
+              if (
+                itemIndex !==
+                index
+              ) {
+                return item;
+              }
 
-                  [field]:
-                    value,
-                }
-              : item,
+              const next = {
+                ...item,
+                [field]: value,
+              } as DraftItem;
+
+              if (
+                field ===
+                'target_sets'
+              ) {
+                next.target_sets =
+                  Math.max(
+                    1,
+                    Math.round(
+                      Number(
+                        value,
+                      ) || 1,
+                    ),
+                  );
+              }
+
+              if (
+                next.record_type !==
+                'weight_reps'
+              ) {
+                next.target_weight_kg =
+                  0;
+              }
+
+              return next;
+            },
+          ),
+        ),
+    );
+
+    markDirty();
+  };
+
+  const updateSetTarget = (
+    itemIndex: number,
+    setIndex: number,
+    field:
+      | 'weight_kg'
+      | 'reps'
+      | 'duration_seconds',
+    rawValue: number,
+  ) => {
+    setItems(
+      (previous) =>
+        normalizeItems(
+          previous.map(
+            (
+              item,
+              index,
+            ) => {
+              if (
+                index !==
+                itemIndex
+              ) {
+                return item;
+              }
+
+              const targets =
+                normalizeSetTargets(
+                  item,
+                );
+
+              const nextValue =
+                field ===
+                'weight_kg'
+                  ? Math.max(
+                      0,
+                      Math.round(
+                        rawValue *
+                          10,
+                      ) / 10,
+                    )
+                  : Math.max(
+                      1,
+                      Math.round(
+                        rawValue,
+                      ),
+                    );
+
+              const nextTargets =
+                targets.map(
+                  (
+                    target,
+                    targetIndex,
+                  ) => {
+                    // 수정한 세트 이전 값은 유지하고,
+                    // 선택한 세트부터 아래 세트에 동일값을 전파한다.
+                    if (
+                      targetIndex <
+                      setIndex
+                    ) {
+                      return target;
+                    }
+
+                    return {
+                      ...target,
+                      [field]:
+                        nextValue,
+                    };
+                  },
+                );
+
+              const firstTarget =
+                nextTargets[0];
+
+              return {
+                ...item,
+                set_targets:
+                  nextTargets,
+                target_weight_kg:
+                  item.record_type ===
+                  'weight_reps'
+                    ? firstTarget?.weight_kg ??
+                      0
+                    : 0,
+                target_reps:
+                  item.record_type ===
+                  'time'
+                    ? firstTarget?.duration_seconds ??
+                      60
+                    : firstTarget?.reps ??
+                      10,
+              };
+            },
+          ),
         ),
     );
 
@@ -673,24 +1238,17 @@ export default function RoutineDetailPage() {
     const index =
       items.length;
 
-    const next =
-      normalizeItems([
-        ...items,
-        DEFAULT_ITEM(index),
-      ]);
-
-    setItems(next);
-
     setEditRoutineDraft({
       routineId: id,
       name,
-      items: next,
+      items,
     });
 
-    markDirty();
+    setDetailIndex(null);
+    setMenuIndex(null);
 
     router.push(
-      `/exercises/select?idx=${index}`,
+      `/exercises/select?idx=${index}&mode=multi`,
     );
   };
 
@@ -2213,217 +2771,682 @@ export default function RoutineDetailPage() {
         </div>
       </footer>
 
-      {/* Exercise detail sheet */}
+      {/* Exercise detail page — workout screen style */}
       {detailIndex !==
         null &&
         activeItem && (
-          <div
-            className="fixed inset-0 z-[70] flex items-end bg-black/70 backdrop-blur-sm"
-            onClick={() =>
-              setDetailIndex(
-                null,
-              )
-            }
-          >
-            <div
-              className="mx-auto w-full max-w-md rounded-t-[28px] border-t border-zinc-800 bg-zinc-950 px-5 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4"
-              onClick={(
-                event,
-              ) =>
-                event.stopPropagation()
-              }
-            >
-              <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-zinc-700" />
+          <div className="fixed inset-0 z-[70] overflow-y-auto bg-zinc-950">
+            <div className="mx-auto min-h-screen w-full max-w-md">
+              {/* Header */}
+              <header className="sticky top-0 z-30 border-b border-white/[0.05] bg-zinc-950/95 backdrop-blur-xl">
+                <div className="px-5 pb-4 pt-9">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDetailIndex(
+                          null,
+                        )
+                      }
+                      className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors active:bg-zinc-900 active:text-white"
+                      aria-label="운동 목록으로 돌아가기"
+                    >
+                      <ChevronLeft
+                        size={22}
+                      />
+                    </button>
 
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
-                    운동 설정
-                  </p>
+                    <div className="flex max-w-[170px] items-center justify-center gap-1">
+                      {items.map(
+                        (
+                          _,
+                          index,
+                        ) => (
+                          <div
+                            key={
+                              index
+                            }
+                            className={`h-1.5 rounded-full transition-all ${
+                              index ===
+                              detailIndex
+                                ? 'w-6 bg-blue-500'
+                                : 'w-3 bg-zinc-700'
+                            }`}
+                          />
+                        ),
+                      )}
+                    </div>
 
-                  <h2 className="mt-1 truncate text-xl font-bold">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMenuIndex(
+                          detailIndex,
+                        )
+                      }
+                      className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors active:bg-zinc-900 active:text-white"
+                      aria-label="운동 메뉴"
+                    >
+                      <MoreHorizontal
+                        size={20}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 h-0.5 overflow-hidden rounded-full bg-zinc-900">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-300"
+                      style={{
+                        width: `${
+                          items.length >
+                          0
+                            ? (
+                                (
+                                  detailIndex +
+                                  1
+                                ) /
+                                items.length
+                              ) *
+                              100
+                            : 0
+                        }%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </header>
+
+              <main>
+                {/* Exercise info */}
+                <section className="px-5 pb-6 pt-7">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-blue-400">
+                      운동{' '}
+                      {detailIndex +
+                        1}{' '}
+                      /{' '}
+                      {
+                        items.length
+                      }
+                    </p>
+
+                    <span className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-zinc-400">
+                      {recordTypeLabel(
+                        activeItem.record_type,
+                      )}
+                    </span>
+                  </div>
+
+                  <h1 className="mt-3 text-2xl font-bold leading-tight tracking-tight">
                     {
                       activeItem.exercise_name
                     }
-                  </h2>
-                </div>
+                  </h1>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setDetailIndex(
-                      null,
-                    )
-                  }
-                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-zinc-500"
-                  aria-label="닫기"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+                  {activeItem.record_type ===
+                    'weight_reps' && (
+                    <p className="mt-4 text-sm text-zinc-500">
+                      루틴 목표{' '}
+                      <span className="font-semibold text-zinc-300">
+                        {
+                          normalizeSetTargets(
+                            activeItem,
+                          )[0]
+                            ?.weight_kg ??
+                          0
+                        }
+                        kg ×{' '}
+                        {
+                          normalizeSetTargets(
+                            activeItem,
+                          )[0]
+                            ?.reps ??
+                          10
+                        }
+                        회
+                      </span>
+                      {' · '}
+                      휴식{' '}
+                      {
+                        activeItem.rest_seconds
+                      }
+                      초
+                    </p>
+                  )}
 
-              <div className="mt-6">
-                <p className="mb-2 text-xs font-semibold text-zinc-500">
-                  기록 방식
-                </p>
+                  {activeItem.record_type ===
+                    'reps_only' && (
+                    <p className="mt-4 text-sm text-zinc-500">
+                      루틴 목표{' '}
+                      <span className="font-semibold text-zinc-300">
+                        {
+                          normalizeSetTargets(
+                            activeItem,
+                          )[0]
+                            ?.reps ??
+                          10
+                        }
+                        회
+                      </span>
+                      {' · '}
+                      휴식{' '}
+                      {
+                        activeItem.rest_seconds
+                      }
+                      초
+                    </p>
+                  )}
 
-                <div className="grid grid-cols-3 gap-1 rounded-2xl bg-zinc-900 p-1">
-                  {(
-                    [
-                      'weight_reps',
-                      'reps_only',
-                      'time',
-                    ] as RecordType[]
-                  ).map(
-                    (
-                      recordType,
-                    ) => {
-                      const active =
-                        activeItem.record_type ===
-                        recordType;
+                  {activeItem.record_type ===
+                    'time' && (
+                    <p className="mt-4 text-sm text-zinc-500">
+                      루틴 목표{' '}
+                      <span className="font-semibold text-zinc-300">
+                        {formatDuration(
+                          normalizeSetTargets(
+                            activeItem,
+                          )[0]
+                            ?.duration_seconds ??
+                            60,
+                        )}
+                      </span>
+                      {' · '}
+                      휴식{' '}
+                      {
+                        activeItem.rest_seconds
+                      }
+                      초
+                    </p>
+                  )}
+                </section>
 
-                      return (
-                        <button
-                          key={
-                            recordType
-                          }
-                          type="button"
-                          onClick={() =>
-                            updateItem(
-                              detailIndex,
-                              'record_type',
-                              recordType,
+                {/* Set table */}
+                <section className="border-y border-zinc-900 bg-zinc-950/50 px-4 py-5">
+                  {activeItem.record_type ===
+                    'weight_reps' && (
+                    <div className="grid grid-cols-[48px_1fr_1fr] gap-2 px-1 text-center text-[11px] font-semibold text-zinc-600">
+                      <span>
+                        세트
+                      </span>
+
+                      <span>
+                        KG
+                      </span>
+
+                      <span>
+                        횟수
+                      </span>
+                    </div>
+                  )}
+
+                  {activeItem.record_type ===
+                    'reps_only' && (
+                    <div className="grid grid-cols-[56px_1fr] gap-3 px-1 text-center text-[11px] font-semibold text-zinc-600">
+                      <span>
+                        세트
+                      </span>
+
+                      <span>
+                        횟수
+                      </span>
+                    </div>
+                  )}
+
+                  {activeItem.record_type ===
+                    'time' && (
+                    <div className="grid grid-cols-[56px_1fr] gap-3 px-1 text-center text-[11px] font-semibold text-zinc-600">
+                      <span>
+                        세트
+                      </span>
+
+                      <span>
+                        운동 시간
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="mt-2 space-y-2">
+                    {normalizeSetTargets(
+                      activeItem,
+                    ).map(
+                      (
+                        target,
+                        setIndex,
+                      ) => {
+                        if (
+                          activeItem.record_type ===
+                          'weight_reps'
+                        ) {
+                          return (
+                            <div
+                              key={
+                                setIndex
+                              }
+                              className="grid grid-cols-[48px_1fr_1fr] gap-2 rounded-2xl p-1.5"
+                            >
+                              <div className="flex h-14 items-center justify-center rounded-xl bg-zinc-900 text-lg font-bold text-zinc-500">
+                                {
+                                  setIndex +
+                                  1
+                                }
+                              </div>
+
+                              <RoutineNumberCell
+                                value={
+                                  formatWeight(
+                                    target.weight_kg,
+                                  )
+                                }
+                                decimal
+                                label={`${setIndex + 1}세트 무게`}
+                                unit="kg"
+                                onChange={(
+                                  value,
+                                ) =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'weight_kg',
+                                    Number(
+                                      value ||
+                                        0,
+                                    ),
+                                  )
+                                }
+                                onMinus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'weight_kg',
+                                    target.weight_kg -
+                                      1,
+                                  )
+                                }
+                                onPlus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'weight_kg',
+                                    target.weight_kg +
+                                      1,
+                                  )
+                                }
+                                onFastMinus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'weight_kg',
+                                    target.weight_kg -
+                                      5,
+                                  )
+                                }
+                                onFastPlus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'weight_kg',
+                                    target.weight_kg +
+                                      5,
+                                  )
+                                }
+                              />
+
+                              <RoutineNumberCell
+                                value={
+                                  String(
+                                    target.reps,
+                                  )
+                                }
+                                label={`${setIndex + 1}세트 횟수`}
+                                unit="회"
+                                onChange={(
+                                  value,
+                                ) =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    Number(
+                                      value ||
+                                        1,
+                                    ),
+                                  )
+                                }
+                                onMinus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps -
+                                      1,
+                                  )
+                                }
+                                onPlus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps +
+                                      1,
+                                  )
+                                }
+                                onFastMinus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps -
+                                      5,
+                                  )
+                                }
+                                onFastPlus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps +
+                                      5,
+                                  )
+                                }
+                              />
+                            </div>
+                          );
+                        }
+
+                        if (
+                          activeItem.record_type ===
+                          'reps_only'
+                        ) {
+                          return (
+                            <div
+                              key={
+                                setIndex
+                              }
+                              className="grid grid-cols-[56px_1fr] gap-3 rounded-2xl p-1.5"
+                            >
+                              <div className="flex h-14 items-center justify-center rounded-xl bg-zinc-900 text-lg font-bold text-zinc-500">
+                                {
+                                  setIndex +
+                                  1
+                                }
+                              </div>
+
+                              <RoutineNumberCell
+                                value={
+                                  String(
+                                    target.reps,
+                                  )
+                                }
+                                label={`${setIndex + 1}세트 횟수`}
+                                unit="회"
+                                onChange={(
+                                  value,
+                                ) =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    Number(
+                                      value ||
+                                        1,
+                                    ),
+                                  )
+                                }
+                                onMinus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps -
+                                      1,
+                                  )
+                                }
+                                onPlus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps +
+                                      1,
+                                  )
+                                }
+                                onFastMinus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps -
+                                      5,
+                                  )
+                                }
+                                onFastPlus={() =>
+                                  updateSetTarget(
+                                    detailIndex,
+                                    setIndex,
+                                    'reps',
+                                    target.reps +
+                                      5,
+                                  )
+                                }
+                              />
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={
+                              setIndex
+                            }
+                            className="grid grid-cols-[56px_1fr] gap-3 rounded-2xl p-1.5"
+                          >
+                            <div className="flex h-14 items-center justify-center rounded-xl bg-zinc-900 text-lg font-bold text-zinc-500">
+                              {
+                                setIndex +
+                                1
+                              }
+                            </div>
+
+                            <RoutineNumberCell
+                              value={
+                                String(
+                                  target.duration_seconds,
+                                )
+                              }
+                              label={`${setIndex + 1}세트 운동 시간`}
+                              unit="초"
+                              onChange={(
+                                value,
+                              ) =>
+                                updateSetTarget(
+                                  detailIndex,
+                                  setIndex,
+                                  'duration_seconds',
+                                  Number(
+                                    value ||
+                                      1,
+                                  ),
+                                )
+                              }
+                              onMinus={() =>
+                                updateSetTarget(
+                                  detailIndex,
+                                  setIndex,
+                                  'duration_seconds',
+                                  target.duration_seconds -
+                                    15,
+                                )
+                              }
+                              onPlus={() =>
+                                updateSetTarget(
+                                  detailIndex,
+                                  setIndex,
+                                  'duration_seconds',
+                                  target.duration_seconds +
+                                    15,
+                                )
+                              }
+                              onFastMinus={() =>
+                                updateSetTarget(
+                                  detailIndex,
+                                  setIndex,
+                                  'duration_seconds',
+                                  target.duration_seconds -
+                                    30,
+                                )
+                              }
+                              onFastPlus={() =>
+                                updateSetTarget(
+                                  detailIndex,
+                                  setIndex,
+                                  'duration_seconds',
+                                  target.duration_seconds +
+                                    30,
+                                )
+                              }
+                            />
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between px-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateItem(
+                          detailIndex,
+                          'target_sets',
+                          activeItem.target_sets +
+                            1,
+                        )
+                      }
+                      className="flex items-center gap-1.5 text-sm font-semibold text-blue-400 transition-colors active:text-blue-300"
+                    >
+                      <Plus
+                        size={19}
+                      />
+
+                      세트 추가
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        activeItem.target_sets <=
+                        1
+                      }
+                      onClick={() =>
+                        updateItem(
+                          detailIndex,
+                          'target_sets',
+                          Math.max(
+                            1,
+                            activeItem.target_sets -
+                              1,
+                          ),
+                        )
+                      }
+                      className="flex items-center gap-1.5 text-sm font-semibold text-amber-400 transition-colors disabled:cursor-not-allowed disabled:opacity-25"
+                    >
+                      <Minus
+                        size={19}
+                      />
+
+                      세트 삭제
+                    </button>
+                  </div>
+                </section>
+
+                {/* Rest */}
+                <section className="px-5 py-6">
+                  <div className="rounded-3xl border border-zinc-800 bg-zinc-900/45 p-5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-200">
+                          휴식 시간
+                        </p>
+
+                        <p className="mt-1 text-[11px] leading-relaxed text-zinc-600">
+                          모든 세트 사이에 적용됩니다.
+                        </p>
+                      </div>
+
+                      <div className="w-[180px]">
+                        <RoutineNumberCell
+                          value={
+                            String(
+                              activeItem.rest_seconds,
                             )
                           }
-                          className={`rounded-xl px-2 py-2.5 text-[11px] font-semibold transition-colors ${
-                            active
-                              ? 'bg-zinc-700 text-white'
-                              : 'text-zinc-600'
-                          }`}
-                        >
-                          {recordTypeLabel(
-                            recordType,
-                          )}
-                        </button>
-                      );
-                    },
-                  )}
-                </div>
-              </div>
+                          label="휴식 시간"
+                          unit="초"
+                          onChange={(
+                            value,
+                          ) =>
+                            updateItem(
+                              detailIndex,
+                              'rest_seconds',
+                              Math.max(
+                                0,
+                                Number(
+                                  value ||
+                                    0,
+                                ),
+                              ),
+                            )
+                          }
+                          onMinus={() =>
+                            updateItem(
+                              detailIndex,
+                              'rest_seconds',
+                              Math.max(
+                                0,
+                                activeItem.rest_seconds -
+                                  15,
+                              ),
+                            )
+                          }
+                          onPlus={() =>
+                            updateItem(
+                              detailIndex,
+                              'rest_seconds',
+                              activeItem.rest_seconds +
+                                15,
+                            )
+                          }
+                          onFastMinus={() =>
+                            updateItem(
+                              detailIndex,
+                              'rest_seconds',
+                              Math.max(
+                                0,
+                                activeItem.rest_seconds -
+                                  30,
+                              ),
+                            )
+                          }
+                          onFastPlus={() =>
+                            updateItem(
+                              detailIndex,
+                              'rest_seconds',
+                              activeItem.rest_seconds +
+                                30,
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                <TargetControl
-                  label="세트"
-                  displayValue={`${activeItem.target_sets}`}
-                  onDecrease={() =>
-                    updateItem(
-                      detailIndex,
-                      'target_sets',
-                      Math.max(
-                        1,
-                        activeItem.target_sets -
-                          1,
-                      ),
-                    )
-                  }
-                  onIncrease={() =>
-                    updateItem(
-                      detailIndex,
-                      'target_sets',
-                      activeItem.target_sets +
-                        1,
-                    )
-                  }
-                />
-
-                <TargetControl
-                  label={
-                    activeItem.record_type ===
-                    'time'
-                      ? '목표 시간'
-                      : '목표 횟수'
-                  }
-                  displayValue={
-                    activeItem.record_type ===
-                    'time'
-                      ? formatDuration(
-                          activeItem.target_reps,
-                        )
-                      : `${activeItem.target_reps}회`
-                  }
-                  onDecrease={() =>
-                    updateItem(
-                      detailIndex,
-                      'target_reps',
-                      Math.max(
-                        1,
-                        activeItem.target_reps -
-                          (
-                            activeItem.record_type ===
-                            'time'
-                              ? 15
-                              : 1
-                          ),
-                      ),
-                    )
-                  }
-                  onIncrease={() =>
-                    updateItem(
-                      detailIndex,
-                      'target_reps',
-                      activeItem.target_reps +
-                        (
-                          activeItem.record_type ===
-                          'time'
-                            ? 15
-                            : 1
-                        ),
-                    )
-                  }
-                />
-
-                <TargetControl
-                  label="휴식"
-                  displayValue={formatDuration(
-                    activeItem.rest_seconds,
-                  )}
-                  onDecrease={() =>
-                    updateItem(
-                      detailIndex,
-                      'rest_seconds',
-                      Math.max(
-                        0,
-                        activeItem.rest_seconds -
-                          15,
-                      ),
-                    )
-                  }
-                  onIncrease={() =>
-                    updateItem(
-                      detailIndex,
-                      'rest_seconds',
-                      activeItem.rest_seconds +
-                        15,
-                    )
-                  }
-                />
-              </div>
-
-              <p className="mt-5 rounded-2xl bg-zinc-900/60 px-4 py-3 text-[11px] leading-relaxed text-zinc-600">
-                실제 수행 무게와 횟수는 운동 중에도 세트별로 바로 조절할 수 있습니다.
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setDetailIndex(
-                    null,
-                  )
-                }
-                className="mt-4 flex w-full items-center justify-center rounded-2xl bg-blue-600 py-3.5 text-sm font-bold text-white transition-colors active:bg-blue-500"
-              >
-                설정 완료
-              </button>
+                  <div className="mt-5 rounded-2xl border border-blue-500/15 bg-blue-500/[0.05] px-4 py-3">
+                    <p className="text-[11px] leading-relaxed text-zinc-500">
+                      세트의 무게·횟수·시간을 수정하면 선택한 세트부터 아래 세트까지 같은 값으로 적용됩니다.
+                    </p>
+                  </div>
+                </section>
+              </main>
             </div>
           </div>
         )}
@@ -2511,52 +3534,803 @@ export default function RoutineDetailPage() {
   );
 }
 
+function RoutineNumberCell({
+  value,
+  decimal = false,
+  label,
+  unit,
+  onChange,
+  onMinus,
+  onPlus,
+  onFastMinus,
+  onFastPlus,
+}: {
+  value: string;
+  decimal?: boolean;
+  label: string;
+  unit: string;
+  onChange: (
+    value: string,
+  ) => void;
+  onMinus: () => void;
+  onPlus: () => void;
+  onFastMinus: () => void;
+  onFastPlus: () => void;
+}) {
+  const [
+    keypadOpen,
+    setKeypadOpen,
+  ] = useState(false);
+
+  const appendDigit = (
+    digit: string,
+  ) => {
+    if (digit === '.') {
+      if (
+        !decimal ||
+        value.includes('.')
+      ) {
+        return;
+      }
+
+      onChange(
+        value.length === 0
+          ? '0.'
+          : `${value}.`,
+      );
+
+      return;
+    }
+
+    if (value === '0') {
+      onChange(digit);
+      return;
+    }
+
+    onChange(
+      `${value}${digit}`,
+    );
+  };
+
+  const backspace = () => {
+    if (!value) return;
+
+    onChange(
+      value.slice(0, -1),
+    );
+  };
+
+  const clearValue = () => {
+    onChange('');
+  };
+
+  const keypadButtonClass =
+    'flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-xl font-semibold text-white transition active:scale-[0.97] active:bg-zinc-800';
+
+  return (
+    <>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() =>
+            setKeypadOpen(true)
+          }
+          className="h-14 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-8 text-center text-lg font-bold text-white transition-colors active:border-blue-500"
+        >
+          {value || '0'}
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onMinus();
+          }}
+          className="absolute left-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 active:bg-zinc-800 active:text-white"
+          aria-label={`${label} 감소`}
+        >
+          −
+        </button>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onPlus();
+          }}
+          className="absolute right-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 active:bg-zinc-800 active:text-white"
+          aria-label={`${label} 증가`}
+        >
+          +
+        </button>
+      </div>
+
+      {keypadOpen && (
+        <div
+          className="fixed inset-0 z-[150] flex items-end bg-black/65 backdrop-blur-sm"
+          onClick={() =>
+            setKeypadOpen(
+              false,
+            )
+          }
+        >
+          <div
+            className="mx-auto w-full max-w-md rounded-t-[28px] border-t border-zinc-800 bg-zinc-950 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+            onClick={(
+              event,
+            ) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700" />
+
+            <div className="mb-4 text-center">
+              <p className="text-xs font-medium text-zinc-500">
+                {label}
+              </p>
+
+              <div className="mt-1 flex items-baseline justify-center gap-1">
+                <span className="text-3xl font-bold text-white">
+                  {value || '0'}
+                </span>
+
+                <span className="text-sm font-medium text-zinc-500">
+                  {unit}
+                </span>
+              </div>
+            </div>
+
+            <div className="mb-3 grid grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={
+                  onFastMinus
+                }
+                className="h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-sm font-bold text-zinc-300 active:bg-zinc-800"
+              >
+                {unit === '초'
+                  ? '-30'
+                  : '-5'}
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  onMinus
+                }
+                className="h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-sm font-bold text-zinc-300 active:bg-zinc-800"
+              >
+                {unit === '초'
+                  ? '-15'
+                  : '-1'}
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  onPlus
+                }
+                className="h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-sm font-bold text-zinc-300 active:bg-zinc-800"
+              >
+                {unit === '초'
+                  ? '+15'
+                  : '+1'}
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  onFastPlus
+                }
+                className="h-11 rounded-xl border border-blue-500/20 bg-blue-500/10 text-sm font-bold text-blue-400 active:bg-blue-500/20"
+              >
+                {unit === '초'
+                  ? '+30'
+                  : '+5'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                '1',
+                '2',
+                '3',
+                '4',
+                '5',
+                '6',
+                '7',
+                '8',
+                '9',
+              ].map(
+                (digit) => (
+                  <button
+                    key={
+                      digit
+                    }
+                    type="button"
+                    onClick={() =>
+                      appendDigit(
+                        digit,
+                      )
+                    }
+                    className={
+                      keypadButtonClass
+                    }
+                  >
+                    {digit}
+                  </button>
+                ),
+              )}
+
+              {decimal ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    appendDigit(
+                      '.',
+                    )
+                  }
+                  className={
+                    keypadButtonClass
+                  }
+                >
+                  .
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={
+                    clearValue
+                  }
+                  className="flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-sm font-semibold text-zinc-400 active:bg-zinc-800"
+                >
+                  초기화
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  appendDigit(
+                    '0',
+                  )
+                }
+                className={
+                  keypadButtonClass
+                }
+              >
+                0
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  backspace
+                }
+                className="flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-xl font-semibold text-zinc-300 active:bg-zinc-800"
+                aria-label="한 자리 삭제"
+              >
+                ⌫
+              </button>
+            </div>
+
+            {decimal && (
+              <button
+                type="button"
+                onClick={
+                  clearValue
+                }
+                className="mt-2 h-10 w-full rounded-xl text-xs font-medium text-zinc-500 active:bg-zinc-900"
+              >
+                입력값 초기화
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                setKeypadOpen(
+                  false,
+                )
+              }
+              className="mt-3 h-14 w-full rounded-2xl bg-blue-600 text-base font-bold text-white active:bg-blue-500"
+            >
+              완료
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function TargetControl({
   label,
-  displayValue,
-  onDecrease,
-  onIncrease,
+  value,
+  unit,
+  step,
+  fastStep,
+  min,
+  decimal = false,
+  onChange,
 }: {
   label: string;
-  displayValue: string;
-  onDecrease: () => void;
-  onIncrease: () => void;
+  value: number;
+  unit: string;
+  step: number;
+  fastStep?: number;
+  min: number;
+  decimal?: boolean;
+  onChange: (
+    value: number,
+  ) => void;
 }) {
+  const [
+    keypadOpen,
+    setKeypadOpen,
+  ] = useState(false);
+
+  const [
+    keypadValue,
+    setKeypadValue,
+  ] = useState('');
+
+  const effectiveFastStep =
+    fastStep ??
+    step * 5;
+
+  const normalizeNumber = (
+    nextValue: number,
+  ) => {
+    const clamped =
+      Math.max(
+        min,
+        nextValue,
+      );
+
+    return decimal
+      ? Math.round(
+          clamped * 10,
+        ) / 10
+      : Math.round(
+          clamped,
+        );
+  };
+
+  const formatValue = (
+    nextValue: number,
+  ) => {
+    const normalized =
+      normalizeNumber(
+        nextValue,
+      );
+
+    return decimal &&
+      !Number.isInteger(
+        normalized,
+      )
+      ? normalized.toFixed(
+          1,
+        )
+      : String(
+          normalized,
+        );
+  };
+
+  const commitValue = (
+    nextValue: number,
+  ) => {
+    if (
+      !Number.isFinite(
+        nextValue,
+      )
+    ) {
+      return;
+    }
+
+    onChange(
+      normalizeNumber(
+        nextValue,
+      ),
+    );
+  };
+
+  const openKeypad = () => {
+    setKeypadValue(
+      formatValue(
+        value,
+      ),
+    );
+
+    setKeypadOpen(
+      true,
+    );
+  };
+
+  const applyKeypadValue = (
+    next: string,
+  ) => {
+    setKeypadValue(
+      next,
+    );
+
+    if (
+      next === '' ||
+      next === '.' ||
+      next.endsWith('.')
+    ) {
+      return;
+    }
+
+    const parsed =
+      Number(next);
+
+    if (
+      Number.isFinite(
+        parsed,
+      )
+    ) {
+      commitValue(
+        parsed,
+      );
+    }
+  };
+
+  const appendDigit = (
+    digit: string,
+  ) => {
+    if (
+      digit === '.'
+    ) {
+      if (
+        !decimal ||
+        keypadValue.includes(
+          '.',
+        )
+      ) {
+        return;
+      }
+
+      applyKeypadValue(
+        keypadValue.length ===
+          0
+          ? '0.'
+          : `${keypadValue}.`,
+      );
+
+      return;
+    }
+
+    applyKeypadValue(
+      keypadValue === '0'
+        ? digit
+        : `${keypadValue}${digit}`,
+    );
+  };
+
+  const backspace = () => {
+    applyKeypadValue(
+      keypadValue.slice(
+        0,
+        -1,
+      ),
+    );
+  };
+
+  const clearValue = () => {
+    setKeypadValue('');
+  };
+
+  const adjust = (
+    amount: number,
+  ) => {
+    const next =
+      normalizeNumber(
+        value + amount,
+      );
+
+    onChange(next);
+
+    if (keypadOpen) {
+      setKeypadValue(
+        formatValue(
+          next,
+        ),
+      );
+    }
+  };
+
+  const quickButtonClass =
+    'h-9 rounded-xl border border-zinc-800 bg-zinc-950/70 text-[11px] font-bold text-zinc-400 transition-colors active:bg-zinc-800 active:text-white';
+
+  const keypadButtonClass =
+    'flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-xl font-semibold text-white transition active:scale-[0.97] active:bg-zinc-800';
+
   return (
-    <div>
-      <p className="mb-2 text-center text-[10px] font-medium text-zinc-600">
-        {label}
-      </p>
+    <>
+      <div>
+        <p className="mb-2 text-center text-[10px] font-medium text-zinc-600">
+          {label}
+        </p>
 
-      <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900">
-        <div className="flex min-h-12 items-center justify-center px-1">
-          <span className="text-sm font-bold tabular-nums text-white">
-            {displayValue}
+        <button
+          type="button"
+          onClick={
+            openKeypad
+          }
+          className="relative flex h-12 w-full items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 px-8 text-sm font-bold tabular-nums text-white transition-colors active:border-blue-500"
+          aria-label={`${label} 숫자 입력`}
+        >
+          <span>
+            {formatValue(
+              value,
+            )}
           </span>
-        </div>
 
-        <div className="grid grid-cols-2 border-t border-zinc-800">
+          <span className="absolute right-2 text-[9px] font-medium text-zinc-600">
+            {unit}
+          </span>
+        </button>
+
+        <div className="mt-2 grid grid-cols-4 gap-1.5">
           <button
             type="button"
-            onClick={
-              onDecrease
+            onClick={() =>
+              adjust(
+                -effectiveFastStep,
+              )
             }
-            className="py-2.5 text-base text-zinc-500 transition-colors active:bg-zinc-800 active:text-white"
+            className={
+              quickButtonClass
+            }
           >
-            −
+            -{effectiveFastStep}
           </button>
 
           <button
             type="button"
-            onClick={
-              onIncrease
+            onClick={() =>
+              adjust(
+                -step,
+              )
             }
-            className="border-l border-zinc-800 py-2.5 text-base text-zinc-500 transition-colors active:bg-zinc-800 active:text-white"
+            className={
+              quickButtonClass
+            }
           >
-            +
+            -{step}
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              adjust(
+                step,
+              )
+            }
+            className={
+              quickButtonClass
+            }
+          >
+            +{step}
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              adjust(
+                effectiveFastStep,
+              )
+            }
+            className="h-9 rounded-xl border border-blue-500/20 bg-blue-500/10 text-[11px] font-bold text-blue-400 active:bg-blue-500/20"
+          >
+            +{effectiveFastStep}
           </button>
         </div>
       </div>
-    </div>
+
+      {keypadOpen && (
+        <div
+          className="fixed inset-0 z-[150] flex items-end bg-black/65 backdrop-blur-sm"
+          onClick={() =>
+            setKeypadOpen(
+              false,
+            )
+          }
+        >
+          <div
+            className="mx-auto w-full max-w-md rounded-t-[28px] border-t border-zinc-800 bg-zinc-950 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] pt-4 shadow-2xl"
+            onClick={(
+              event,
+            ) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700" />
+
+            <div className="mb-4 text-center">
+              <p className="text-xs font-medium text-zinc-500">
+                {label}
+              </p>
+
+              <div className="mt-1 flex items-baseline justify-center gap-1">
+                <span className="text-3xl font-bold text-white">
+                  {keypadValue ||
+                    '0'}
+                </span>
+
+                <span className="text-sm font-medium text-zinc-500">
+                  {unit}
+                </span>
+              </div>
+            </div>
+
+            <div className="mb-3 grid grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  adjust(
+                    -effectiveFastStep,
+                  )
+                }
+                className={
+                  quickButtonClass
+                }
+              >
+                -{effectiveFastStep}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  adjust(
+                    -step,
+                  )
+                }
+                className={
+                  quickButtonClass
+                }
+              >
+                -{step}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  adjust(
+                    step,
+                  )
+                }
+                className={
+                  quickButtonClass
+                }
+              >
+                +{step}
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  adjust(
+                    effectiveFastStep,
+                  )
+                }
+                className="h-9 rounded-xl border border-blue-500/20 bg-blue-500/10 text-[11px] font-bold text-blue-400 active:bg-blue-500/20"
+              >
+                +{effectiveFastStep}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                '1',
+                '2',
+                '3',
+                '4',
+                '5',
+                '6',
+                '7',
+                '8',
+                '9',
+              ].map(
+                (digit) => (
+                  <button
+                    key={
+                      digit
+                    }
+                    type="button"
+                    onClick={() =>
+                      appendDigit(
+                        digit,
+                      )
+                    }
+                    className={
+                      keypadButtonClass
+                    }
+                  >
+                    {digit}
+                  </button>
+                ),
+              )}
+
+              {decimal ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    appendDigit(
+                      '.',
+                    )
+                  }
+                  className={
+                    keypadButtonClass
+                  }
+                >
+                  .
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={
+                    clearValue
+                  }
+                  className="flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-sm font-semibold text-zinc-400 active:bg-zinc-800"
+                >
+                  초기화
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  appendDigit(
+                    '0',
+                  )
+                }
+                className={
+                  keypadButtonClass
+                }
+              >
+                0
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  backspace
+                }
+                className="flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-xl font-semibold text-zinc-300 active:bg-zinc-800"
+                aria-label="한 자리 삭제"
+              >
+                ⌫
+              </button>
+            </div>
+
+            {decimal && (
+              <button
+                type="button"
+                onClick={
+                  clearValue
+                }
+                className="mt-2 h-10 w-full rounded-xl text-xs font-medium text-zinc-500 active:bg-zinc-900"
+              >
+                입력값 초기화
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                setKeypadOpen(
+                  false,
+                )
+              }
+              className="mt-3 h-14 w-full rounded-2xl bg-blue-600 text-base font-bold text-white transition active:bg-blue-500"
+            >
+              완료
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

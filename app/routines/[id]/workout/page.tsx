@@ -46,6 +46,7 @@ import {
 
 import type {
   RecordType,
+  RoutineSetTarget,
   SetLog,
 } from '@/lib/types';
 
@@ -81,6 +82,7 @@ function StartScreen({
     exercise_name: string;
     target_sets: number;
     target_reps: number;
+    target_weight_kg: number;
     rest_seconds: number;
     record_type: RecordType;
   }[];
@@ -170,7 +172,16 @@ function StartScreen({
                       ? `목표 ${formatDuration(
                           exercise.target_reps,
                         )}`
-                      : `${exercise.target_reps}회`}
+                      : exercise.record_type ===
+                          'weight_reps' &&
+                        Number(
+                          exercise.target_weight_kg ??
+                            0,
+                        ) > 0
+                        ? `${Number(
+                            exercise.target_weight_kg,
+                          )}kg × ${exercise.target_reps}회`
+                        : `${exercise.target_reps}회`}
 
                     {' · '}
                     휴식 {exercise.rest_seconds}초
@@ -217,6 +228,8 @@ function ExerciseScreen({
   currentSet,
   targetSets,
   targetReps,
+  targetWeight,
+  setTargets,
   restSeconds,
 
   recordType,
@@ -248,6 +261,8 @@ function ExerciseScreen({
   currentSet: number;
   targetSets: number;
   targetReps: number;
+  targetWeight: number;
+  setTargets: RoutineSetTarget[];
   restSeconds: number;
 
   recordType: RecordType;
@@ -354,26 +369,68 @@ function ExerciseScreen({
               setNumber,
           );
 
+        const routineTarget =
+          setTargets[index];
+
+        const hasRoutineTarget =
+          Boolean(
+            routineTarget,
+          );
+
+        const routineWeight =
+          recordType ===
+          'weight_reps'
+            ? Math.max(
+                0,
+                Number(
+                  routineTarget?.weight_kg ??
+                    targetWeight ??
+                    0,
+                ),
+              )
+            : 0;
+
+        const routineReps =
+          recordType ===
+          'time'
+            ? targetReps
+            : Math.max(
+                1,
+                Math.round(
+                  Number(
+                    routineTarget?.reps ??
+                      targetReps,
+                  ) ||
+                    targetReps,
+                ),
+              );
+
         return {
           weight:
-            previous &&
             recordType ===
-              'weight_reps'
-              ? String(
-                  previous.weight_kg,
-                )
+            'weight_reps'
+              ? hasRoutineTarget
+                ? String(
+                    routineWeight,
+                  )
+                : routineWeight >
+                    0
+                  ? String(
+                      routineWeight,
+                    )
+                  : previous
+                    ? String(
+                        previous.weight_kg,
+                      )
+                    : ''
               : '',
 
+          // 루틴에 저장된 세트별 목표 횟수를 그대로 사용한다.
+          // 이전 기록은 참고용으로만 표시한다.
           reps:
-            previous &&
-            recordType !==
-              'time'
-              ? String(
-                  previous.reps,
-                )
-              : String(
-                  targetReps,
-                ),
+            String(
+              routineReps,
+            ),
         };
       }),
     );
@@ -387,6 +444,8 @@ function ExerciseScreen({
     previousSessions,
     recordType,
     targetReps,
+    targetWeight,
+    setTargets,
   ]);
 
   useEffect(() => {
@@ -1180,8 +1239,20 @@ const adjustReps = (
 
           {recordType ===
             'weight_reps' && (
-            <div className="mt-5 flex items-end gap-7">
-              <div>
+            <>
+              <p className="mt-4 text-sm text-zinc-500">
+                루틴 목표{' '}
+                <span className="font-semibold text-zinc-300">
+                  {targetWeight > 0
+                    ? `${targetWeight}kg × ${targetReps}회`
+                    : `${targetReps}회`}
+                </span>
+                {' · '}
+                휴식 {restSeconds}초
+              </p>
+
+              <div className="mt-5 flex items-end gap-7">
+                <div>
                 <p className="text-[10px] text-zinc-600">
                   오늘 볼륨
                 </p>
@@ -1205,8 +1276,9 @@ const adjustReps = (
                     ? `${previousVolume.toLocaleString()}kg`
                     : '기록 없음'}
                 </p>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {recordType ===
@@ -1271,7 +1343,15 @@ const adjustReps = (
 
                 const draft =
                   drafts[index] ?? {
-                    weight: '',
+                    weight:
+                      recordType ===
+                        'weight_reps' &&
+                      targetWeight >
+                        0
+                        ? String(
+                            targetWeight,
+                          )
+                        : '',
                     reps: String(
                       targetReps,
                     ),
@@ -3110,6 +3190,39 @@ export default function WorkoutPage() {
         1
     ];
 
+  const routineSetTargets:
+    RoutineSetTarget[] =
+      Array.isArray(
+        currentExercise.set_targets,
+      )
+        ? currentExercise.set_targets
+        : [];
+
+  const currentRoutineTarget =
+    routineSetTargets[
+      activeWorkout.currentSetIndex
+    ];
+
+  const currentTargetReps =
+    recordType ===
+    'time'
+      ? Math.max(
+          1,
+          Number(
+            currentRoutineTarget?.duration_seconds ??
+              currentExercise.target_reps,
+          ) ||
+            currentExercise.target_reps,
+        )
+      : Math.max(
+          1,
+          Number(
+            currentRoutineTarget?.reps ??
+              currentExercise.target_reps,
+          ) ||
+            currentExercise.target_reps,
+        );
+
   return (
     <ExerciseScreen
       exerciseName={
@@ -3128,7 +3241,20 @@ export default function WorkoutPage() {
         currentExercise.target_sets
       }
       targetReps={
-        currentExercise.target_reps
+        currentTargetReps
+      }
+      targetWeight={
+        Math.max(
+          0,
+          Number(
+            currentRoutineTarget?.weight_kg ??
+              currentExercise.target_weight_kg ??
+              0,
+          ),
+        )
+      }
+      setTargets={
+        routineSetTargets
       }
       restSeconds={
         currentExercise.rest_seconds
