@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useState,
 } from 'react';
 
 import {
@@ -12,13 +13,10 @@ import {
 import {
   Activity,
   AlertCircle,
-  ArrowDownRight,
-  ArrowRight,
-  ArrowUpRight,
   BrainCircuit,
-  CheckCircle2,
   Dumbbell,
   Gauge,
+  RefreshCw,
   Sparkles,
   Target,
   UtensilsCrossed,
@@ -27,12 +25,139 @@ import {
 import AppShell from '@/components/AppShell';
 
 import {
+  createClient,
+} from '@/lib/supabase/client';
+
+import {
   useStore,
 } from '@/lib/store';
 
-import {
-  predict,
-} from '@/lib/prediction';
+
+type PredictionMetricKey =
+  | 'weight_kg'
+  | 'skeletal_muscle_kg'
+  | 'fat_mass_kg'
+  | 'body_fat_pct';
+
+
+interface PredictionMetricConfig {
+  key: PredictionMetricKey;
+  label: string;
+  unit: string;
+}
+
+
+interface PredictionData {
+  sourceRecordId: string;
+  endpointWindow: string;
+
+  current: {
+    weight_kg: number;
+    fat_mass_kg: number;
+    skeletal_muscle_kg: number;
+    body_fat_pct: number;
+  };
+
+  prediction: {
+    weight_kg: number;
+    fat_mass_kg: number;
+    skeletal_muscle_kg: number;
+    body_fat_pct: number;
+  };
+
+  change: {
+    weight_kg: number;
+    fat_mass_kg: number;
+    skeletal_muscle_kg: number;
+    body_fat_pct: number;
+  };
+}
+
+
+interface PredictionApiResponse {
+  model: {
+    name: string;
+    version: string;
+    endpoint_window: string;
+  };
+
+  current: {
+    measured_at: string;
+    weight_kg: number;
+    fat_mass_kg: number;
+    skeletal_muscle_kg: number;
+    body_fat_pct: number;
+  };
+
+  prediction: {
+    weight_kg: number;
+    fat_mass_kg: number;
+    skeletal_muscle_kg: number;
+    body_fat_pct: number;
+  };
+
+  change: {
+    weight_kg: number;
+    fat_mass_kg: number;
+    skeletal_muscle_kg: number;
+    body_fat_pct: number;
+  };
+
+  source: {
+    inbody_record_id: string;
+    inbody_records_used: number;
+    authenticated_user: boolean;
+  };
+
+  prediction_history_id: string | null;
+}
+
+
+interface PredictionHistoryRow {
+  source_inbody_id: string;
+  endpoint_window: string | null;
+
+  current_weight_kg: number;
+  current_fat_mass_kg: number;
+  current_skeletal_muscle_kg: number;
+  current_body_fat_pct: number;
+
+  predicted_weight_kg: number;
+  predicted_fat_mass_kg: number;
+  predicted_skeletal_muscle_kg: number;
+  predicted_body_fat_pct: number;
+
+  delta_weight_kg: number;
+  delta_fat_mass_kg: number;
+  delta_skeletal_muscle_kg: number;
+  delta_body_fat_pct: number;
+
+  created_at: string;
+}
+
+
+const PREDICTION_METRICS: PredictionMetricConfig[] = [
+  {
+    key: 'weight_kg',
+    label: '체중',
+    unit: 'kg',
+  },
+  {
+    key: 'skeletal_muscle_kg',
+    label: '골격근량',
+    unit: 'kg',
+  },
+  {
+    key: 'fat_mass_kg',
+    label: '체지방량',
+    unit: 'kg',
+  },
+  {
+    key: 'body_fat_pct',
+    label: '체지방률',
+    unit: '%',
+  },
+];
 
 
 function dateKeyDaysAgo(
@@ -53,62 +178,45 @@ function dateKeyDaysAgo(
 }
 
 
-function confidenceText(
-  confidence:
-    'low'
-    | 'medium'
-    | 'high',
+function formatMeasurementDate(
+  value: string,
 ) {
-  if (
-    confidence ===
-    'high'
-  ) {
-    return '높음';
+  if (!value) {
+    return '';
   }
 
-  if (
-    confidence ===
-    'medium'
-  ) {
-    return '보통';
-  }
-
-  return '낮음';
+  return value.includes('T')
+    ? value.slice(0, 10)
+    : value;
 }
 
 
-function confidenceClass(
-  confidence:
-    'low'
-    | 'medium'
-    | 'high',
+function daysBetween(
+  newer: string,
+  older: string,
 ) {
-  if (
-    confidence ===
-    'high'
-  ) {
-    return (
-      'border-emerald-500/20 ' +
-      'bg-emerald-500/10 ' +
-      'text-emerald-300'
-    );
-  }
+  const newerDate =
+    new Date(newer);
+
+  const olderDate =
+    new Date(older);
+
+  const diff =
+    newerDate.getTime() -
+    olderDate.getTime();
 
   if (
-    confidence ===
-    'medium'
+    !Number.isFinite(diff)
   ) {
-    return (
-      'border-amber-500/20 ' +
-      'bg-amber-500/10 ' +
-      'text-amber-300'
-    );
+    return null;
   }
 
-  return (
-    'border-zinc-700 ' +
-    'bg-zinc-800 ' +
-    'text-zinc-400'
+  return Math.max(
+    0,
+    Math.round(
+      diff /
+        86_400_000,
+    ),
   );
 }
 
@@ -130,6 +238,179 @@ function signed(
 }
 
 
+function mapPredictionHistoryRow(
+  row: PredictionHistoryRow,
+): PredictionData {
+  return {
+    sourceRecordId:
+      row.source_inbody_id,
+
+    endpointWindow:
+      row.endpoint_window ??
+      '28~35일',
+
+    current: {
+      weight_kg:
+        Number(
+          row.current_weight_kg,
+        ),
+
+      fat_mass_kg:
+        Number(
+          row.current_fat_mass_kg,
+        ),
+
+      skeletal_muscle_kg:
+        Number(
+          row.current_skeletal_muscle_kg,
+        ),
+
+      body_fat_pct:
+        Number(
+          row.current_body_fat_pct,
+        ),
+    },
+
+    prediction: {
+      weight_kg:
+        Number(
+          row.predicted_weight_kg,
+        ),
+
+      fat_mass_kg:
+        Number(
+          row.predicted_fat_mass_kg,
+        ),
+
+      skeletal_muscle_kg:
+        Number(
+          row.predicted_skeletal_muscle_kg,
+        ),
+
+      body_fat_pct:
+        Number(
+          row.predicted_body_fat_pct,
+        ),
+    },
+
+    change: {
+      weight_kg:
+        Number(
+          row.delta_weight_kg,
+        ),
+
+      fat_mass_kg:
+        Number(
+          row.delta_fat_mass_kg,
+        ),
+
+      skeletal_muscle_kg:
+        Number(
+          row.delta_skeletal_muscle_kg,
+        ),
+
+      body_fat_pct:
+        Number(
+          row.delta_body_fat_pct,
+        ),
+    },
+  };
+}
+
+
+function mapPredictionApiResponse(
+  payload: PredictionApiResponse,
+): PredictionData {
+  return {
+    sourceRecordId:
+      payload.source
+        .inbody_record_id,
+
+    endpointWindow:
+      payload.model
+        .endpoint_window ||
+      '28~35일',
+
+    current: {
+      weight_kg:
+        payload.current
+          .weight_kg,
+
+      fat_mass_kg:
+        payload.current
+          .fat_mass_kg,
+
+      skeletal_muscle_kg:
+        payload.current
+          .skeletal_muscle_kg,
+
+      body_fat_pct:
+        payload.current
+          .body_fat_pct,
+    },
+
+    prediction: {
+      weight_kg:
+        payload.prediction
+          .weight_kg,
+
+      fat_mass_kg:
+        payload.prediction
+          .fat_mass_kg,
+
+      skeletal_muscle_kg:
+        payload.prediction
+          .skeletal_muscle_kg,
+
+      body_fat_pct:
+        payload.prediction
+          .body_fat_pct,
+    },
+
+    change: {
+      weight_kg:
+        payload.change
+          .weight_kg,
+
+      fat_mass_kg:
+        payload.change
+          .fat_mass_kg,
+
+      skeletal_muscle_kg:
+        payload.change
+          .skeletal_muscle_kg,
+
+      body_fat_pct:
+        payload.change
+          .body_fat_pct,
+    },
+  };
+}
+
+
+function getPredictionErrorMessage(
+  status: number,
+  detail?: string,
+) {
+  if (status === 401) {
+    return '로그인 세션이 만료되었습니다. 다시 로그인해주세요.';
+  }
+
+  if (status === 409) {
+    return '예측에 사용할 체성분 기록이 없습니다.';
+  }
+
+  if (status >= 500) {
+    return 'AI 예측 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  }
+
+  return (
+    detail ||
+    'AI 체성분 예측을 불러오지 못했습니다.'
+  );
+}
+
+
 export default function InsightsPage() {
   const router =
     useRouter();
@@ -145,6 +426,56 @@ export default function InsightsPage() {
   const user =
     currentUser();
 
+  const inbodyRecords =
+    getInbodyRecords();
+
+  const latest =
+    inbodyRecords.at(
+      -1,
+    ) ?? null;
+
+  const previous =
+    inbodyRecords.length >=
+    2
+      ? inbodyRecords.at(
+          -2,
+        ) ?? null
+      : null;
+
+  const [
+    prediction,
+    setPrediction,
+  ] =
+    useState<PredictionData | null>(
+      null,
+    );
+
+  const [
+    predictionLoading,
+    setPredictionLoading,
+  ] =
+    useState(false);
+
+  const [
+    predictionError,
+    setPredictionError,
+  ] =
+    useState('');
+
+  const [
+    predictionRetryKey,
+    setPredictionRetryKey,
+  ] =
+    useState(0);
+
+  const [
+    selectedPredictionMetric,
+    setSelectedPredictionMetric,
+  ] =
+    useState<PredictionMetricKey>(
+      'weight_kg',
+    );
+
   useEffect(() => {
     if (!user) {
       router.replace(
@@ -159,6 +490,266 @@ export default function InsightsPage() {
     user?.id,
     router,
     loadInbodyRecords,
+  ]);
+
+  useEffect(() => {
+    if (
+      !user ||
+      !latest
+    ) {
+      setPrediction(
+        null,
+      );
+
+      setPredictionError(
+        '',
+      );
+
+      return;
+    }
+
+    let cancelled =
+      false;
+
+    const loadPrediction =
+      async () => {
+        setPredictionLoading(
+          true,
+        );
+
+        setPredictionError(
+          '',
+        );
+
+        try {
+          const supabase =
+            createClient();
+
+          const {
+            data:
+              existingPrediction,
+            error:
+              existingError,
+          } =
+            await supabase
+              .from(
+                'prediction_history',
+              )
+              .select(`
+                source_inbody_id,
+                endpoint_window,
+                current_weight_kg,
+                current_fat_mass_kg,
+                current_skeletal_muscle_kg,
+                current_body_fat_pct,
+                predicted_weight_kg,
+                predicted_fat_mass_kg,
+                predicted_skeletal_muscle_kg,
+                predicted_body_fat_pct,
+                delta_weight_kg,
+                delta_fat_mass_kg,
+                delta_skeletal_muscle_kg,
+                delta_body_fat_pct,
+                created_at
+              `)
+              .eq(
+                'user_id',
+                user.id,
+              )
+              .eq(
+                'source_inbody_id',
+                latest.id,
+              )
+              .order(
+                'created_at',
+                {
+                  ascending:
+                    false,
+                },
+              )
+              .limit(1)
+              .maybeSingle();
+
+          if (
+            existingError
+          ) {
+            console.warn(
+              'Prediction history lookup failed:',
+              existingError.message,
+            );
+          }
+
+          if (
+            existingPrediction
+          ) {
+            if (
+              !cancelled
+            ) {
+              setPrediction(
+                mapPredictionHistoryRow(
+                  existingPrediction as
+                    PredictionHistoryRow,
+                ),
+              );
+            }
+
+            return;
+          }
+
+          const {
+            data: {
+              session,
+            },
+            error:
+              sessionError,
+          } =
+            await supabase
+              .auth
+              .getSession();
+
+          if (
+            sessionError
+          ) {
+            throw new Error(
+              '로그인 정보를 확인하지 못했습니다.',
+            );
+          }
+
+          if (
+            !session
+              ?.access_token
+          ) {
+            throw new Error(
+              'AI 예측은 로그인한 사용자만 사용할 수 있습니다.',
+            );
+          }
+
+          const response =
+            await fetch(
+              '/api/predict',
+              {
+                method:
+                  'POST',
+
+                headers: {
+                  'Content-Type':
+                    'application/json',
+
+                  Authorization:
+                    `Bearer ${session.access_token}`,
+                },
+
+                body:
+                  JSON.stringify({
+                    save_prediction:
+                      false,
+                  }),
+
+                cache:
+                  'no-store',
+              },
+            );
+
+          let payload:
+            | PredictionApiResponse
+            | {
+                detail?:
+                  string;
+              }
+            | null =
+            null;
+
+          try {
+            payload =
+              await response
+                .json();
+          } catch {
+            payload =
+              null;
+          }
+
+          if (
+            !response.ok
+          ) {
+            const detail =
+              payload &&
+              'detail' in
+                payload &&
+              typeof payload.detail ===
+                'string'
+                ? payload.detail
+                : undefined;
+
+            throw new Error(
+              getPredictionErrorMessage(
+                response.status,
+                detail,
+              ),
+            );
+          }
+
+          if (
+            !payload ||
+            !(
+              'prediction' in
+              payload
+            )
+          ) {
+            throw new Error(
+              '예측 응답 형식이 올바르지 않습니다.',
+            );
+          }
+
+          if (
+            !cancelled
+          ) {
+            setPrediction(
+              mapPredictionApiResponse(
+                payload as
+                  PredictionApiResponse,
+              ),
+            );
+          }
+        } catch (
+          caught
+        ) {
+          if (
+            cancelled
+          ) {
+            return;
+          }
+
+          setPrediction(
+            null,
+          );
+
+          setPredictionError(
+            caught instanceof
+              Error
+              ? caught.message
+              : 'AI 체성분 예측을 불러오지 못했습니다.',
+          );
+        } finally {
+          if (
+            !cancelled
+          ) {
+            setPredictionLoading(
+              false,
+            );
+          }
+        }
+      };
+
+    void loadPrediction();
+
+    return () => {
+      cancelled =
+        true;
+    };
+  }, [
+    user?.id,
+    latest?.id,
+    predictionRetryKey,
   ]);
 
   const userWorkoutLogs =
@@ -196,9 +787,6 @@ export default function InsightsPage() {
         mealLogs,
       ],
     );
-
-  const inbodyRecords =
-    getInbodyRecords();
 
   const recentNutrition =
     useMemo(() => {
@@ -263,7 +851,8 @@ export default function InsightsPage() {
       }
 
       if (
-        byDate.size === 0
+        byDate.size ===
+        0
       ) {
         return {
           avgKcal: 0,
@@ -377,109 +966,6 @@ export default function InsightsPage() {
     return null;
   }
 
-  const latest =
-    inbodyRecords.at(
-      -1,
-    ) ?? null;
-
-  const previous =
-    inbodyRecords.length >=
-    2
-      ? inbodyRecords.at(
-          -2,
-        ) ?? null
-      : null;
-
-  const prediction =
-    latest
-      ? predict({
-          user: {
-            height_cm:
-              user.height_cm,
-
-            sex:
-              user.sex,
-
-            birth_year:
-              user.birth_year,
-          },
-
-          latestInbody:
-            latest,
-
-          avgDailyKcal:
-            recentNutrition
-              .avgKcal,
-
-          avgDailyProtein_g:
-            recentNutrition
-              .avgProtein,
-
-          weeklyVolume_kg:
-            weeklyWorkout
-              .volume,
-
-          days: 30,
-        })
-      : null;
-
-  /*
-   * 데이터 준비도.
-   *
-   * 모델 정확도가 아니라
-   * "현재 예측에 사용할 기록이
-   * 얼마나 갖춰져 있는가"를 표현한다.
-   */
-  let readiness = 10;
-
-  if (
-    inbodyRecords.length >=
-    1
-  ) {
-    readiness += 30;
-  }
-
-  if (
-    inbodyRecords.length >=
-    2
-  ) {
-    readiness += 10;
-  }
-
-  if (
-    recentNutrition.days >=
-    3
-  ) {
-    readiness += 10;
-  }
-
-  if (
-    recentNutrition.days >=
-    7
-  ) {
-    readiness += 15;
-  }
-
-  if (
-    recentWorkoutCount >=
-    2
-  ) {
-    readiness += 10;
-  }
-
-  if (
-    recentWorkoutCount >=
-    4
-  ) {
-    readiness += 10;
-  }
-
-  readiness =
-    Math.min(
-      readiness,
-      100,
-    );
-
   const latestWeightDelta =
     latest &&
     previous
@@ -503,11 +989,20 @@ export default function InsightsPage() {
         previous.body_fat_pct
       : null;
 
+  const previousGapDays =
+    latest &&
+    previous
+      ? daysBetween(
+          latest.measured_at,
+          previous.measured_at,
+        )
+      : null;
+
   return (
     <AppShell>
       <header className="px-5 pt-10 pb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-400">
-          FitTrack AI
+          CHAGOK AI
         </p>
 
         <h1 className="mt-2 text-2xl font-bold tracking-tight">
@@ -515,9 +1010,11 @@ export default function InsightsPage() {
         </h1>
 
         <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-          운동·식단·체성분 기록을
-          함께 분석해 현재 상태와
-          앞으로의 변화를 보여줍니다.
+          체성분 기록을 바탕으로
+          현재 상태와 앞으로의 변화를
+          보여주고, 운동·식단 기록은
+          최근 활동 요약으로 함께
+          확인합니다.
         </p>
       </header>
 
@@ -540,10 +1037,11 @@ export default function InsightsPage() {
             </h2>
 
             <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-              인바디 결과를 입력하면
-              운동과 식단 기록을 함께
-              사용해 30일 후 체성분
-              변화를 예측할 수 있습니다.
+              체성분 측정 결과를
+              입력하면 현재 기록을
+              기준으로 약 한 달 뒤
+              체성분 변화를 예측할 수
+              있습니다.
             </p>
 
             <button
@@ -564,99 +1062,132 @@ export default function InsightsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-blue-400">
-                    30일 후 체성분 예측
+                    30일 체성분 예상 추이
                   </p>
 
                   <h2 className="mt-2 text-xl font-bold">
-                    현재 패턴이 계속된다면
+                    한 달 뒤의 변화를
+                    그래프로 확인해보세요
                   </h2>
                 </div>
 
-                {prediction && (
-                  <span
-                    className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${confidenceClass(
-                      prediction.confidence,
-                    )}`}
-                  >
-                    신뢰도{' '}
-                    {confidenceText(
-                      prediction.confidence,
-                    )}
-                  </span>
-                )}
+                <span className="flex-shrink-0 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold text-blue-300">
+                  28~35일 후
+                </span>
               </div>
 
-              {prediction && (
-                <div className="mt-5 grid grid-cols-3 gap-2">
-                  <PredictionMetric
-                    label="체중"
-                    value={`${prediction.predictedWeight_kg}kg`}
-                    delta={signed(
-                      prediction.deltaWeight_kg,
-                      'kg',
-                    )}
-                    positive={
-                      prediction.deltaWeight_kg >
-                      0
-                    }
+              <p className="mt-3 text-xs leading-relaxed text-zinc-500">
+                최근 체성분 측정을
+                기준으로 AI가 예측한
+                한 달 뒤 값을 현재값과
+                연결해 예상 흐름을
+                보여줍니다.
+              </p>
+
+              {predictionLoading ? (
+                <div className="mt-5 flex min-h-56 items-center justify-center gap-2 rounded-2xl border border-zinc-800/80 bg-zinc-950/35 text-sm text-zinc-500">
+                  <RefreshCw
+                    size={16}
+                    className="animate-spin"
                   />
 
-                  <PredictionMetric
-                    label="골격근량"
-                    value={`${prediction.predictedSkeletal_kg}kg`}
-                    delta={signed(
-                      prediction.deltaSkeletal_kg,
-                      'kg',
-                    )}
-                    positive={
-                      prediction.deltaSkeletal_kg >=
-                      0
-                    }
-                  />
-
-                  <PredictionMetric
-                    label="체지방률"
-                    value={`${prediction.predictedBodyFatPct}%`}
-                    delta={signed(
-                      prediction.deltaBodyFatPct,
-                      '%',
-                    )}
-                    positive={
-                      prediction.deltaBodyFatPct >
-                      0
-                    }
-                    invert
-                  />
+                  AI 예측을 불러오는 중...
                 </div>
-              )}
+              ) : predictionError ? (
+                <div className="mt-5 rounded-2xl border border-red-900/40 bg-red-950/20 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle
+                      size={15}
+                      className="mt-0.5 flex-shrink-0 text-red-400"
+                    />
 
-              {prediction && (
-                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-zinc-800/80 pt-4 text-center">
-                  <MiniMetric
-                    label="BMR"
-                    value={`${prediction.bmr}`}
-                    suffix="kcal"
-                  />
+                    <p className="text-xs leading-relaxed text-red-300">
+                      {predictionError}
+                    </p>
+                  </div>
 
-                  <MiniMetric
-                    label="추정 TDEE"
-                    value={`${prediction.tdee}`}
-                    suffix="kcal"
-                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPredictionRetryKey(
+                        (
+                          previousKey,
+                        ) =>
+                          previousKey +
+                          1,
+                      )
+                    }
+                    className="mt-4 w-full rounded-xl border border-zinc-700 px-3 py-2.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-zinc-800"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : prediction ? (
+                <>
+                  <div className="mt-5 flex flex-wrap gap-1.5">
+                    {PREDICTION_METRICS.map(
+                      (
+                        metric,
+                      ) => {
+                        const active =
+                          selectedPredictionMetric ===
+                          metric.key;
 
-                  <MiniMetric
-                    label="에너지 수지"
-                    value={`${
+                        return (
+                          <button
+                            key={
+                              metric.key
+                            }
+                            type="button"
+                            onClick={() =>
+                              setSelectedPredictionMetric(
+                                metric.key,
+                              )
+                            }
+                            className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                              active
+                                ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
+                                : 'border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-300'
+                            }`}
+                          >
+                            {metric.label}
+                          </button>
+                        );
+                      },
+                    )}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/35 px-2 pb-2 pt-4">
+                    <PredictionTrendChart
+                      prediction={
+                        prediction
+                      }
+                      metricKey={
+                        selectedPredictionMetric
+                      }
+                    />
+                  </div>
+
+                  <PredictionTrendSummary
+                    prediction={
                       prediction
-                        .caloricBalance >
-                      0
-                        ? '+'
-                        : ''
-                    }${prediction.caloricBalance}`}
-                    suffix="kcal"
+                    }
+                    metricKey={
+                      selectedPredictionMetric
+                    }
                   />
-                </div>
-              )}
+
+                  <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
+                    그래프의 중간 구간은
+                    현재값과 AI가 예측한
+                    28~35일 후 값을
+                    연결한 시각적 예상
+                    추이입니다. AI 모델이
+                    직접 예측하는 시점은
+                    약 한 달 후입니다.
+                  </p>
+                </>
+              ) : null}
             </section>
 
             <section className="mt-7">
@@ -666,7 +1197,9 @@ export default function InsightsPage() {
                 </h2>
 
                 <span className="text-[10px] text-zinc-600">
-                  {latest.measured_at}
+                  {formatMeasurementDate(
+                    latest.measured_at,
+                  )}
                 </span>
               </div>
 
@@ -781,8 +1314,8 @@ export default function InsightsPage() {
           </div>
         </section>
 
-        <section className="mt-7 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <div className="flex items-center justify-between">
+        {latest && (
+          <section className="mt-7 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
             <div className="flex items-center gap-2">
               <Gauge
                 size={17}
@@ -790,32 +1323,55 @@ export default function InsightsPage() {
               />
 
               <p className="text-sm font-semibold">
-                예측 데이터 준비도
+                체성분 예측 기준
               </p>
             </div>
 
-            <span className="text-sm font-bold text-blue-400">
-              {readiness}%
-            </span>
-          </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <InfoMetric
+                label="기준 측정"
+                value={
+                  formatMeasurementDate(
+                    latest.measured_at,
+                  )
+                }
+              />
 
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
-            <div
-              className="h-full rounded-full bg-blue-500 transition-all"
-              style={{
-                width:
-                  `${readiness}%`,
-              }}
-            />
-          </div>
+              <InfoMetric
+                label="예측 시점"
+                value="28~35일 후"
+              />
 
-          <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-            체성분 측정, 식단 기록,
-            운동 기록이 꾸준히 쌓일수록
-            예측에 사용할 수 있는 정보가
-            많아집니다.
-          </p>
-        </section>
+              <InfoMetric
+                label="사용된 체성분"
+                value={`${inbodyRecords.length}개`}
+              />
+
+              <InfoMetric
+                label="이전 기록"
+                value={
+                  previous
+                    ? previousGapDays !==
+                      null
+                      ? `직전 ${previousGapDays}일 전`
+                      : '이전 기록 반영'
+                    : '첫 기록 기반'
+                }
+              />
+            </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
+              현재 AI 체성분 예측은
+              체성분 측정 기록의 변화
+              패턴을 사용합니다. 위의
+              운동·식단 정보는 최근
+              활동을 한눈에 보기 위한
+              요약이며 체성분 예측 모델의
+              입력값으로 사용하지
+              않습니다.
+            </p>
+          </section>
+        )}
 
         {prediction && (
           <section className="mt-7">
@@ -826,31 +1382,27 @@ export default function InsightsPage() {
               />
 
               <h2 className="text-sm font-semibold text-zinc-200">
-                이번 예측에 영향을 준 요인
+                이번 예측에 사용된 정보
               </h2>
             </div>
 
             <div className="mt-3 space-y-2">
-              {prediction.factors.map(
-                (
-                  factor,
-                ) => (
-                  <FactorRow
-                    key={
-                      factor.label
-                    }
-                    label={
-                      factor.label
-                    }
-                    description={
-                      factor.description
-                    }
-                    effect={
-                      factor.effect
-                    }
-                  />
-                ),
-              )}
+              <InsightRow
+                title="최근 체성분 측정"
+                description={`${formatMeasurementDate(
+                  latest?.measured_at ??
+                    '',
+                )} 측정값을 현재 상태의 기준으로 사용했습니다.`}
+              />
+
+              <InsightRow
+                title="이전 체성분 기록"
+                description={
+                  previous
+                    ? `현재 측정보다 이전의 체성분 기록을 개인 변화 패턴에 반영했습니다.`
+                    : '이전 측정 기록이 없어 현재 체성분을 기준으로 예측했습니다.'
+                }
+              />
             </div>
           </section>
         )}
@@ -868,14 +1420,13 @@ export default function InsightsPage() {
               </p>
 
               <p className="mt-2 text-[11px] leading-relaxed text-zinc-600">
-                현재 버전은 체성분,
-                에너지 수지, 운동량,
-                단백질 섭취를 조합한
-                설명 가능한 베이스라인
-                예측입니다. 실제 체성분
-                변화는 수분, 수면, 측정
-                조건 등 다양한 요인의
-                영향을 받을 수 있습니다.
+                AI 예측은 현재까지의
+                체성분 기록을 바탕으로 한
+                참고 정보입니다. 실제
+                변화는 생활 습관, 수분,
+                수면, 측정 조건 등 다양한
+                요인의 영향을 받아 예측과
+                차이가 발생할 수 있습니다.
               </p>
             </div>
           </div>
@@ -886,42 +1437,556 @@ export default function InsightsPage() {
 }
 
 
-function PredictionMetric({
+function PredictionTrendChart({
+  prediction,
+  metricKey,
+}: {
+  prediction:
+    PredictionData;
+
+  metricKey:
+    PredictionMetricKey;
+}) {
+  const metric =
+    PREDICTION_METRICS.find(
+      (
+        item,
+      ) =>
+        item.key ===
+        metricKey,
+    ) ??
+    PREDICTION_METRICS[0];
+
+  const currentValue =
+    prediction.current[
+      metricKey
+    ];
+
+  const predictedValue =
+    prediction.prediction[
+      metricKey
+    ];
+
+  const days = [
+    0,
+    7,
+    14,
+    21,
+    30,
+  ];
+
+  /*
+   * Production 모델은 약 한 달 뒤 endpoint만 직접 예측한다.
+   * 중간 구간은 추가 예측값을 만들어내지 않고,
+   * 현재값과 endpoint 사이를 smoothstep으로 시각화한다.
+   * 3t^2 - 2t^3는 시작/끝의 기울기가 완만한 S-curve다.
+   */
+  const easedProgress = (
+    day: number,
+  ) => {
+    const t =
+      Math.min(
+        1,
+        Math.max(
+          0,
+          day / 30,
+        ),
+      );
+
+    return (
+      t *
+      t *
+      (
+        3 -
+        2 * t
+      )
+    );
+  };
+
+  const valueAtDay = (
+    day: number,
+  ) =>
+    currentValue +
+    (
+      predictedValue -
+      currentValue
+    ) *
+      easedProgress(
+        day,
+      );
+
+  const markerValues =
+    days.map(
+      (
+        day,
+      ) =>
+        valueAtDay(
+          day,
+        ),
+    );
+
+  const W = 340;
+  const H = 190;
+
+  const PAD = {
+    top: 18,
+    right: 14,
+    bottom: 30,
+    left: 42,
+  };
+
+  const innerW =
+    W -
+    PAD.left -
+    PAD.right;
+
+  const innerH =
+    H -
+    PAD.top -
+    PAD.bottom;
+
+  const rawMin =
+    Math.min(
+      currentValue,
+      predictedValue,
+    );
+
+  const rawMax =
+    Math.max(
+      currentValue,
+      predictedValue,
+    );
+
+  const rawRange =
+    rawMax -
+    rawMin;
+
+  const minimumPad =
+    metric.unit ===
+    '%'
+      ? 0.5
+      : 0.25;
+
+  const padding =
+    Math.max(
+      minimumPad,
+      rawRange *
+        0.8,
+    );
+
+  const min =
+    rawMin -
+    padding;
+
+  const max =
+    rawMax +
+    padding;
+
+  const range =
+    Math.max(
+      max -
+        min,
+      0.1,
+    );
+
+  const xOfDay = (
+    day: number,
+  ) =>
+    PAD.left +
+    (
+      day /
+      30
+    ) *
+      innerW;
+
+  const yOf = (
+    value: number,
+  ) =>
+    PAD.top +
+    (
+      (
+        max -
+        value
+      ) /
+      range
+    ) *
+      innerH;
+
+  const startX =
+    xOfDay(
+      0,
+    );
+
+  const endX =
+    xOfDay(
+      30,
+    );
+
+  const startY =
+    yOf(
+      currentValue,
+    );
+
+  const endY =
+    yOf(
+      predictedValue,
+    );
+
+  /*
+   * x control point를 정확히 1/3, 2/3 지점에 두면
+   * x축은 시간에 대해 선형으로 유지되고,
+   * y축만 smoothstep 형태의 부드러운 곡선이 된다.
+   */
+  const path = [
+    `M ${startX.toFixed(
+      1,
+    )} ${startY.toFixed(
+      1,
+    )}`,
+
+    `C ${(
+      startX +
+      innerW / 3
+    ).toFixed(
+      1,
+    )} ${startY.toFixed(
+      1,
+    )}`,
+
+    `${(
+      startX +
+      (
+        innerW * 2
+      ) / 3
+    ).toFixed(
+      1,
+    )} ${endY.toFixed(
+      1,
+    )}`,
+
+    `${endX.toFixed(
+      1,
+    )} ${endY.toFixed(
+      1,
+    )}`,
+  ].join(' ');
+
+  const yTicks = [
+    max,
+    (
+      max +
+      min
+    ) /
+      2,
+    min,
+  ];
+
+  return (
+    <div>
+      <div className="mb-2 flex items-end justify-between px-2">
+        <div>
+          <p className="text-[10px] text-zinc-600">
+            선택 항목
+          </p>
+
+          <p className="mt-0.5 text-xs font-semibold text-zinc-300">
+            {metric.label}
+          </p>
+        </div>
+
+        <div className="text-right">
+          <p className="text-[10px] text-zinc-600">
+            30일 후 예상
+          </p>
+
+          <p className="mt-0.5 text-sm font-bold text-blue-300">
+            {predictedValue.toFixed(
+              1,
+            )}
+            {metric.unit}
+          </p>
+        </div>
+      </div>
+
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="w-full"
+        style={{
+          maxHeight:
+            H,
+        }}
+        aria-label={`${metric.label} 30일 예상 추이 그래프`}
+      >
+        <defs>
+          <linearGradient
+            id={`prediction-line-fill-${metricKey}`}
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop
+              offset="0%"
+              stopColor="#60a5fa"
+              stopOpacity="0.16"
+            />
+
+            <stop
+              offset="100%"
+              stopColor="#60a5fa"
+              stopOpacity="0"
+            />
+          </linearGradient>
+        </defs>
+
+        {yTicks.map(
+          (
+            tick,
+            index,
+          ) => {
+            const y =
+              yOf(
+                tick,
+              );
+
+            return (
+              <g
+                key={
+                  index
+                }
+              >
+                <line
+                  x1={
+                    PAD.left
+                  }
+                  y1={y}
+                  x2={
+                    W -
+                    PAD.right
+                  }
+                  y2={y}
+                  stroke="#3f3f46"
+                  strokeWidth="1"
+                  opacity="0.55"
+                />
+
+                <text
+                  x={
+                    PAD.left -
+                    5
+                  }
+                  y={
+                    y +
+                    3
+                  }
+                  textAnchor="end"
+                  fontSize="8"
+                  fill="#71717a"
+                >
+                  {tick.toFixed(
+                    1,
+                  )}
+                </text>
+              </g>
+            );
+          },
+        )}
+
+        <path
+          d={`${path} L ${endX.toFixed(
+            1,
+          )} ${(
+            H -
+            PAD.bottom
+          ).toFixed(
+            1,
+          )} L ${startX.toFixed(
+            1,
+          )} ${(
+            H -
+            PAD.bottom
+          ).toFixed(
+            1,
+          )} Z`}
+          fill={`url(#prediction-line-fill-${metricKey})`}
+          stroke="none"
+        />
+
+        <path
+          d={path}
+          fill="none"
+          stroke="#60a5fa"
+          strokeWidth="2.75"
+          strokeDasharray="7 5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {markerValues.map(
+          (
+            value,
+            index,
+          ) => (
+            <circle
+              key={
+                days[
+                  index
+                ]
+              }
+              cx={
+                xOfDay(
+                  days[
+                    index
+                  ],
+                )
+              }
+              cy={
+                yOf(
+                  value,
+                )
+              }
+              r={
+                index ===
+                  0 ||
+                index ===
+                  markerValues.length -
+                    1
+                  ? 4
+                  : 2.5
+              }
+              fill={
+                index ===
+                  markerValues.length -
+                    1
+                  ? '#60a5fa'
+                  : '#a1a1aa'
+              }
+            />
+          ),
+        )}
+
+        {days.map(
+          (
+            day,
+          ) => (
+            <text
+              key={
+                day
+              }
+              x={
+                xOfDay(
+                  day,
+                )
+              }
+              y={
+                H -
+                7
+              }
+              textAnchor="middle"
+              fontSize="8"
+              fill="#71717a"
+            >
+              {day ===
+              0
+                ? '현재'
+                : `${day}일`}
+            </text>
+          ),
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function PredictionTrendSummary({
+  prediction,
+  metricKey,
+}: {
+  prediction:
+    PredictionData;
+
+  metricKey:
+    PredictionMetricKey;
+}) {
+  const metric =
+    PREDICTION_METRICS.find(
+      (
+        item,
+      ) =>
+        item.key ===
+        metricKey,
+    ) ??
+    PREDICTION_METRICS[0];
+
+  const currentValue =
+    prediction.current[
+      metricKey
+    ];
+
+  const predictedValue =
+    prediction.prediction[
+      metricKey
+    ];
+
+  const change =
+    prediction.change[
+      metricKey
+    ];
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      <TrendSummaryItem
+        label="현재"
+        value={`${currentValue.toFixed(
+          1,
+        )}${metric.unit}`}
+      />
+
+      <TrendSummaryItem
+        label="30일 후"
+        value={`${predictedValue.toFixed(
+          1,
+        )}${metric.unit}`}
+        accent
+      />
+
+      <TrendSummaryItem
+        label="예상 변화"
+        value={
+          signed(
+            change,
+            metric.unit,
+          )
+        }
+      />
+    </div>
+  );
+}
+
+
+function TrendSummaryItem({
   label,
   value,
-  delta,
-  positive,
-  invert = false,
+  accent = false,
 }: {
   label: string;
   value: string;
-  delta: string;
-  positive: boolean;
-  invert?: boolean;
+  accent?: boolean;
 }) {
-  const good =
-    invert
-      ? !positive
-      : positive;
-
   return (
-    <div className="rounded-2xl bg-zinc-950/50 px-2 py-4 text-center">
-      <p className="text-base font-bold text-white">
-        {value}
+    <div className="rounded-xl bg-zinc-950/40 px-2 py-3 text-center">
+      <p className="text-[9px] text-zinc-600">
+        {label}
       </p>
 
       <p
-        className={`mt-1 text-[10px] font-medium ${
-          good
-            ? 'text-emerald-400'
-            : 'text-rose-400'
+        className={`mt-1 text-xs font-bold ${
+          accent
+            ? 'text-blue-300'
+            : 'text-zinc-300'
         }`}
       >
-        {delta}
-      </p>
-
-      <p className="mt-1 text-[10px] text-zinc-600">
-        {label}
+        {value}
       </p>
     </div>
   );
@@ -954,8 +2019,10 @@ function CurrentMetric({
               ? 'text-zinc-500'
               : (
                   invert
-                    ? delta < 0
-                    : delta > 0
+                    ? delta <
+                      0
+                    : delta >
+                      0
                 )
               ? 'text-emerald-400'
               : 'text-rose-400'
@@ -969,32 +2036,6 @@ function CurrentMetric({
       )}
 
       <p className="mt-1 text-[10px] text-zinc-600">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-
-function MiniMetric({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: string;
-  suffix: string;
-}) {
-  return (
-    <div>
-      <p className="text-xs font-semibold text-zinc-300">
-        {value}
-        <span className="ml-0.5 text-[9px] font-normal text-zinc-600">
-          {suffix}
-        </span>
-      </p>
-
-      <p className="mt-1 text-[9px] text-zinc-600">
         {label}
       </p>
     </div>
@@ -1050,57 +2091,43 @@ function DataRow({
 }
 
 
-function FactorRow({
+function InfoMetric({
   label,
-  description,
-  effect,
+  value,
 }: {
   label: string;
-  description: string;
-
-  effect:
-    | 'positive'
-    | 'neutral'
-    | 'negative';
+  value: string;
 }) {
-  const Icon =
-    effect ===
-    'positive'
-      ? ArrowUpRight
-      : effect ===
-        'negative'
-      ? ArrowDownRight
-      : ArrowRight;
-
-  const iconClass =
-    effect ===
-    'positive'
-      ? 'text-emerald-400'
-      : effect ===
-        'negative'
-      ? 'text-rose-400'
-      : 'text-zinc-500';
-
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
-      <div className="mt-0.5">
-        <Icon
-          size={16}
-          className={
-            iconClass
-          }
-        />
-      </div>
+    <div className="rounded-2xl bg-zinc-950/40 p-3">
+      <p className="text-[10px] text-zinc-600">
+        {label}
+      </p>
 
-      <div>
-        <p className="text-xs font-semibold text-zinc-300">
-          {label}
-        </p>
+      <p className="mt-1 text-xs font-semibold text-zinc-300">
+        {value}
+      </p>
+    </div>
+  );
+}
 
-        <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-          {description}
-        </p>
-      </div>
+
+function InsightRow({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
+      <p className="text-xs font-semibold text-zinc-300">
+        {title}
+      </p>
+
+      <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+        {description}
+      </p>
     </div>
   );
 }
