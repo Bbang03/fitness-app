@@ -1080,6 +1080,7 @@ export default function DashboardPage() {
       ) =>
         log.date ===
         todayKey &&
+        log.meal_type !== '간식' &&
         log.items.length >
           0,
     );

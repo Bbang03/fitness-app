@@ -174,7 +174,7 @@ export default function SelectedDayDetail({
             </Link>
           </div>
 
-          {summary.mealCount === 0 ? (
+          {!summary.hasRecordedNutrition ? (
             <div className="calendar-empty-state">
               <p>이 날은 식단 기록이 없어요.</p>
               <Link href={`/meals?date=${summary.date}`} className="calendar-inline-link">식단 기록하기 <ArrowUpRight size={14} aria-hidden="true" /></Link>

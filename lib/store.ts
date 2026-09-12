@@ -312,6 +312,12 @@ interface StoreActions {
     mealType: MealType,
     item: Omit<MealItem, 'id' | 'meal_log_id'>,
   ) => void;
+
+  updateMealItem: (
+    mealLogId: string,
+    itemId: string,
+    updates: Partial<Pick<MealItem, 'food_name' | 'serving' | 'grams' | 'kcal' | 'carbs_g' | 'protein_g' | 'fat_g'>>,
+  ) => void;
   
   removeMealItem: (
     mealLogId: string,
@@ -1040,6 +1046,21 @@ export const useStore = create<Store>()(
           };
           set((s) => ({ mealLogs: [...s.mealLogs, newLog] }));
         }
+      },
+
+      updateMealItem: (mealLogId, itemId, updates) => {
+        set((s) => ({
+          mealLogs: s.mealLogs.map((log) =>
+            log.id !== mealLogId
+              ? log
+              : {
+                  ...log,
+                  items: log.items.map((item) =>
+                    item.id === itemId ? { ...item, ...updates } : item,
+                  ),
+                },
+          ),
+        }));
       },
 
       removeMealItem: (mealLogId, itemId) => {

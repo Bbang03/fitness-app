@@ -156,3 +156,26 @@ test('supports one available goal and keeps future days quiet', () => {
     undefined,
   );
 });
+
+test('keeps snacks in nutrition but excludes them from meal count', () => {
+  const snack: MealLog = {
+    ...meal('2026-09-10', 350, 12),
+    id: 'snack-only',
+    meal_type: '간식',
+  };
+  const result = buildCalendarDaySummaries(
+    [],
+    [snack],
+    goals,
+    { today: '2026-09-12' },
+  );
+  const summary = result.get('2026-09-10');
+
+  assert.ok(summary);
+  assert.equal(summary.mealCount, 0);
+  assert.equal(summary.hasRecordedNutrition, true);
+  assert.equal(summary.nutrition.kcal, 350);
+  assert.equal(summary.nutrition.protein_g, 12);
+  assert.equal(summary.nutritionStatus, 'below_target');
+  assert.deepEqual(summary.deficitKeys, ['kcal', 'protein']);
+});

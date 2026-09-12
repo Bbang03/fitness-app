@@ -204,12 +204,6 @@ function roundOne(value: number) {
   return Math.round(value * 10) / 10;
 }
 
-function clampQuantity(value: string) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
-  return Math.max(0.1, Math.min(parsed, 20));
-}
-
 function scaleNutrition(
   nutrition: {
     kcal: number;
@@ -896,6 +890,7 @@ function ManualForm({
   const [form, setForm] = useState({
     name: '',
     serving: '',
+    grams: '100',
     kcal: '',
     carbs: '',
     protein: '',
@@ -916,9 +911,14 @@ function ManualForm({
       return;
     }
 
+    const grams = Math.max(1, Number(form.grams) || 100);
+    const serving = form.serving.trim();
+
     onAdd({
       food_name: form.name.trim(),
-      serving: form.serving.trim() || '직접 입력',
+      serving: serving
+        ? `${serving}${/\d+(?:\.\d+)?\s*g\b/i.test(serving) ? '' : ` (${grams}g)`}`
+        : `${grams}g`,
       kcal: Number(form.kcal) || 0,
       carbs_g: Number(form.carbs) || 0,
       protein_g: Number(form.protein) || 0,
@@ -944,14 +944,28 @@ function ManualForm({
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-zinc-500">섭취량</label>
+        <label className="mb-1.5 block text-xs font-medium text-zinc-500">섭취량 (g)</label>
+        <input
+          type="number"
+          min="1"
+          inputMode="decimal"
+          value={form.grams}
+          disabled={disabled}
+          onChange={(event) => update('grams')(event.target.value)}
+          className={inputClass}
+          placeholder="예: 200"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-zinc-500">제공량 메모 (선택)</label>
         <input
           type="text"
           value={form.serving}
           disabled={disabled}
           onChange={(event) => update('serving')(event.target.value)}
           className={inputClass}
-          placeholder="예: 1인분, 200g"
+          placeholder="예: 닭가슴살 1팩"
         />
       </div>
 
@@ -1064,7 +1078,8 @@ function MfdsFoodRow({
   disabled: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [quantity, setQuantity] = useState('1');
+  const defaultServingG = food.servingG && food.servingG > 0 ? food.servingG : 100;
+  const [grams, setGrams] = useState(String(defaultServingG));
   const [manual, setManual] = useState({
     kcal: '',
     carbs: '',
@@ -1076,7 +1091,8 @@ function MfdsFoodRow({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
 
-  const multiplier = clampQuantity(quantity);
+  const amount = Math.max(1, Math.min(Number(grams) || defaultServingG, 10000));
+  const multiplier = amount / defaultServingG;
   const base = food.total;
 
   const manualNumber = (value: string) => {
@@ -1291,17 +1307,18 @@ function MfdsFoodRow({
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <div className="mb-4 flex items-center gap-3">
-            <label className="text-xs text-zinc-500">수량</label>
+            <label className="text-xs text-zinc-500">섭취량 (g)</label>
             <input
               type="number"
-              min="0.1"
-              max="20"
-              step="0.5"
-              value={quantity}
+              min="1"
+              max="10000"
+              step="1"
+              value={grams}
               disabled={disabled}
-              onChange={(event) => setQuantity(event.target.value)}
+              onChange={(event) => setGrams(event.target.value)}
               className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-center text-sm font-semibold focus:border-emerald-500 focus:outline-none"
             />
+            <span className="text-xs text-zinc-600">g</span>
           </div>
 
           <NutritionGrid {...nutrition} />
@@ -1496,10 +1513,7 @@ function MfdsFoodRow({
 
               onAdd({
                 food_name: `${food.brand} · ${food.name}`,
-                serving:
-                  multiplier === 1
-                    ? food.servingDescription
-                    : `${multiplier} × ${food.servingDescription}`,
+                serving: `${Math.round(amount)}g (${food.servingDescription})`,
                 kcal: nutrition.kcal!,
                 carbs_g: nutrition.carbs_g!,
                 protein_g: nutrition.protein_g!,
@@ -1641,7 +1655,7 @@ function FatSecretFoodRow({
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState('');
   const [selectedServingId, setSelectedServingId] = useState('');
-  const [quantity, setQuantity] = useState('1');
+  const [grams, setGrams] = useState('100');
 
   const loadDetail = async () => {
     if (detail || detailLoading) return;
@@ -1661,6 +1675,7 @@ function FatSecretFoodRow({
       setDetail(json);
       const initial = json.servings.find((serving) => serving.isDefault) ?? json.servings[0];
       setSelectedServingId(initial.id);
+      setGrams(String(initial.metricAmount > 0 ? roundOne(initial.metricAmount) : 100));
     } catch (error) {
       console.error('FatSecret detail failed:', error);
       setDetailError('상세 영양정보를 불러오지 못했습니다.');
@@ -1678,7 +1693,11 @@ function FatSecretFoodRow({
     );
   }, [detail, selectedServingId]);
 
-  const multiplier = clampQuantity(quantity);
+  const defaultServingG = selectedServing && selectedServing.metricAmount > 0
+    ? selectedServing.metricAmount
+    : 100;
+  const amount = Math.max(1, Math.min(Number(grams) || defaultServingG, 10000));
+  const multiplier = amount / defaultServingG;
   const nutrition = selectedServing
     ? scaleNutrition(selectedServing, multiplier)
     : null;
@@ -1723,7 +1742,12 @@ function FatSecretFoodRow({
                 <select
                   value={selectedServing.id}
                   disabled={disabled}
-                  onChange={(event) => setSelectedServingId(event.target.value)}
+                  onChange={(event) => {
+                    const nextId = event.target.value;
+                    const nextServing = detail.servings.find((serving) => serving.id === nextId);
+                    setSelectedServingId(nextId);
+                    setGrams(String(nextServing && nextServing.metricAmount > 0 ? roundOne(nextServing.metricAmount) : 100));
+                  }}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm text-white focus:border-blue-500 focus:outline-none"
                 >
                   {detail.servings.map((serving) => (
@@ -1739,17 +1763,18 @@ function FatSecretFoodRow({
               </div>
 
               <div className="mb-4 flex items-center gap-3">
-                <label className="text-xs text-zinc-500">수량</label>
+                <label className="text-xs text-zinc-500">섭취량 (g)</label>
                 <input
                   type="number"
-                  min="0.1"
-                  max="20"
-                  step="0.5"
-                  value={quantity}
+                  min="1"
+                  max="10000"
+                  step="1"
+                  value={grams}
                   disabled={disabled}
-                  onChange={(event) => setQuantity(event.target.value)}
+                  onChange={(event) => setGrams(event.target.value)}
                   className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
                 />
+                <span className="text-xs text-zinc-600">g</span>
               </div>
 
               <NutritionGrid {...nutrition} />
@@ -1762,10 +1787,7 @@ function FatSecretFoodRow({
                     food_name: detail.brand
                       ? `${detail.brand} · ${detail.name}`
                       : detail.name,
-                    serving:
-                      multiplier === 1
-                        ? selectedServing.description
-                        : `${multiplier} × ${selectedServing.description}`,
+                    serving: `${Math.round(amount)}g (${selectedServing.description})`,
                     ...nutrition,
                   })
                 }

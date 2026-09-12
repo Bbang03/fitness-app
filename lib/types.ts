@@ -165,6 +165,12 @@ export interface MealItem {
   // 예: "100g", "1공기"
   serving: string;
 
+  /**
+   * 섭취량(g). 기존 Supabase 스키마는 serving 문자열만 저장하므로
+   * optional로 두고, 새 기록은 serving에도 g를 함께 남긴다.
+   */
+  grams?: number;
+
   kcal: number;
 
   carbs_g: number;

@@ -27,6 +27,8 @@ export interface CalendarDaySummary {
   totalSets: number;
   totalVolumeKg: number;
   mealCount: number;
+  /** True when any non-empty meal log exists, including a snack-only day. */
+  hasRecordedNutrition: boolean;
   nutrition: NutritionSummary;
   nutritionStatus: NutritionCalendarStatus;
   deficitKeys: NutritionDeficitKey[];
@@ -69,6 +71,7 @@ function emptySummary(date: string, today: string): CalendarDaySummary {
     totalSets: 0,
     totalVolumeKg: 0,
     mealCount: 0,
+    hasRecordedNutrition: false,
     nutrition: { ...EMPTY_NUTRITION },
     nutritionStatus:
       date > today
@@ -122,7 +125,7 @@ function finalizeNutritionStatus(
     return;
   }
 
-  if (summary.mealCount === 0) {
+  if (!summary.hasRecordedNutrition) {
     summary.nutritionStatus = 'unrecorded';
     summary.deficitKeys = [];
     return;
@@ -203,7 +206,14 @@ export function buildCalendarDaySummaries(
     }
 
     const summary = summaryFor(summaries, meal.date, today);
-    summary.mealCount += 1;
+    summary.hasRecordedNutrition = true;
+
+    // 간식은 영양 합계에는 포함하지만 정규 끼니 진행도에는 포함하지
+    // 않는다. 간식만 기록한 날을 아침·점심·저녁을 기록한 날로 표시하면
+    // 달력의 끼니 수가 실제 사용자의 기대와 달라진다.
+    if (meal.meal_type !== '간식') {
+      summary.mealCount += 1;
+    }
 
     for (const item of meal.items) {
       summary.nutrition.kcal += Number.isFinite(item.kcal) ? item.kcal : 0;

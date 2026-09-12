@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Pencil,
   Plus,
   RefreshCw,
   Sparkles,
@@ -46,6 +47,23 @@ const MEAL_TYPES: MealType[] = [
   '저녁',
   '간식',
 ];
+
+const TRACKED_MEAL_TYPES: MealType[] = [
+  '아침',
+  '점심',
+  '저녁',
+];
+
+function gramsFromServing(serving: string): number {
+  const match = serving.match(/(\d+(?:\.\d+)?)\s*g\b/i);
+  const grams = match ? Number(match[1]) : NaN;
+  return Number.isFinite(grams) && grams > 0 ? grams : 100;
+}
+
+function roundNutrition(value: number, digits = 1) {
+  const scale = 10 ** digits;
+  return Math.round(value * scale) / scale;
+}
 
 
 function todayKey() {
@@ -148,6 +166,7 @@ export default function MealsPage() {
     getMealsByDate,
     getDailyNutrition,
 
+    updateMealItem,
     removeMealItem,
   } = useStore();
 
@@ -190,6 +209,32 @@ export default function MealsPage() {
     useState<
       string | null
     >(null);
+
+  const [
+    editingItem,
+    setEditingItem,
+  ] =
+    useState<{
+      logId: string;
+      itemId: string;
+      foodName: string;
+      grams: string;
+      kcal: number;
+      carbs_g: number;
+      protein_g: number;
+      fat_g: number;
+      basePerGram: {
+        kcal: number;
+        carbs_g: number;
+        protein_g: number;
+        fat_g: number;
+      };
+    } | null>(null);
+
+  const [
+    savingItemId,
+    setSavingItemId,
+  ] = useState<string | null>(null);
 
   const user =
     currentUser();
@@ -478,7 +523,9 @@ export default function MealsPage() {
     mealsByType.filter(
       ({
         log,
+        type,
       }) =>
+        TRACKED_MEAL_TYPES.includes(type) &&
         Boolean(
           log &&
             log.items.length >
@@ -490,7 +537,7 @@ export default function MealsPage() {
     Math.round(
       (
         recordedMealCount /
-        MEAL_TYPES.length
+        TRACKED_MEAL_TYPES.length
       ) *
         100,
     );
@@ -510,6 +557,105 @@ export default function MealsPage() {
     isToday
       ? suggestedMealType()
       : '점심';
+
+  // ─────────────────────────────────────────────
+  // Delete
+  // ─────────────────────────────────────────────
+
+  const beginEdit = (log: MealLog, itemId: string) => {
+    const item = log.items.find((candidate) => candidate.id === itemId);
+    if (!item) return;
+
+    const grams = item.grams ?? gramsFromServing(item.serving);
+    setEditingItem({
+      logId: log.id,
+      itemId: item.id,
+      foodName: item.food_name,
+      grams: String(grams),
+      kcal: item.kcal,
+      carbs_g: item.carbs_g,
+      protein_g: item.protein_g,
+      fat_g: item.fat_g,
+      basePerGram: {
+        kcal: item.kcal / grams,
+        carbs_g: item.carbs_g / grams,
+        protein_g: item.protein_g / grams,
+        fat_g: item.fat_g / grams,
+      },
+    });
+    setActionError('');
+  };
+
+  const updateEditGrams = (value: string) => {
+    setEditingItem((draft) => {
+      if (!draft) return draft;
+      const grams = Math.max(1, Number(value) || 1);
+      return {
+        ...draft,
+        grams: value,
+        kcal: Math.round(draft.basePerGram.kcal * grams),
+        carbs_g: roundNutrition(draft.basePerGram.carbs_g * grams),
+        protein_g: roundNutrition(draft.basePerGram.protein_g * grams),
+        fat_g: roundNutrition(draft.basePerGram.fat_g * grams),
+      };
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editingItem || savingItemId) return;
+
+    const grams = Math.max(1, Number(editingItem.grams) || 1);
+    const foodName = editingItem.foodName.trim();
+    if (!foodName) {
+      setActionError('음식 이름을 입력해주세요.');
+      return;
+    }
+
+    const updates = {
+      food_name: foodName,
+      grams,
+      serving: `${grams}g`,
+      kcal: Math.round(editingItem.kcal),
+      carbs_g: roundNutrition(editingItem.carbs_g),
+      protein_g: roundNutrition(editingItem.protein_g),
+      fat_g: roundNutrition(editingItem.fat_g),
+    };
+
+    setActionError('');
+    setSavingItemId(editingItem.itemId);
+
+    try {
+      if (!isGuest) {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from('meal_items')
+          .update({
+            food_name: updates.food_name,
+            serving: updates.serving,
+            kcal: updates.kcal,
+            carbs_g: updates.carbs_g,
+            protein_g: updates.protein_g,
+            fat_g: updates.fat_g,
+          })
+          .eq('id', editingItem.itemId)
+          .eq('meal_log_id', editingItem.logId);
+
+        if (error) {
+          console.error('Meal item update failed:', error.message);
+          setActionError('음식 기록을 수정하지 못했어요. 잠시 후 다시 시도해주세요.');
+          return;
+        }
+      }
+
+      updateMealItem(editingItem.logId, editingItem.itemId, updates);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Meal item update failed:', error);
+      setActionError('음식 기록을 수정하는 중 문제가 발생했어요.');
+    } finally {
+      setSavingItemId(null);
+    }
+  };
 
   // ─────────────────────────────────────────────
   // Delete
@@ -817,7 +963,7 @@ export default function MealsPage() {
 
             <div className="rounded-2xl bg-blue-500/10 px-3 py-2.5 text-right">
               <p className="text-sm font-bold text-blue-600">
-                {recordedMealCount}/4
+                {recordedMealCount}/{TRACKED_MEAL_TYPES.length}
               </p>
 
               <p className="mt-0.5 text-[9px] text-blue-500">
@@ -1033,12 +1179,8 @@ export default function MealsPage() {
                         (
                           item,
                         ) => (
-                          <div
-                            key={
-                              item.id
-                            }
-                            className="flex items-center gap-3 px-4 py-4"
-                          >
+                          <div key={item.id}>
+                            <div className="flex items-center gap-3 px-4 py-4">
                             <div className="flex min-w-0 flex-1 items-start gap-3">
                               <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-zinc-800">
                                 <UtensilsCrossed
@@ -1093,25 +1235,75 @@ export default function MealsPage() {
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              disabled={
-                                deletingItemId ===
-                                item.id
-                              }
-                              onClick={() => {
-                                void handleDelete(
-                                  log,
-                                  item.id,
-                                );
-                              }}
-                              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-zinc-700 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
-                              aria-label="음식 삭제"
-                            >
-                              <Trash2
-                                size={15}
-                              />
-                            </button>
+                            <div className="flex flex-shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={Boolean(savingItemId) || deletingItemId === item.id}
+                                onClick={() => beginEdit(log, item.id)}
+                                className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-blue-500/10 hover:text-blue-400 disabled:opacity-40"
+                                aria-label="음식 수정"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  deletingItemId ===
+                                  item.id || Boolean(savingItemId)
+                                }
+                                onClick={() => {
+                                  void handleDelete(
+                                    log,
+                                    item.id,
+                                  );
+                                }}
+                                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-zinc-700 transition-colors hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40"
+                                aria-label="음식 삭제"
+                              >
+                                <Trash2
+                                  size={15}
+                                />
+                              </button>
+                            </div>
+                            </div>
+
+                            {editingItem?.itemId === item.id && editingItem.logId === log.id && (
+                              <div className="border-t border-zinc-800/60 bg-zinc-950/40 px-4 py-4">
+                              <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
+                                <label className="text-xs text-zinc-500">
+                                  음식 이름
+                                  <input
+                                    type="text"
+                                    value={editingItem.foodName}
+                                    onChange={(event) => setEditingItem((draft) => draft ? { ...draft, foodName: event.target.value } : draft)}
+                                    className="mt-1.5 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none"
+                                  />
+                                </label>
+                                <label className="text-xs text-zinc-500">
+                                  섭취량 (g)
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={editingItem.grams}
+                                    onChange={(event) => updateEditGrams(event.target.value)}
+                                    className="mt-1.5 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none"
+                                  />
+                                </label>
+                              </div>
+                              <div className="mt-3 grid grid-cols-4 gap-2 text-center text-[10px]">
+                                <EditNutrition label="kcal" value={editingItem.kcal} />
+                                <EditNutrition label="탄수" value={editingItem.carbs_g} suffix="g" />
+                                <EditNutrition label="단백" value={editingItem.protein_g} suffix="g" />
+                                <EditNutrition label="지방" value={editingItem.fat_g} suffix="g" />
+                              </div>
+                              <div className="mt-3 flex justify-end gap-2">
+                                <button type="button" onClick={() => setEditingItem(null)} className="rounded-xl px-3 py-2 text-xs text-zinc-500 hover:bg-zinc-800">취소</button>
+                                <button type="button" onClick={() => void handleEditSave()} disabled={savingItemId === item.id} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
+                                  {savingItemId === item.id ? '저장 중...' : '수정 저장'}
+                                </button>
+                              </div>
+                              </div>
+                            )}
                           </div>
                         ),
                       )}
@@ -1195,6 +1387,25 @@ function NutritionChip({
     >
       {children}
     </span>
+  );
+}
+
+function EditNutrition({
+  label,
+  value,
+  suffix = '',
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+}) {
+  return (
+    <div className="rounded-lg bg-zinc-900 px-2 py-2">
+      <p className="font-semibold text-zinc-200">
+        {suffix ? roundOne(value) : Math.round(value)}{suffix}
+      </p>
+      <p className="mt-0.5 text-zinc-600">{label}</p>
+    </div>
   );
 }
 

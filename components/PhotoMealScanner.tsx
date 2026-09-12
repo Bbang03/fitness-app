@@ -248,10 +248,6 @@ function isRegularColaCandidate(candidate: ExternalCandidate) {
   return isCola && !isZeroColaCandidate(candidate);
 }
 
-function hasColaVariantCandidates(candidates: ExternalCandidate[]) {
-  return candidates.some(isRegularColaCandidate) && candidates.some(isZeroColaCandidate);
-}
-
 async function searchExternalFoods(query: string): Promise<ExternalCandidate[]> {
   const hasHangul = /[가-힣]/.test(query);
   const lookups = isGenericCola(query) ? [query, '제로콜라'] : [query];
@@ -559,10 +555,10 @@ function ResultRow({
 
           {row.matched ? (
             <>
-              {row.vision_candidates && row.vision_candidates.length > 1 && row.needs_identity_confirmation && (
+              {row.vision_candidates && row.vision_candidates.length > 1 && (
                 <div className="mt-2">
                   <p className="text-[11px] text-zinc-500 mb-1.5">
-                    사진 분석 후보{row.needs_identity_confirmation ? ' — 하나를 선택해주세요' : ''}
+                    사진 분석 후보{row.needs_identity_confirmation ? ' — 하나를 선택해주세요' : ' — 다시 선택할 수 있어요'}
                   </p>
                   <div className="grid gap-1.5">
                     {row.vision_candidates.map(candidate => (
@@ -629,7 +625,6 @@ function ResultRow({
                 </details>
               )}
               {row.candidates && row.candidates.length > 1
-                && (row.needs_variant_confirmation || hasColaVariantCandidates(row.candidates))
                 && !(row.vision_candidates && row.vision_candidates.length > 1) && (
                 <div className="grid gap-1.5 mt-2">
                   {row.candidates.map(candidate => (
@@ -700,7 +695,7 @@ function ResultRow({
             </>
           ) : (
             <>
-              {row.vision_candidates && row.vision_candidates.length > 1 && row.needs_identity_confirmation && (
+              {row.vision_candidates && row.vision_candidates.length > 1 && (
                 <div className="grid gap-1.5 mt-2">
                   {row.vision_candidates.map(candidate => (
                     <button
