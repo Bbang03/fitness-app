@@ -3,14 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 import { useStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
 
 import {
-  Dumbbell,
   Loader2,
 } from '@/components/ChagokIcons';
+
+/* Hallmark · component: login brand mark · genre: playful · theme: ChaGOK warm workbench
+ * pre-emit critique: P5 H5 E5 S5 R5 V4
+ */
 
 export default function LoginPage() {
   const router = useRouter();
@@ -388,12 +392,14 @@ export default function LoginPage() {
       {/* Header */}
       <div className="mb-10 text-center">
         <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <Dumbbell
-              size={30}
-              className="text-white"
-            />
-          </div>
+          <Image
+            src="/icon-192.png"
+            width={64}
+            height={64}
+            priority
+            alt=""
+            className="w-16 h-16 rounded-2xl object-cover shadow-lg"
+          />
         </div>
 
         <h1 className="text-2xl font-bold tracking-tight">
