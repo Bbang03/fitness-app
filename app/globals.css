@@ -342,3 +342,76 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
   .guardian-card__next { grid-template-columns:1fr;gap:var(--space-2); }
   .stone-guardian { height:9rem; }
 }
+\n+/* Dashboard · activity calendar · derived from workout and meal logs */
+.activity-calendar { margin-top:var(--space-6); color:var(--color-ink); }
+.activity-calendar__heading { display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-3); }
+.activity-calendar__eyebrow { color:var(--color-accent);font-size:var(--text-caption);font-weight:700; }
+.activity-calendar__heading h2 { margin-top:var(--space-1);font-family:var(--font-display);font-size:1.25rem;font-weight:750;letter-spacing:-.025em;line-height:1.2; }
+.activity-calendar__today { min-height:36px;padding:var(--space-2) var(--space-3);border:var(--rule-hairline) solid var(--color-rule);border-radius:var(--radius-pill);background:var(--color-surface);color:var(--color-accent);font-size:var(--text-caption);font-weight:700;white-space:nowrap; }
+.activity-calendar__today:hover { background:var(--color-accent-soft); }
+.activity-calendar__card { margin-top:var(--space-3);padding:var(--space-4);background:var(--color-surface);border:var(--rule-hairline) solid var(--color-rule);border-radius:var(--radius-card); }
+.activity-calendar__monthbar { display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:var(--space-2); }
+.activity-calendar__monthbar h3 { min-width:0;text-align:center;font-family:var(--font-display);font-size:var(--text-body);font-weight:750; }
+.activity-calendar__nav { display:flex;align-items:center;justify-content:center;width:44px;min-height:44px;border-radius:var(--radius-control);color:var(--color-ink-secondary); }
+.activity-calendar__nav:hover { background:var(--color-surface-muted);color:var(--color-ink); }
+.activity-calendar__weekdays,.activity-calendar__grid { display:grid;grid-template-columns:repeat(7,minmax(0,1fr)); }
+.activity-calendar__weekdays { margin-top:var(--space-3); }
+.activity-calendar__weekdays span { min-width:0;padding-block:var(--space-1);color:var(--color-ink-tertiary);font-size:var(--text-caption);font-weight:700;text-align:center; }
+.activity-calendar__weekdays span[data-weekend='true']:first-child { color:var(--color-negative); }
+.activity-calendar__weekdays span[data-weekend='true']:last-child { color:var(--color-chart-cyan); }
+.activity-calendar__grid { gap:var(--space-1);margin-top:var(--space-1); }
+.activity-calendar__empty { min-width:0;aspect-ratio:1; }
+.activity-calendar__day { position:relative;display:flex;align-items:center;justify-content:flex-start;flex-direction:column;min-width:0;min-height:40px;aspect-ratio:1;padding:var(--space-2) var(--space-1) var(--space-1);border:var(--rule-hairline) solid transparent;border-radius:var(--radius-control);background:transparent;color:var(--color-ink);font-size:var(--text-caption);font-variant-numeric:tabular-nums; }
+.activity-calendar__day:hover:not(:disabled) { background:var(--color-surface-muted); }
+.activity-calendar__day[data-today='true'] { border-color:var(--color-accent); }
+.activity-calendar__day[data-selected='true'] { background:var(--color-accent-soft);border-color:var(--color-accent);color:var(--color-accent);font-weight:750; }
+.activity-calendar__day[data-future='true'],.activity-calendar__day:disabled { cursor:not-allowed;opacity:.36; }
+.activity-calendar__day-number { line-height:1.25; }
+.activity-calendar__markers { display:flex;align-items:center;justify-content:center;gap:var(--space-1);height:12px;margin-top:var(--space-1); }
+.activity-calendar__workout-marker,.activity-calendar__nutrition-marker { display:block;width:7px;height:7px;flex:none; }
+.activity-calendar__workout-marker { border-radius:50%;background:var(--color-accent); }
+.activity-calendar__nutrition-marker { background:var(--color-warning);transform:rotate(45deg); }
+.activity-calendar__legend { display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-4);padding-top:var(--space-3);border-top:var(--rule-hairline) solid var(--color-rule);color:var(--color-ink-secondary);font-size:var(--text-caption); }
+.activity-calendar__legend span { display:inline-flex;align-items:center;gap:var(--space-2); }
+.activity-calendar__legend .activity-calendar__workout-marker,.activity-calendar__legend .activity-calendar__nutrition-marker { width:8px;height:8px; }
+.calendar-day-detail { margin-top:var(--space-3);overflow:hidden;background:var(--color-surface);border:var(--rule-hairline) solid var(--color-rule);border-radius:var(--radius-card); }
+.calendar-day-detail__header { display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);width:100%;min-height:60px;padding:var(--space-4);text-align:left; }
+.calendar-day-detail__header:hover { background:var(--color-surface-muted); }
+.calendar-day-detail__header strong,.calendar-day-detail__header span { display:block; }
+.calendar-day-detail__header strong { font-family:var(--font-display);font-size:var(--text-body);font-weight:750; }
+.calendar-day-detail__summary { margin-top:var(--space-1);color:var(--color-ink-secondary);font-size:var(--text-caption);font-weight:500; }
+.calendar-day-detail__collapse { flex:none;color:var(--color-ink-tertiary);font-size:var(--text-caption); }
+.calendar-day-detail__body { display:grid;gap:0;padding:0 var(--space-4) var(--space-4); }
+.calendar-day-detail__section { padding-top:var(--space-4);border-top:var(--rule-hairline) solid var(--color-rule); }
+.calendar-day-detail__section + .calendar-day-detail__section { margin-top:var(--space-4); }
+.calendar-day-detail__section-heading { display:flex;align-items:center;justify-content:space-between;gap:var(--space-2); }
+.calendar-day-detail__section-title { display:flex;align-items:center;gap:var(--space-2);color:var(--color-accent); }
+.calendar-day-detail__section-title h3 { color:var(--color-ink);font-size:var(--text-body);font-weight:750; }
+.calendar-inline-link { display:inline-flex;align-items:center;gap:2px;min-height:32px;color:var(--color-accent);font-size:var(--text-caption);font-weight:700; }
+.calendar-inline-link:hover { color:var(--color-accent-pressed); }
+.calendar-workout-list { display:grid;gap:var(--space-2);margin-top:var(--space-3); }
+.calendar-workout-row { display:grid;grid-template-columns:minmax(0,1fr) auto;gap:var(--space-3);padding:var(--space-3);background:var(--color-surface-muted);border-radius:var(--radius-control); }
+.calendar-workout-row__main { display:grid;min-width:0;gap:var(--space-1); }
+.calendar-workout-row__main strong { min-width:0;overflow:hidden;color:var(--color-ink);font-size:var(--text-caption);text-overflow:ellipsis;white-space:nowrap; }
+.calendar-workout-row__main span { overflow:hidden;color:var(--color-ink-secondary);font-size:var(--text-caption);text-overflow:ellipsis;white-space:nowrap; }
+.calendar-workout-row__meta { display:flex;align-items:flex-start;justify-content:flex-end;flex-wrap:wrap;gap:var(--space-2);color:var(--color-ink-secondary);font-size:var(--text-caption);text-align:right; }
+.calendar-empty-state { display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);margin-top:var(--space-3);color:var(--color-ink-secondary);font-size:var(--text-caption);line-height:1.45; }
+.calendar-nutrition-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-2);margin-top:var(--space-3); }
+.calendar-nutrition-value { display:grid;gap:var(--space-1);padding:var(--space-3);background:var(--color-surface-muted);border-radius:var(--radius-control); }
+.calendar-nutrition-value span { color:var(--color-ink-secondary);font-size:var(--text-caption); }
+.calendar-nutrition-value strong { color:var(--color-ink);font-size:var(--text-body);font-weight:750; }
+.calendar-nutrition-value em { color:var(--color-ink-secondary);font-size:var(--text-caption);font-style:normal;font-weight:600; }
+.calendar-nutrition-value.is-deficit strong,.calendar-nutrition-value.is-deficit em { color:var(--color-warning); }
+.calendar-day-detail__note,.calendar-day-detail__deficit { margin-top:var(--space-3);color:var(--color-ink-secondary);font-size:var(--text-caption);line-height:1.5; }
+.calendar-day-detail__deficit { color:var(--color-warning);font-weight:700; }
+.calendar-day-detail__note--positive { color:var(--color-accent); }
+@media (max-width:23.4rem) {
+  .activity-calendar__card { padding:var(--space-3); }
+  .activity-calendar__day { padding-inline:0; }
+  .calendar-workout-row { grid-template-columns:1fr;gap:var(--space-2); }
+  .calendar-workout-row__meta { justify-content:flex-start;text-align:left; }
+  .calendar-empty-state { align-items:flex-start;flex-direction:column;gap:var(--space-1); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .activity-calendar *,.calendar-day-detail * { scroll-behavior:auto;transition-duration:0.01ms !important; }
+}

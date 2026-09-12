@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import AppShell from '@/components/AppShell';
+import ActivityCalendar from '@/components/dashboard/ActivityCalendar';
 import GuardianProgressCard from '@/components/GuardianProgressCard';
 
 import {
@@ -39,6 +40,11 @@ import {
 import {
   predict,
 } from '@/lib/prediction';
+
+import {
+  buildCalendarDaySummaries,
+  type CalendarNutritionGoals,
+} from '@/lib/calendarSummary';
 
 import {
   useStore,
@@ -943,6 +949,114 @@ export default function DashboardPage() {
       ],
     );
 
+  const calendarToday =
+    localDateKey();
+
+  const calendarInbodyRecords =
+    getInbodyRecords();
+
+  const calendarGoals:
+    CalendarNutritionGoals =
+    useMemo(
+      () => {
+        const latestRecord =
+          calendarInbodyRecords.at(
+            -1,
+          ) ?? null;
+
+        if (
+          !user ||
+          !latestRecord
+        ) {
+          return {
+            kcal: null,
+            protein_g: null,
+          };
+        }
+
+        const calendarPrediction =
+          predict({
+            user: {
+              height_cm:
+                user.height_cm,
+
+              sex:
+                user.sex,
+
+              birth_year:
+                user.birth_year,
+            },
+
+            latestInbody:
+              latestRecord,
+
+            avgDailyKcal:
+              recentNutrition
+                .avgKcal,
+
+            avgDailyProtein_g:
+              recentNutrition
+                .avgProtein,
+
+            weeklyVolume_kg:
+              weekLogs.reduce(
+                (
+                  total,
+                  log,
+                ) =>
+                  total +
+                  calcTotalVolume(
+                    log.sets,
+                  ),
+                0,
+              ),
+
+            days: 30,
+          });
+
+        return {
+          kcal:
+            calendarPrediction
+              ?.tdee ??
+            null,
+
+          protein_g:
+            latestRecord.weight_kg *
+            1.6,
+        };
+      },
+      [
+        calendarInbodyRecords,
+        recentNutrition.avgKcal,
+        recentNutrition.avgProtein,
+        user?.birth_year,
+        user?.height_cm,
+        user?.id,
+        user?.sex,
+        weekLogs,
+      ],
+    );
+
+  const calendarSummaries =
+    useMemo(
+      () =>
+        buildCalendarDaySummaries(
+          myLogs,
+          myMealLogs,
+          calendarGoals,
+          {
+            today:
+              calendarToday,
+          },
+        ),
+      [
+        calendarGoals,
+        calendarToday,
+        myLogs,
+        myMealLogs,
+      ],
+    );
+
   if (!user) {
     return null;
   }
@@ -952,7 +1066,7 @@ export default function DashboardPage() {
   // ─────────────────────────────────────────────
 
   const todayKey =
-    localDateKey();
+    calendarToday;
 
   const todayNutrition =
     getDailyNutrition(
@@ -990,7 +1104,7 @@ export default function DashboardPage() {
     ).length;
 
   const inbodyRecords =
-    getInbodyRecords();
+    calendarInbodyRecords;
 
   const latestInbody =
     inbodyRecords.at(
@@ -1253,6 +1367,18 @@ export default function DashboardPage() {
             />
           </button>
         </div>
+
+        <ActivityCalendar
+          summaries={
+            calendarSummaries
+          }
+          today={
+            calendarToday
+          }
+          nutritionGoals={
+            calendarGoals
+          }
+        />
 
         <GuardianProgressCard progress={guardianProgress} />
 
