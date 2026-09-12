@@ -224,29 +224,16 @@ const BODY_COLOR: Record<
   BodyPart,
   string
 > = {
-  가슴:
-    'text-rose-400',
-
-  등:
-    'text-blue-400',
-
-  어깨:
-    'text-violet-400',
-
-  삼두:
-    'text-amber-400',
-
-  이두:
-    'text-emerald-400',
-
-  하체:
-    'text-orange-400',
-
-  복근:
-    'text-cyan-400',
-
-  유산소:
-    'text-pink-400',
+  가슴: 'text-rose-400',
+  등: 'text-blue-400',
+  어깨: 'text-violet-400',
+  삼두: 'text-amber-400',
+  이두: 'text-emerald-400',
+  하체: 'text-orange-400',
+  복근: 'text-cyan-400',
+  전완: 'text-lime-400',
+  전신: 'text-fuchsia-400',
+  유산소: 'text-pink-400',
 };
 
 function ExerciseRow({
