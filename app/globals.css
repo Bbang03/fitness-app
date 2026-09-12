@@ -313,14 +313,14 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 .guardian-meter progress::-webkit-progress-bar,.guardian-card__next progress::-webkit-progress-bar { background:var(--color-surface-muted); }
 .guardian-meter progress::-webkit-progress-value,.guardian-card__next progress::-webkit-progress-value { background:var(--color-accent);border-radius:var(--radius-pill); }
 .guardian-meter progress::-moz-progress-bar,.guardian-card__next progress::-moz-progress-bar { background:var(--color-accent);border-radius:var(--radius-pill); }
-.guardian-card__figure { align-self:center;margin:0;text-align:center; }
+.guardian-card__figure { min-width:0;align-self:center;margin:0;text-align:center; }
 .guardian-card__figure figcaption { margin-top:calc(var(--space-2) * -1);color:var(--color-ink-secondary);font-size:var(--text-caption);line-height:1.35; }
 .guardian-card__next { grid-column:1 / -1;display:grid;grid-template-columns:minmax(0,1fr) 7rem;align-items:center;gap:var(--space-4);padding-top:var(--space-4);border-top:var(--rule-hairline) solid var(--color-rule); }
 .guardian-card__next span,.guardian-card__next small { display:block; }
 .guardian-card__next span { font-size:var(--text-body);font-weight:700; }
 .guardian-card__next small { margin-top:var(--space-1);color:var(--color-ink-secondary);font-size:var(--text-caption); }
 .guardian-card__next progress { margin:0; }
-.stone-guardian { display:block;width:100%;height:auto;overflow:visible; }
+.stone-guardian { display:block;width:100%;height:10rem;object-fit:contain;object-position:center;border-radius:var(--radius-card); }
 .stone-guardian__shadow { fill:var(--color-surface-muted); }
 .stone-guardian__stone { fill:var(--color-olive);stroke:var(--color-ink);stroke-width:2.5;stroke-linejoin:bevel; }
 .stone-guardian__stone--mid { fill:var(--color-brown); }
@@ -340,4 +340,5 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
   .guardian-card { grid-template-columns:minmax(0,1fr) 6.75rem;padding:var(--space-4);gap:var(--space-3); }
   .guardian-card__message { font-size:.875rem; }
   .guardian-card__next { grid-template-columns:1fr;gap:var(--space-2); }
+  .stone-guardian { height:9rem; }
 }
