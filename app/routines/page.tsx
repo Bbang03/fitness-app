@@ -3,7 +3,12 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
+} from 'react';
+
+import type {
+  PointerEvent as ReactPointerEvent,
 } from 'react';
 
 import Link from 'next/link';
@@ -18,7 +23,6 @@ import {
   Clock3,
   Dumbbell,
   Flame,
-  Pencil,
   Play,
   Plus,
   Trash2,
@@ -68,6 +72,13 @@ export default function RoutinesPage() {
   const [
     deletingId,
     setDeletingId,
+  ] = useState<
+    string | null
+  >(null);
+
+  const [
+    openSwipeId,
+    setOpenSwipeId,
   ] = useState<
     string | null
   >(null);
@@ -151,7 +162,8 @@ export default function RoutinesPage() {
                   target_sets,
                   target_reps,
                   rest_seconds,
-                  record_type
+                  record_type,
+                  superset_group
                 )
               `)
               .eq(
@@ -462,49 +474,34 @@ export default function RoutinesPage() {
   // Delete
   // ─────────────────────────────────────────────
 
-  const confirmDelete =
+  const handleDeleteRoutine =
     async (
       id: string,
     ) => {
-      if (
-        deletingId === id
-      ) {
-        const success =
-          await deleteRoutine(
-            id,
-          );
-
-        setDeletingId(
-          null,
-        );
-
-        if (!success) {
-          console.error(
-            '루틴 삭제에 실패했습니다.',
-          );
-        }
-
+      if (deletingId) {
         return;
       }
 
+      setDeletingId(id);
+
+      const success =
+        await deleteRoutine(
+          id,
+        );
+
       setDeletingId(
-        id,
+        null,
       );
 
-      window.setTimeout(
-        () => {
-          setDeletingId(
-            (
-              current,
-            ) =>
-              current ===
-              id
-                ? null
-                : current,
-          );
-        },
-        2500,
+      setOpenSwipeId(
+        null,
       );
+
+      if (!success) {
+        console.error(
+          '루틴 삭제에 실패했습니다.',
+        );
+      }
     };
 
   return (
@@ -760,156 +757,63 @@ export default function RoutinesPage() {
             {myRoutines.map(
               (
                 routine,
-              ) => {
-                const sortedItems =
-                  [
-                    ...routine.items,
-                  ].sort(
-                    (
-                      a,
-                      b,
-                    ) =>
-                      a.order -
-                      b.order,
-                  );
-
-                const totalSets =
-                  routine.items.reduce(
-                    (
-                      sum,
-                      item,
-                    ) =>
-                      sum +
-                      item.target_sets,
-                    0,
-                  );
-
-                const visibleExercises =
-                  sortedItems.slice(
-                    0,
-                    3,
-                  );
-
-                const hiddenCount =
-                  Math.max(
-                    0,
-                    sortedItems.length -
-                      visibleExercises.length,
-                  );
-
-                return (
-                  <article
-                    key={
-                      routine.id
-                    }
-                    className="overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/70"
-                  >
-                    <div className="p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-semibold">
-                            {
-                              routine.name
-                            }
-                          </p>
-
-                          <p className="mt-1 text-xs text-zinc-500">
-                            {
-                              routine.items
-                                .length
-                            }{' '}
-                            가지 운동 ·{' '}
-                            {
-                              totalSets
-                            }{' '}
-                            세트
-                          </p>
-                        </div>
-
-                        <Link
-                          href={`/routines/${routine.id}/workout`}
-                          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white transition-colors hover:bg-blue-500"
-                          aria-label={`${routine.name} 운동 시작`}
-                        >
-                          <Play
-                            size={17}
-                            fill="currentColor"
-                          />
-                        </Link>
-                      </div>
-
-                      {visibleExercises.length >
-                        0 && (
-                        <div className="mt-4 flex flex-wrap gap-1.5">
-                          {visibleExercises.map(
-                            (
-                              item,
-                            ) => (
-                              <span
-                                key={
-                                  item.id
-                                }
-                                className="rounded-full border border-zinc-800 bg-zinc-950/50 px-2.5 py-1 text-[11px] text-zinc-400"
-                              >
-                                {
-                                  item.exercise_name
-                                }
-                              </span>
-                            ),
-                          )}
-
-                          {hiddenCount >
-                            0 && (
-                            <span className="rounded-full border border-zinc-800 bg-zinc-950/50 px-2.5 py-1 text-[11px] text-zinc-600">
-                              +
-                              {
-                                hiddenCount
-                              }
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 border-t border-zinc-800/80">
-                      <Link
-                        href={`/routines/${routine.id}`}
-                        className="flex items-center justify-center gap-1.5 py-3.5 text-xs font-medium text-zinc-500 transition-colors hover:text-white"
-                      >
-                        <Pencil
-                          size={13}
-                        />
-
-                        루틴 편집
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void confirmDelete(
-                            routine.id,
-                          );
-                        }}
-                        className={`flex items-center justify-center gap-1.5 border-l border-zinc-800/80 py-3.5 text-xs font-medium transition-colors ${
-                          deletingId ===
-                          routine.id
-                            ? 'bg-red-500/10 text-red-400'
-                            : 'text-zinc-500 hover:text-red-400'
-                        }`}
-                      >
-                        <Trash2
-                          size={13}
-                        />
-
-                        {deletingId ===
+              ) => (
+                <SwipeRoutineCard
+                  key={
+                    routine.id
+                  }
+                  routine={
+                    routine
+                  }
+                  isOpen={
+                    openSwipeId ===
+                    routine.id
+                  }
+                  isDeleting={
+                    deletingId ===
+                    routine.id
+                  }
+                  onOpen={() =>
+                    setOpenSwipeId(
+                      routine.id,
+                    )
+                  }
+                  onClose={() =>
+                    setOpenSwipeId(
+                      (
+                        current,
+                      ) =>
+                        current ===
                         routine.id
-                          ? '다시 눌러 삭제'
-                          : '삭제'}
-                      </button>
-                    </div>
-                  </article>
-                );
-              },
+                          ? null
+                          : current,
+                    )
+                  }
+                  onEdit={() => {
+                    setOpenSwipeId(
+                      null,
+                    );
+
+                    router.push(
+                      `/routines/${routine.id}`,
+                    );
+                  }}
+                  onStart={() => {
+                    setOpenSwipeId(
+                      null,
+                    );
+
+                    router.push(
+                      `/routines/${routine.id}/workout`,
+                    );
+                  }}
+                  onDelete={() => {
+                    void handleDeleteRoutine(
+                      routine.id,
+                    );
+                  }}
+                />
+              ),
             )}
           </div>
         )}
@@ -917,6 +821,517 @@ export default function RoutinesPage() {
 
       <div className="h-4" />
     </AppShell>
+  );
+}
+
+
+const DELETE_WIDTH = 84;
+
+function SwipeRoutineCard({
+  routine,
+  isOpen,
+  isDeleting,
+  onOpen,
+  onClose,
+  onEdit,
+  onStart,
+  onDelete,
+}: {
+  routine: Routine;
+  isOpen: boolean;
+  isDeleting: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onEdit: () => void;
+  onStart: () => void;
+  onDelete: () => void;
+}) {
+  const [
+    offsetX,
+    setOffsetX,
+  ] = useState(
+    isOpen
+      ? -DELETE_WIDTH
+      : 0,
+  );
+
+  const offsetXRef =
+    useRef(offsetX);
+
+  const suppressClickRef =
+    useRef(false);
+
+  const gestureRef =
+    useRef({
+      pointerId:
+        null as number | null,
+
+      startX: 0,
+      startY: 0,
+
+      baseOffset: 0,
+
+      axis:
+        null as
+          | 'horizontal'
+          | 'vertical'
+          | null,
+    });
+
+  useEffect(() => {
+    const next =
+      isOpen
+        ? -DELETE_WIDTH
+        : 0;
+
+    offsetXRef.current =
+      next;
+
+    setOffsetX(
+      next,
+    );
+  }, [isOpen]);
+
+  const sortedItems =
+    useMemo(
+      () =>
+        [
+          ...routine.items,
+        ].sort(
+          (
+            a,
+            b,
+          ) =>
+            a.order -
+            b.order,
+        ),
+      [routine.items],
+    );
+
+  const totalSets =
+    routine.items.reduce(
+      (
+        sum,
+        item,
+      ) =>
+        sum +
+        item.target_sets,
+      0,
+    );
+
+  const visibleExercises =
+    sortedItems.slice(
+      0,
+      3,
+    );
+
+  const hiddenCount =
+    Math.max(
+      0,
+      sortedItems.length -
+        visibleExercises.length,
+    );
+
+  const setOffset = (
+    value: number,
+  ) => {
+    const clamped =
+      Math.max(
+        -DELETE_WIDTH,
+        Math.min(
+          0,
+          value,
+        ),
+      );
+
+    offsetXRef.current =
+      clamped;
+
+    setOffsetX(
+      clamped,
+    );
+  };
+
+  const resetGesture =
+    () => {
+      gestureRef.current = {
+        pointerId: null,
+
+        startX: 0,
+        startY: 0,
+
+        baseOffset: 0,
+
+        axis: null,
+      };
+    };
+
+  const handlePointerDown =
+    (
+      event:
+        ReactPointerEvent<HTMLElement>,
+    ) => {
+      if (isDeleting) {
+        return;
+      }
+
+      if (
+        event.pointerType ===
+          'mouse' &&
+        event.button !== 0
+      ) {
+        return;
+      }
+
+      const target =
+        event.target as HTMLElement;
+
+      if (
+        target.closest(
+          'button, a',
+        )
+      ) {
+        return;
+      }
+
+      gestureRef.current = {
+        pointerId:
+          event.pointerId,
+
+        startX:
+          event.clientX,
+
+        startY:
+          event.clientY,
+
+        baseOffset:
+          offsetXRef.current,
+
+        axis: null,
+      };
+
+      try {
+        event.currentTarget.setPointerCapture(
+          event.pointerId,
+        );
+      } catch {
+        // ignore
+      }
+    };
+
+  const handlePointerMove =
+    (
+      event:
+        ReactPointerEvent<HTMLElement>,
+    ) => {
+      const gesture =
+        gestureRef.current;
+
+      if (
+        gesture.pointerId !==
+        event.pointerId
+      ) {
+        return;
+      }
+
+      const dx =
+        event.clientX -
+        gesture.startX;
+
+      const dy =
+        event.clientY -
+        gesture.startY;
+
+      if (
+        gesture.axis ===
+        null
+      ) {
+        if (
+          Math.abs(dx) <
+            6 &&
+          Math.abs(dy) <
+            6
+        ) {
+          return;
+        }
+
+        gesture.axis =
+          Math.abs(dx) >
+          Math.abs(dy)
+            ? 'horizontal'
+            : 'vertical';
+      }
+
+      if (
+        gesture.axis !==
+        'horizontal'
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (
+        Math.abs(dx) >
+        8
+      ) {
+        suppressClickRef.current =
+          true;
+      }
+
+      setOffset(
+        gesture.baseOffset +
+          dx,
+      );
+    };
+
+  const finishGesture =
+    (
+      event:
+        ReactPointerEvent<HTMLElement>,
+    ) => {
+      const gesture =
+        gestureRef.current;
+
+      if (
+        gesture.pointerId !==
+        event.pointerId
+      ) {
+        return;
+      }
+
+      if (
+        gesture.axis ===
+        'horizontal'
+      ) {
+        const shouldOpen =
+          offsetXRef.current <=
+          -DELETE_WIDTH *
+            0.42;
+
+        if (shouldOpen) {
+          setOffset(
+            -DELETE_WIDTH,
+          );
+
+          onOpen();
+        } else {
+          setOffset(0);
+
+          onClose();
+        }
+
+        window.setTimeout(
+          () => {
+            suppressClickRef.current =
+              false;
+          },
+          80,
+        );
+      }
+
+      try {
+        event.currentTarget.releasePointerCapture(
+          event.pointerId,
+        );
+      } catch {
+        // ignore
+      }
+
+      resetGesture();
+    };
+
+  const cancelGesture =
+    () => {
+      setOffset(
+        isOpen
+          ? -DELETE_WIDTH
+          : 0,
+      );
+
+      resetGesture();
+
+      window.setTimeout(
+        () => {
+          suppressClickRef.current =
+            false;
+        },
+        80,
+      );
+    };
+
+  const handleCardClick =
+    () => {
+      if (
+        suppressClickRef.current
+      ) {
+        return;
+      }
+
+      if (isOpen) {
+        onClose();
+
+        return;
+      }
+
+      onEdit();
+    };
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl">
+      {/* Delete action underneath */}
+      <button
+        type="button"
+        onClick={(
+          event,
+        ) => {
+          event.stopPropagation();
+
+          if (
+            isDeleting
+          ) {
+            return;
+          }
+
+          onDelete();
+        }}
+        disabled={
+          isDeleting
+        }
+        className="absolute inset-y-0 right-0 flex w-[84px] items-center justify-center rounded-r-3xl bg-red-600 text-white transition-colors active:bg-red-500 disabled:opacity-70"
+        aria-label={`${routine.name} 삭제`}
+      >
+        <Trash2
+          size={21}
+        />
+      </button>
+
+      {/* Foreground routine card */}
+      <article
+        role="button"
+        tabIndex={0}
+        onClick={
+          handleCardClick
+        }
+        onKeyDown={(
+          event,
+        ) => {
+          if (
+            event.key ===
+              'Enter' ||
+            event.key ===
+              ' '
+          ) {
+            event.preventDefault();
+
+            handleCardClick();
+          }
+        }}
+        onPointerDown={
+          handlePointerDown
+        }
+        onPointerMove={
+          handlePointerMove
+        }
+        onPointerUp={
+          finishGesture
+        }
+        onPointerCancel={
+          cancelGesture
+        }
+        style={{
+          transform: `translateX(${offsetX}px)`,
+
+          transition:
+            gestureRef.current
+              .axis ===
+            'horizontal'
+              ? 'none'
+              : 'transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+
+          touchAction:
+            'pan-y',
+        }}
+        className="relative z-10 cursor-pointer rounded-3xl border border-zinc-800/80 bg-zinc-900/70 p-5 outline-none transition-colors hover:bg-zinc-900/85 focus-visible:ring-2 focus-visible:ring-blue-500/40"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">
+              {
+                routine.name
+              }
+            </p>
+
+            <p className="mt-1 text-xs text-zinc-500">
+              {
+                routine.items
+                  .length
+              }{' '}
+              가지 운동 ·{' '}
+              {
+                totalSets
+              }{' '}
+              세트
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onPointerDown={(
+              event,
+            ) =>
+              event.stopPropagation()
+            }
+            onClick={(
+              event,
+            ) => {
+              event.stopPropagation();
+
+              onStart();
+            }}
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white transition-colors hover:bg-blue-500 active:scale-[0.97]"
+            aria-label={`${routine.name} 운동 시작`}
+          >
+            <Play
+              size={17}
+              fill="currentColor"
+            />
+          </button>
+        </div>
+
+        {visibleExercises.length >
+          0 && (
+          <div className="mt-4 flex flex-wrap gap-1.5">
+            {visibleExercises.map(
+              (
+                item,
+              ) => (
+                <span
+                  key={
+                    item.id
+                  }
+                  className="rounded-full border border-zinc-800 bg-zinc-950/50 px-2.5 py-1 text-[11px] text-zinc-400"
+                >
+                  {
+                    item.exercise_name
+                  }
+                </span>
+              ),
+            )}
+
+            {hiddenCount >
+              0 && (
+              <span className="rounded-full border border-zinc-800 bg-zinc-950/50 px-2.5 py-1 text-[11px] text-zinc-600">
+                +
+                {
+                  hiddenCount
+                }
+              </span>
+            )}
+          </div>
+        )}
+      </article>
+    </div>
   );
 }
 

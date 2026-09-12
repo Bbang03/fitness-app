@@ -443,6 +443,9 @@ export const useStore = create<Store>()(
                 target_reps: item.target_reps,
                 rest_seconds: item.rest_seconds,
                 record_type: item.record_type,
+                superset_group:
+                  item.superset_group ??
+                  null,
               })),
             );
       

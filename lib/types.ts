@@ -32,6 +32,7 @@ export interface RoutineItem {
   target_reps: number;      // doubles as target_seconds when record_type === 'time'
   rest_seconds: number;
   record_type: RecordType;  // defaults to 'weight_reps' for legacy items
+  superset_group?: string | null;
 }
 
 export interface Routine {
