@@ -397,69 +397,89 @@ function ExerciseScreen({
     currentSet,
   ]);
 
+  const isDraftCompleted = (
+    index: number,
+  ) =>
+    completedSets.some(
+      (set) =>
+        set.set_number === index + 1,
+    );
+
   const updateDraft = (
     index: number,
     patch: Partial<SetDraft>,
   ) => {
     setDrafts((current) =>
       current.map(
-        (draft, draftIndex) =>
-          draftIndex === index
-            ? {
-                ...draft,
-                ...patch,
-              }
-            : draft,
+        (draft, draftIndex) => {
+          // 수정한 세트 이전 값은 유지
+          if (draftIndex < index) {
+            return draft;
+          }
+
+          // 이미 완료된 세트는 변경하지 않음
+          if (
+            isDraftCompleted(
+              draftIndex,
+            )
+          ) {
+            return draft;
+            }
+
+          // 현재 세트부터 이후 미완료 세트까지 반영
+          return {
+            ...draft,
+            ...patch,
+          };
+        },
       ),
     );
   };
 
-  const adjustWeight = (
-    index: number,
-    amount: number,
-  ) => {
-    const current =
-      parseFloat(
-        drafts[index]?.weight ??
-          '0',
-      ) || 0;
+const adjustWeight = (
+  index: number,
+  amount: number,
+) => {
+  const current =
+    parseFloat(
+      drafts[index]?.weight ??
+        '0',
+    ) || 0;
 
-    const next =
+  const next = Math.max(
+    0,
+    Math.round(
+      (current + amount) * 10,
+    ) / 10,
+  );
+
+  updateDraft(index, {
+    weight: Number.isInteger(next)
+      ? String(next)
+      : next.toFixed(1),
+  });
+};
+
+const adjustReps = (
+  index: number,
+  amount: number,
+) => {
+  const current =
+    parseInt(
+      drafts[index]?.reps ??
+        '0',
+      10,
+    ) || 0;
+
+  updateDraft(index, {
+    reps: String(
       Math.max(
-        0,
-        Math.round(
-          (current + amount) * 4,
-        ) / 4,
-      );
-
-    updateDraft(index, {
-      weight: String(
-        next % 1 === 0
-          ? next
-          : next.toFixed(1),
+        1,
+        current + amount,
       ),
-    });
-  };
-
-  const adjustReps = (
-    index: number,
-    amount: number,
-  ) => {
-    const current =
-      parseInt(
-        drafts[index]?.reps ??
-          '0',
-      ) || 0;
-
-    updateDraft(index, {
-      reps: String(
-        Math.max(
-          1,
-          current + amount,
-        ),
-      ),
-    });
-  };
+    ),
+  });
+};
 
   // ─────────────────────────────────────────────
   // Time Exercise Countdown Timer
@@ -1318,28 +1338,29 @@ function ExerciseScreen({
                       )
                     }
                     onWeightMinus={() =>
-                      adjustWeight(
-                        index,
-                        -2.5,
-                      )
+                      adjustWeight(index, -1)
                     }
                     onWeightPlus={() =>
-                      adjustWeight(
-                        index,
-                        2.5,
-                      )
+                      adjustWeight(index, 1)
                     }
+                    onWeightFastMinus={() =>
+                      adjustWeight(index, -5)
+                    }
+                    onWeightFastPlus={() =>
+                      adjustWeight(index, 5)
+                    }
+
                     onRepsMinus={() =>
-                      adjustReps(
-                        index,
-                        -1,
-                      )
+                      adjustReps(index, -1)
                     }
                     onRepsPlus={() =>
-                      adjustReps(
-                        index,
-                        1,
-                      )
+                      adjustReps(index, 1)
+                    }
+                    onRepsFastMinus={() =>
+                      adjustReps(index, -5)
+                    }
+                    onRepsFastPlus={() =>
+                      adjustReps(index, 5)
                     }
                     onComplete={
                       completeCurrentSet
@@ -1785,9 +1806,13 @@ function SetRow({
 
   onWeightMinus,
   onWeightPlus,
+  onWeightFastMinus,
+  onWeightFastPlus,
 
   onRepsMinus,
   onRepsPlus,
+  onRepsFastMinus,
+  onRepsFastPlus,
 
   onComplete,
 }: {
@@ -1819,9 +1844,13 @@ function SetRow({
 
   onWeightMinus: () => void;
   onWeightPlus: () => void;
+  onWeightFastMinus: () => void;
+  onWeightFastPlus: () => void;
 
   onRepsMinus: () => void;
   onRepsPlus: () => void;
+  onRepsFastMinus: () => void;
+  onRepsFastPlus: () => void;
 
   onComplete: () => void;
 }) {
@@ -1872,19 +1901,15 @@ function SetRow({
                 )
               : draft.weight
           }
-          disabled={
-            isCompleted
-          }
+          disabled={isCompleted}
           decimal
-          onChange={
-            onWeightChange
-          }
-          onMinus={
-            onWeightMinus
-          }
-          onPlus={
-            onWeightPlus
-          }
+          label="무게"
+          unit="kg"
+          onChange={onWeightChange}
+          onMinus={onWeightMinus}
+          onPlus={onWeightPlus}
+          onFastMinus={onWeightFastMinus}
+          onFastPlus={onWeightFastPlus}
         />
 
         <NumberCell
@@ -1896,18 +1921,14 @@ function SetRow({
                 )
               : draft.reps
           }
-          disabled={
-            isCompleted
-          }
-          onChange={
-            onRepsChange
-          }
-          onMinus={
-            onRepsMinus
-          }
-          onPlus={
-            onRepsPlus
-          }
+          disabled={isCompleted}
+          label="횟수"
+          unit="회"
+          onChange={onRepsChange}
+          onMinus={onRepsMinus}
+          onPlus={onRepsPlus}
+          onFastMinus={onRepsFastMinus}
+          onFastPlus={onRepsFastPlus}
         />
 
         <CompleteCell
@@ -1959,18 +1980,14 @@ function SetRow({
                 )
               : draft.reps
           }
-          disabled={
-            isCompleted
-          }
-          onChange={
-            onRepsChange
-          }
-          onMinus={
-            onRepsMinus
-          }
-          onPlus={
-            onRepsPlus
-          }
+          disabled={isCompleted}
+          label="횟수"
+          unit="회"
+          onChange={onRepsChange}
+          onMinus={onRepsMinus}
+          onPlus={onRepsPlus}
+          onFastMinus={onRepsFastMinus}
+          onFastPlus={onRepsFastPlus}
         />
 
         <CompleteCell
@@ -3242,14 +3259,23 @@ function NumberCell({
   disabled,
   decimal,
 
+  label,
+  unit,
+
   onChange,
 
   onMinus,
   onPlus,
+
+  onFastMinus,
+  onFastPlus,
 }: {
   value: string;
   disabled: boolean;
   decimal?: boolean;
+
+  label: string;
+  unit: string;
 
   onChange: (
     value: string,
@@ -3257,59 +3283,300 @@ function NumberCell({
 
   onMinus: () => void;
   onPlus: () => void;
+
+  onFastMinus: () => void;
+  onFastPlus: () => void;
 }) {
+  const [
+    keypadOpen,
+    setKeypadOpen,
+  ] = useState(false);
+
+  const appendDigit = (
+    digit: string,
+  ) => {
+    if (digit === '.') {
+      if (
+        !decimal ||
+        value.includes('.')
+      ) {
+        return;
+      }
+
+      onChange(
+        value.length === 0
+          ? '0.'
+          : `${value}.`,
+      );
+
+      return;
+    }
+
+    if (value === '0') {
+      onChange(digit);
+      return;
+    }
+
+    onChange(
+      `${value}${digit}`,
+    );
+  };
+
+  const backspace = () => {
+    if (!value) return;
+
+    onChange(
+      value.slice(0, -1),
+    );
+  };
+
+  const clearValue = () => {
+    onChange('');
+  };
+
+  const keypadButtonClass =
+    'flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-xl font-semibold text-white transition active:scale-[0.97] active:bg-zinc-800';
+
   return (
-    <div className="relative">
-      <input
-        type="number"
-        value={value}
-        disabled={disabled}
-        inputMode={
-          decimal
-            ? 'decimal'
-            : 'numeric'
-        }
-        onChange={(event) =>
-          onChange(
-            event.target.value,
-          )
-        }
-        className={`h-14 w-full rounded-xl border px-8 text-center text-lg font-bold transition-colors focus:outline-none ${
-          disabled
-            ? 'border-emerald-500/10 bg-emerald-500/[0.06] text-emerald-300'
-            : 'border-zinc-800 bg-zinc-900 text-white focus:border-blue-500'
-        }`}
-      />
+    <>
+      <div className="relative">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() =>
+            !disabled &&
+            setKeypadOpen(true)
+          }
+          className={`h-14 w-full rounded-xl border px-8 text-center text-lg font-bold transition-colors ${
+            disabled
+              ? 'border-emerald-500/10 bg-emerald-500/[0.06] text-emerald-300'
+              : 'border-zinc-800 bg-zinc-900 text-white active:border-blue-500'
+          }`}
+        >
+          {value || '0'}
+        </button>
 
-      {!disabled && (
-        <>
-          <button
-            type="button"
-            onClick={
-              onMinus
-            }
-            className="absolute left-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-600 transition-colors active:bg-zinc-800 active:text-zinc-300"
-            aria-label="감소"
-          >
-            −
-          </button>
+        {!disabled && (
+          <>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onMinus();
+              }}
+              className="absolute left-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 transition-colors active:bg-zinc-800 active:text-white"
+              aria-label={`${label} 1 감소`}
+            >
+              −
+            </button>
 
-          <button
-            type="button"
-            onClick={
-              onPlus
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onPlus();
+              }}
+              className="absolute right-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 transition-colors active:bg-zinc-800 active:text-white"
+              aria-label={`${label} 1 증가`}
+            >
+              +
+            </button>
+          </>
+        )}
+      </div>
+
+      {keypadOpen &&
+        !disabled && (
+          <div
+            className="fixed inset-0 z-[100] flex items-end bg-black/65 backdrop-blur-sm"
+            onClick={() =>
+              setKeypadOpen(
+                false,
+              )
             }
-            className="absolute right-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-600 transition-colors active:bg-zinc-800 active:text-zinc-300"
-            aria-label="증가"
           >
-            +
-          </button>
-        </>
-      )}
-    </div>
+            <div
+              className="mx-auto w-full max-w-md rounded-t-[28px] border-t border-zinc-800 bg-zinc-950 px-4 pb-6 pt-4 shadow-2xl"
+              onClick={(
+                event,
+              ) =>
+                event.stopPropagation()
+              }
+            >
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700" />
+
+              <div className="mb-4 text-center">
+                <p className="text-xs font-medium text-zinc-500">
+                  {label}
+                </p>
+
+                <div className="mt-1 flex items-baseline justify-center gap-1">
+                  <span className="text-3xl font-bold text-white">
+                    {value ||
+                      '0'}
+                  </span>
+
+                  <span className="text-sm font-medium text-zinc-500">
+                    {unit}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mb-3 grid grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={
+                    onFastMinus
+                  }
+                  className="h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-sm font-bold text-zinc-300 active:bg-zinc-800"
+                >
+                  -5
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    onMinus
+                  }
+                  className="h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-sm font-bold text-zinc-300 active:bg-zinc-800"
+                >
+                  -1
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    onPlus
+                  }
+                  className="h-11 rounded-xl border border-zinc-800 bg-zinc-900 text-sm font-bold text-zinc-300 active:bg-zinc-800"
+                >
+                  +1
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    onFastPlus
+                  }
+                  className="h-11 rounded-xl border border-blue-500/20 bg-blue-500/10 text-sm font-bold text-blue-400 active:bg-blue-500/20"
+                >
+                  +5
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  '1',
+                  '2',
+                  '3',
+                  '4',
+                  '5',
+                  '6',
+                  '7',
+                  '8',
+                  '9',
+                ].map(
+                  (digit) => (
+                    <button
+                      key={
+                        digit
+                      }
+                      type="button"
+                      onClick={() =>
+                        appendDigit(
+                          digit,
+                        )
+                      }
+                      className={
+                        keypadButtonClass
+                      }
+                    >
+                      {digit}
+                    </button>
+                  ),
+                )}
+
+                {decimal ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      appendDigit(
+                        '.',
+                      )
+                    }
+                    className={
+                      keypadButtonClass
+                    }
+                  >
+                    .
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={
+                      clearValue
+                    }
+                    className="flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-sm font-semibold text-zinc-400 active:bg-zinc-800"
+                  >
+                    초기화
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    appendDigit(
+                      '0',
+                    )
+                  }
+                  className={
+                    keypadButtonClass
+                  }
+                >
+                  0
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    backspace
+                  }
+                  className="flex h-14 items-center justify-center rounded-2xl bg-zinc-900 text-xl font-semibold text-zinc-300 active:bg-zinc-800"
+                  aria-label="한 자리 삭제"
+                >
+                  ⌫
+                </button>
+              </div>
+
+              {decimal && (
+                <button
+                  type="button"
+                  onClick={
+                    clearValue
+                  }
+                  className="mt-2 h-10 w-full rounded-xl text-xs font-medium text-zinc-500 active:bg-zinc-900"
+                >
+                  입력값 초기화
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setKeypadOpen(
+                    false,
+                  )
+                }
+                className="mt-3 h-14 w-full rounded-2xl bg-blue-600 text-base font-bold text-white transition active:bg-blue-500"
+              >
+                완료
+              </button>
+            </div>
+          </div>
+        )}
+    </>
   );
 }
-
 // ─────────────────────────────────────────────
 // Complete Cell
 // ─────────────────────────────────────────────
