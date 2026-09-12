@@ -5,6 +5,8 @@ import { FOOD_DB, calcNutrition } from '@/lib/foodData';
 import { createClient } from '@/lib/supabase/client';
 import {
   candidateIdentityKey,
+  cleanVisualCandidates,
+  collapseEquivalentCandidates,
   selectMeaningfulDatabaseCandidates,
 } from '@/lib/visionCandidateValidation';
 
@@ -493,12 +495,14 @@ function ResultRow({
   onGrams,
   onCandidate,
   onIdentity,
+  resolving,
 }: {
   row: Row;
   onToggle: () => void;
   onGrams: (g: number) => void;
   onCandidate: (candidate: ExternalCandidate) => void;
   onIdentity: (candidate: VisionCandidate) => void;
+  resolving?: boolean;
 }) {
   const lowConfidence = row.confidence < 0.9;
   const servingG = row.serving_g ?? estimatedServing(row.grams, row.portion);
@@ -555,7 +559,7 @@ function ResultRow({
 
           {row.matched ? (
             <>
-              {row.vision_candidates && row.vision_candidates.length > 1 && (
+              {row.vision_candidates && row.vision_candidates.length > 1 && row.needs_identity_confirmation && (
                 <div className="mt-2">
                   <p className="text-[11px] text-zinc-500 mb-1.5">
                     사진 분석 후보{row.needs_identity_confirmation ? ' — 하나를 선택해주세요' : ''}
@@ -563,9 +567,11 @@ function ResultRow({
                   <div className="grid gap-1.5">
                     {row.vision_candidates.map(candidate => (
                       <button
+                        type="button"
                         key={candidate.name}
                         onClick={() => onIdentity(candidate)}
-                        className={`min-h-11 w-full rounded-xl border px-3 py-2.5 text-left ${
+                        disabled={resolving}
+                        className={`min-h-11 w-full rounded-xl border px-3 py-2.5 text-left transition-opacity disabled:cursor-wait disabled:opacity-60 ${
                           row.selected_identity === candidate.name
                             ? 'border-blue-500 bg-blue-50 text-blue-700'
                             : 'border-zinc-200 bg-white text-zinc-700'
@@ -581,6 +587,11 @@ function ResultRow({
                       </button>
                     ))}
                   </div>
+                  {resolving && (
+                    <p className="mt-2 text-[10px] text-zinc-500" role="status">
+                      선택한 음식의 영양정보를 확인하는 중…
+                    </p>
+                  )}
                 </div>
               )}
               {row.reference_name && (
@@ -689,13 +700,15 @@ function ResultRow({
             </>
           ) : (
             <>
-              {row.vision_candidates && row.vision_candidates.length > 1 && (
+              {row.vision_candidates && row.vision_candidates.length > 1 && row.needs_identity_confirmation && (
                 <div className="grid gap-1.5 mt-2">
                   {row.vision_candidates.map(candidate => (
                     <button
+                      type="button"
                       key={candidate.name}
                       onClick={() => onIdentity(candidate)}
-                      className="w-full px-2.5 py-2 rounded-md border border-zinc-700 bg-zinc-800 text-left"
+                      disabled={resolving}
+                      className="w-full px-2.5 py-2 rounded-md border border-zinc-700 bg-zinc-800 text-left disabled:cursor-wait disabled:opacity-60"
                     >
                       <span className="flex justify-between text-[11px] text-zinc-300">
                         <span>{candidate.name}</span>
@@ -704,6 +717,11 @@ function ResultRow({
                       {candidate.reason && <span className="block text-[10px] mt-0.5 text-zinc-500">{candidate.reason}</span>}
                     </button>
                   ))}
+                  {resolving && (
+                    <p className="text-[10px] text-zinc-500" role="status">
+                      선택한 음식의 영양정보를 확인하는 중…
+                    </p>
+                  )}
                 </div>
               )}
               <p className="text-xs text-zinc-500 mt-1.5">
@@ -729,6 +747,7 @@ export default function PhotoMealScanner({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [resolvingIndex, setResolvingIndex] = useState<number | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -736,6 +755,7 @@ export default function PhotoMealScanner({
     setPreview(null);
     setRows(null);
     setError('');
+    setResolvingIndex(null);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
     if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
@@ -764,18 +784,29 @@ export default function PhotoMealScanner({
         return;
       }
 
-      const recognizedRows: Row[] = (json.items as ScannedItem[]).map(it => ({
+      const recognizedRows: Row[] = (json.items as ScannedItem[]).map(it => {
+        const visionCandidates = it.vision_candidates?.length
+          ? cleanVisualCandidates(it.vision_candidates)
+          : it.vision_candidates;
+        const needsIdentityConfirmation = Boolean(
+          it.needs_identity_confirmation && (visionCandidates?.length ?? 0) > 1,
+        );
+
+        return {
           ...it,
+          vision_candidates: visionCandidates,
           serving_g: it.serving_g ?? estimatedServing(it.grams, it.portion),
           serving_desc: it.serving_desc
             ?? `추정 1인분 (${estimatedServing(it.grams, it.portion)}g)`,
           source: it.matched ? '내부 DB' : undefined,
-          selected_identity: it.needs_identity_confirmation ? undefined : it.vision_candidates?.[0]?.name,
+          needs_identity_confirmation: needsIdentityConfirmation,
+          selected_identity: needsIdentityConfirmation ? undefined : visionCandidates?.[0]?.name,
           selected: it.matched
             && it.confidence >= 0.9
-            && !it.needs_identity_confirmation
+            && !needsIdentityConfirmation
             && !it.needs_variant_confirmation,
-        }));
+        };
+      });
 
       const enrichedRows = await Promise.all(
         recognizedRows.map(async row => {
@@ -808,7 +839,7 @@ export default function PhotoMealScanner({
             };
           }
 
-          const identities = row.vision_candidates?.slice(0, 3) ?? [];
+          const identities = collapseEquivalentCandidates(row.vision_candidates?.slice(0, 3) ?? []);
           const identityMatches = identities.length > 1
             ? await Promise.all(identities.map(async identity => {
               const found = await searchExternalFoods(identity.name);
@@ -835,7 +866,9 @@ export default function PhotoMealScanner({
                 .filter(candidate => isMeaningfulDatabaseMatch(candidate)
                   && plausibleAgainstVisionEstimate(candidate, row.estimated_per100g))
             : [];
-          const candidates = directCandidates.length > 0 ? directCandidates : fallbackCandidates;
+          const candidates = collapseEquivalentCandidates(
+            directCandidates.length > 0 ? directCandidates : fallbackCandidates,
+          );
           const best = candidates[0];
 
           if (row.needs_identity_confirmation) {
@@ -945,7 +978,7 @@ export default function PhotoMealScanner({
     if (!current) return;
 
     setError('');
-    setLoading(true);
+    setResolvingIndex(idx);
     try {
       let dbMatch = current.candidates?.find(candidate => candidate.vision_name === identity.name);
       if (!dbMatch) {
@@ -1030,7 +1063,7 @@ export default function PhotoMealScanner({
     } catch {
       setError('선택한 음식의 영양정보를 불러오지 못했습니다. 다시 시도해주세요.');
     } finally {
-      setLoading(false);
+      setResolvingIndex(null);
     }
   };
 
@@ -1220,6 +1253,7 @@ export default function PhotoMealScanner({
                 onGrams={g => updateGrams(i, g)}
                 onCandidate={candidate => chooseCandidate(i, candidate)}
                 onIdentity={candidate => chooseIdentity(i, candidate)}
+                resolving={resolvingIndex === i}
               />
             ))}
           </div>
