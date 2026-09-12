@@ -12,7 +12,6 @@ import {
   Minus,
   Plus,
   RefreshCw,
-  Sparkles,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -38,68 +37,15 @@ interface MetricConfig {
   unit: string;
 }
 
-interface PredictionResponse {
-  model: {
-    name: string;
-    version: string;
-    endpoint_window: string;
-  };
-  current: {
-    measured_at: string;
-    weight_kg: number;
-    fat_mass_kg: number;
-    skeletal_muscle_kg: number;
-    body_fat_pct: number;
-  };
-  prediction: {
-    weight_kg: number;
-    fat_mass_kg: number;
-    skeletal_muscle_kg: number;
-    body_fat_pct: number;
-  };
-  change: {
-    weight_kg: number;
-    fat_mass_kg: number;
-    skeletal_muscle_kg: number;
-    body_fat_pct: number;
-  };
-  history: {
-    history_quality: string;
-    history_n_prior: number;
-    has_prev: boolean;
-    has_prev2: boolean;
-    days_since_prev: number | null;
-    history_count_30d: number;
-    history_count_90d: number;
-    history_count_180d: number;
-    invalid_history_rows_ignored: number;
-    non_past_rows_ignored: number;
-    max_prior_time: string | null;
-  };
-  quality: {
-    physical_sanity: string;
-    history_available: boolean;
-    validation_scope: string;
-  };
-  source: {
-    inbody_record_id: string;
-    inbody_records_used: number;
-    authenticated_user: boolean;
-  };
-  prediction_history_id: string | null;
-}
+const CHART_COLOR = '#dc2626';
 
 const CHART_METRICS: MetricConfig[] = [
-  { key: 'weight_kg', label: '체중', color: '#ffffff', unit: 'kg' },
-  { key: 'skeletal_muscle_kg', label: '골격근량', color: '#60a5fa', unit: 'kg' },
-  { key: 'body_fat_kg', label: '체지방량', color: '#fb7185', unit: 'kg' },
-  { key: 'body_fat_pct', label: '체지방률', color: '#f97316', unit: '%' },
-  { key: 'body_water_kg', label: '체수분', color: '#22d3ee', unit: 'kg' },
-  { key: 'protein_kg', label: '단백질', color: '#818cf8', unit: 'kg' },
-  { key: 'mineral_kg', label: '무기질', color: '#f59e0b', unit: 'kg' },
-  { key: 'visceral_fat_level', label: '내장지방', color: '#a78bfa', unit: '' },
-  { key: 'abdominal_fat_ratio', label: '복부지방률', color: '#facc15', unit: '' },
-  { key: 'bmr_kcal', label: '기초대사량', color: '#4ade80', unit: 'kcal' },
+  { key: 'weight_kg', label: '체중', color: CHART_COLOR, unit: 'kg' },
+  { key: 'skeletal_muscle_kg', label: '골격근량', color: CHART_COLOR, unit: 'kg' },
+  { key: 'body_fat_kg', label: '체지방량', color: CHART_COLOR, unit: 'kg' },
+  { key: 'body_fat_pct', label: '체지방률', color: CHART_COLOR, unit: '%' },
+  { key: 'abdominal_fat_ratio', label: '복부지방률', color: CHART_COLOR, unit: '' },
+  { key: 'bmr_kcal', label: '기초대사량', color: CHART_COLOR, unit: 'kcal' },
 ];
 
 function formatMeasurementDate(value: string) {
@@ -150,103 +96,251 @@ function classifyBodyType(
   };
 }
 
-interface ChartSeries {
-  color: string;
-  values: (number | null)[];
+function metricMinimumPadding(
+  metric: MetricConfig,
+) {
+  if (metric.key === 'bmr_kcal') {
+    return 30;
+  }
+
+  if (
+    metric.key ===
+    'abdominal_fat_ratio'
+  ) {
+    return 0.02;
+  }
+
+  if (
+    metric.key ===
+    'visceral_fat_level'
+  ) {
+    return 0.5;
+  }
+
+  if (metric.unit === '%') {
+    return 0.5;
+  }
+
+  return 0.2;
+}
+
+function metricTickDigits(
+  metric: MetricConfig,
+  range: number,
+) {
+  if (metric.key === 'bmr_kcal') {
+    return 0;
+  }
+
+  if (
+    metric.key ===
+    'abdominal_fat_ratio'
+  ) {
+    return 2;
+  }
+
+  if (
+    metric.key ===
+    'visceral_fat_level'
+  ) {
+    return 1;
+  }
+
+  return range < 4 ? 1 : 0;
 }
 
 function LineChart({
   records,
-  series,
+  metric,
 }: {
   records: InbodyRecord[];
-  series: ChartSeries[];
+  metric: MetricConfig;
 }) {
   const W = 340;
-  const H = 160;
-  const PAD = { top: 12, right: 8, bottom: 24, left: 36 };
-  const innerW = W - PAD.left - PAD.right;
-  const innerH = H - PAD.top - PAD.bottom;
-  const n = records.length;
-
-  if (n < 2) return null;
-
-  const allValues = series
-    .flatMap((item) => item.values)
-    .filter((value): value is number => value !== null);
-
-  if (allValues.length === 0) return null;
-
-  const min = Math.floor(Math.min(...allValues) - 1);
-  const max = Math.ceil(Math.max(...allValues) + 1);
-  const range = Math.max(max - min, 1);
-
-  const xOf = (index: number) =>
-    PAD.left + (index / (n - 1)) * innerW;
-
-  const yOf = (value: number) =>
-    PAD.top + ((max - value) / range) * innerH;
-
-  const path = (values: (number | null)[]) => {
-    let d = '';
-
-    for (let i = 0; i < values.length; i++) {
-      if (values[i] === null) continue;
-
-      const command =
-        d === '' || values[i - 1] === null ? 'M' : 'L';
-
-      d += `${command} ${xOf(i).toFixed(1)} ${yOf(
-        values[i]!,
-      ).toFixed(1)} `;
-    }
-
-    return d;
+  const H = 176;
+  const PAD = {
+    top: 18,
+    right: 10,
+    bottom: 26,
+    left: 46,
   };
 
-  const xLabels = [0, Math.floor((n - 1) / 2), n - 1].filter(
-    (value, index, array) =>
-      array.indexOf(value) === index && value < n,
+  const innerW =
+    W - PAD.left - PAD.right;
+
+  const innerH =
+    H - PAD.top - PAD.bottom;
+
+  const values = records.map(
+    (record) => {
+      const value =
+        record[metric.key] as
+          | number
+          | undefined
+          | null;
+
+      return value !== undefined &&
+        value !== null &&
+        Number.isFinite(value)
+        ? value
+        : null;
+    },
   );
+
+  const validValues =
+    values.filter(
+      (value): value is number =>
+        value !== null,
+    );
+
+  if (
+    records.length < 2 ||
+    validValues.length < 2
+  ) {
+    return null;
+  }
+
+  const rawMin =
+    Math.min(...validValues);
+
+  const rawMax =
+    Math.max(...validValues);
+
+  const rawRange =
+    rawMax - rawMin;
+
+  const minimumPadding =
+    metricMinimumPadding(metric);
+
+  const padding =
+    rawRange === 0
+      ? minimumPadding
+      : Math.max(
+          rawRange * 0.35,
+          minimumPadding,
+        );
+
+  let min =
+    rawMin - padding;
+
+  let max =
+    rawMax + padding;
+
+  if (
+    metric.key ===
+      'visceral_fat_level' ||
+    metric.key ===
+      'abdominal_fat_ratio' ||
+    metric.unit === '%' ||
+    metric.unit === 'kg' ||
+    metric.unit === 'kcal'
+  ) {
+    min = Math.max(0, min);
+  }
+
+  if (max <= min) {
+    max = min + 1;
+  }
+
+  const range = max - min;
+  const n = records.length;
+
+  const xOf = (index: number) =>
+    PAD.left +
+    (index / (n - 1)) * innerW;
+
+  const yOf = (value: number) =>
+    PAD.top +
+    ((max - value) / range) *
+      innerH;
+
+  let path = '';
+
+  values.forEach(
+    (value, index) => {
+      if (value === null) {
+        return;
+      }
+
+      const previousExists =
+        index > 0 &&
+        values[index - 1] !== null;
+
+      const command =
+        path === '' ||
+        !previousExists
+          ? 'M'
+          : 'L';
+
+      path +=
+        `${command} ` +
+        `${xOf(index).toFixed(1)} ` +
+        `${yOf(value).toFixed(1)} `;
+    },
+  );
+
+  const xLabels = [
+    0,
+    Math.floor((n - 1) / 2),
+    n - 1,
+  ].filter(
+    (value, index, array) =>
+      array.indexOf(value) === index &&
+      value < n,
+  );
+
+  const tickDigits =
+    metricTickDigits(metric, range);
 
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
       className="w-full"
       style={{ maxHeight: H }}
+      aria-label={`${metric.label} 변화 그래프`}
+      role="img"
     >
-      {[0, 0.5, 1].map((t) => {
-        const y = PAD.top + t * innerH;
-        const value = max - t * range;
+      {[0, 1 / 3, 2 / 3, 1].map(
+        (ratio) => {
+          const y =
+            PAD.top +
+            ratio * innerH;
 
-        return (
-          <g key={t}>
-            <line
-              x1={PAD.left}
-              y1={y}
-              x2={W - PAD.right}
-              y2={y}
-              stroke="#27272a"
-              strokeWidth="1"
-            />
-            <text
-              x={PAD.left - 4}
-              y={y + 4}
-              textAnchor="end"
-              fontSize="9"
-              fill="#71717a"
-            >
-              {value.toFixed(0)}
-            </text>
-          </g>
-        );
-      })}
+          const value =
+            max - ratio * range;
+
+          return (
+            <g key={ratio}>
+              <line
+                x1={PAD.left}
+                y1={y}
+                x2={W - PAD.right}
+                y2={y}
+                stroke="#27272a"
+                strokeWidth="1"
+              />
+
+              <text
+                x={PAD.left - 6}
+                y={y + 4}
+                textAnchor="end"
+                fontSize="9"
+                fill="#71717a"
+              >
+                {value.toFixed(
+                  tickDigits,
+                )}
+              </text>
+            </g>
+          );
+        },
+      )}
 
       {xLabels.map((index) => (
         <text
           key={index}
           x={xOf(index)}
-          y={H - 4}
+          y={H - 5}
           textAnchor="middle"
           fontSize="8"
           fill="#52525b"
@@ -257,30 +351,27 @@ function LineChart({
         </text>
       ))}
 
-      {series.map((item, seriesIndex) => (
-        <g key={seriesIndex}>
-          <path
-            d={path(item.values)}
-            fill="none"
-            stroke={item.color}
-            strokeWidth="2"
-            strokeLinejoin="round"
-          />
+      <path
+        d={path}
+        fill="none"
+        stroke={metric.color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
 
-          {item.values.map(
-            (value, index) =>
-              value !== null && (
-                <circle
-                  key={index}
-                  cx={xOf(index)}
-                  cy={yOf(value)}
-                  r="3"
-                  fill={item.color}
-                />
-              ),
-          )}
-        </g>
-      ))}
+      {values.map(
+        (value, index) =>
+          value !== null && (
+            <circle
+              key={index}
+              cx={xOf(index)}
+              cy={yOf(value)}
+              r="3.5"
+              fill={metric.color}
+            />
+          ),
+      )}
     </svg>
   );
 }
@@ -324,418 +415,128 @@ function DeltaBadge({
   );
 }
 
-function PredictionMetric({
-  label,
-  value,
-  delta,
-  unit,
-  invert = false,
-  valueClassName = 'text-zinc-100',
-}: {
-  label: string;
-  value: number;
-  delta: number;
-  unit: string;
-  invert?: boolean;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-3.5">
-      <p className="text-[11px] text-zinc-500">
-        {label}
-      </p>
+const predictionRequestCache =
+  new Map<string, Promise<void>>();
 
-      <p
-        className={`mt-1 text-lg font-bold ${valueClassName}`}
-      >
-        {value.toFixed(1)}
-        <span className="ml-0.5 text-xs font-medium text-zinc-500">
-          {unit}
-        </span>
-      </p>
-
-      <div className="mt-1">
-        <DeltaBadge
-          value={delta}
-          unit={unit}
-          invert={invert}
-        />
-      </div>
-    </div>
-  );
-}
-
-function getPredictionErrorMessage(
-  status: number,
-  detail?: string,
-) {
-  if (status === 401) {
-    return '로그인 세션이 만료되었습니다. 다시 로그인해주세요.';
-  }
-
-  if (status === 409) {
-    return '예측에 사용할 체성분 기록이 없습니다.';
-  }
-
-  if (status >= 500) {
-    return 'AI 예측 서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
-  }
-
-  return detail || 'AI 체성분 예측에 실패했습니다.';
-}
-
-function PredictionCard({
+function AutoPredictionSync({
   record,
 }: {
   record: InbodyRecord;
 }) {
-  const [result, setResult] =
-    useState<PredictionResponse | null>(null);
-
-  const [isPredicting, setIsPredicting] =
-    useState(false);
-
-  const [error, setError] =
-    useState('');
-
   useEffect(() => {
-    setResult(null);
-    setError('');
+    let cancelled = false;
+
+    const ensurePrediction = async () => {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
+        if (
+          sessionError ||
+          !session?.access_token ||
+          cancelled
+        ) {
+          return;
+        }
+
+        const {
+          data: existingPrediction,
+          error: existingError,
+        } = await supabase
+          .from('prediction_history')
+          .select('id')
+          .eq(
+            'source_inbody_id',
+            record.id,
+          )
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (existingError) {
+          console.error(
+            'Prediction history lookup failed:',
+            existingError.message,
+          );
+          return;
+        }
+
+        if (existingPrediction) {
+          return;
+        }
+
+        let request =
+          predictionRequestCache.get(
+            record.id,
+          );
+
+        if (!request) {
+          request = fetch(
+            '/api/predict',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type':
+                  'application/json',
+                Authorization:
+                  `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                save_prediction: true,
+              }),
+              cache: 'no-store',
+            },
+          ).then(async (response) => {
+            if (!response.ok) {
+              let detail = '';
+
+              try {
+                const payload =
+                  (await response.json()) as {
+                    detail?: string;
+                  };
+
+                detail =
+                  payload.detail ?? '';
+              } catch {
+                detail = '';
+              }
+
+              throw new Error(
+                detail ||
+                  `Prediction request failed (${response.status})`,
+              );
+            }
+          });
+
+          predictionRequestCache.set(
+            record.id,
+            request,
+          );
+        }
+
+        await request;
+      } catch (error) {
+        console.error(
+          'Automatic body composition prediction failed:',
+          error,
+        );
+      }
+    };
+
+    void ensurePrediction();
+
+    return () => {
+      cancelled = true;
+    };
   }, [record.id]);
 
-  const runPrediction = async () => {
-    if (isPredicting || result) return;
-
-    setIsPredicting(true);
-    setError('');
-
-    try {
-      const supabase =
-        createClient();
-
-      const {
-        data: { session },
-        error: sessionError,
-      } =
-        await supabase.auth.getSession();
-
-      if (sessionError) {
-        throw new Error(
-          '로그인 정보를 확인하지 못했습니다.',
-        );
-      }
-
-      if (!session?.access_token) {
-        throw new Error(
-          'AI 예측은 로그인한 사용자만 사용할 수 있습니다.',
-        );
-      }
-
-      const response =
-        await fetch('/api/predict', {
-          method: 'POST',
-
-          headers: {
-            'Content-Type':
-              'application/json',
-
-            Authorization:
-              `Bearer ${session.access_token}`,
-          },
-
-          body: JSON.stringify({
-            save_prediction: true,
-          }),
-
-          cache: 'no-store',
-        });
-
-      let payload:
-        | PredictionResponse
-        | { detail?: string }
-        | null = null;
-
-      try {
-        payload =
-          await response.json();
-      } catch {
-        payload = null;
-      }
-
-      if (!response.ok) {
-        const detail =
-          payload &&
-          'detail' in payload &&
-          typeof payload.detail === 'string'
-            ? payload.detail
-            : undefined;
-
-        throw new Error(
-          getPredictionErrorMessage(
-            response.status,
-            detail,
-          ),
-        );
-      }
-
-      if (
-        !payload ||
-        !('prediction' in payload)
-      ) {
-        throw new Error(
-          '예측 응답 형식이 올바르지 않습니다.',
-        );
-      }
-
-      setResult(payload);
-    } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'AI 체성분 예측에 실패했습니다.',
-      );
-    } finally {
-      setIsPredicting(false);
-    }
-  };
-
-  return (
-    <div className="overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-b from-blue-950/35 to-zinc-900">
-      <div className="p-5">
-        <div className="mb-4 flex items-start gap-3">
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/15">
-            <Sparkles
-              size={19}
-              className="text-blue-400"
-            />
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-bold text-zinc-100">
-                AI 체성분 예측
-              </h2>
-
-              {result && (
-                <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">
-                  {result.model.endpoint_window}
-                </span>
-              )}
-            </div>
-
-            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-              누적된 체성분 기록의 변화 패턴을 바탕으로
-              약 한 달 뒤 상태를 예측합니다.
-            </p>
-          </div>
-        </div>
-
-        {!result ? (
-          <>
-            <div className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[11px] text-zinc-500">
-                    현재 기준
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-zinc-200">
-                    {formatMeasurementDate(
-                      record.measured_at,
-                    )}{' '}
-                    측정 기록
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-[11px] text-zinc-500">
-                    예측 시점
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-blue-300">
-                    28~35일 후
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {error && (
-              <div className="mb-4 flex items-start gap-2 rounded-2xl border border-red-900/40 bg-red-950/20 p-3.5">
-                <AlertCircle
-                  size={15}
-                  className="mt-0.5 flex-shrink-0 text-red-400"
-                />
-
-                <p className="text-xs leading-relaxed text-red-300">
-                  {error}
-                </p>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() =>
-                void runPrediction()
-              }
-              disabled={isPredicting}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isPredicting ? (
-                <>
-                  <RefreshCw
-                    size={16}
-                    className="animate-spin"
-                  />
-                  AI가 변화를 분석하는 중...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  한 달 뒤 체성분 예측하기
-                </>
-              )}
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="mb-4 grid grid-cols-2 gap-2">
-              <PredictionMetric
-                label="예측 체중"
-                value={
-                  result.prediction.weight_kg
-                }
-                delta={
-                  result.change.weight_kg
-                }
-                unit="kg"
-              />
-
-              <PredictionMetric
-                label="예측 골격근량"
-                value={
-                  result.prediction
-                    .skeletal_muscle_kg
-                }
-                delta={
-                  result.change
-                    .skeletal_muscle_kg
-                }
-                unit="kg"
-                valueClassName="text-blue-300"
-              />
-
-              <PredictionMetric
-                label="예측 체지방량"
-                value={
-                  result.prediction
-                    .fat_mass_kg
-                }
-                delta={
-                  result.change
-                    .fat_mass_kg
-                }
-                unit="kg"
-                invert
-                valueClassName="text-rose-300"
-              />
-
-              <PredictionMetric
-                label="예측 체지방률"
-                value={
-                  result.prediction
-                    .body_fat_pct
-                }
-                delta={
-                  result.change
-                    .body_fat_pct
-                }
-                unit="%"
-                invert
-                valueClassName="text-rose-300"
-              />
-            </div>
-
-            <div className="rounded-2xl bg-zinc-950/45 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] text-zinc-500">
-                    분석에 사용된 기록
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-zinc-200">
-                    {
-                      result.source
-                        .inbody_records_used
-                    }
-                    개
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-[11px] text-zinc-500">
-                    기록 상태
-                  </p>
-
-                  <p className="mt-1 text-sm font-semibold text-zinc-200">
-                    {result.quality
-                      .history_available
-                      ? '이전 기록 반영'
-                      : '첫 기록 기반'}
-                  </p>
-                </div>
-              </div>
-
-              {result.quality.history_available &&
-              result.history.days_since_prev !==
-                null ? (
-                <p className="mt-3 border-t border-zinc-800 pt-3 text-xs leading-relaxed text-zinc-500">
-                  직전 측정은{' '}
-                  <span className="font-medium text-zinc-300">
-                    {
-                      result.history
-                        .days_since_prev
-                    }
-                    일 전
-                  </span>
-                  이며, 이전 기록{' '}
-                  <span className="font-medium text-zinc-300">
-                    {
-                      result.history
-                        .history_n_prior
-                    }
-                    개
-                  </span>
-                  를 변화 패턴 분석에
-                  활용했습니다.
-                </p>
-              ) : (
-                <p className="mt-3 border-t border-zinc-800 pt-3 text-xs leading-relaxed text-zinc-500">
-                  아직 이전 측정 기록이 없어 현재
-                  체성분을 기준으로 예측했습니다.
-                  기록이 쌓일수록 개인의 변화 흐름을
-                  더 많이 반영할 수 있습니다.
-                </p>
-              )}
-            </div>
-
-            <div className="mt-4 flex items-start gap-2">
-              <AlertCircle
-                size={13}
-                className="mt-0.5 flex-shrink-0 text-zinc-600"
-              />
-
-              <p className="text-[11px] leading-relaxed text-zinc-600">
-                AI 예측은 현재까지의 체성분
-                기록을 기반으로 한 참고 정보이며
-                실제 변화와 차이가 발생할 수
-                있습니다.
-              </p>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
+  return null;
 }
 
 export default function InbodyPage() {
@@ -753,15 +554,12 @@ export default function InbodyPage() {
     currentUser();
 
   const [
-    selectedMetrics,
-    setSelectedMetrics,
-  ] = useState<Set<string>>(
-    new Set([
+    selectedMetric,
+    setSelectedMetric,
+  ] =
+    useState<NumericInbodyKey>(
       'weight_kg',
-      'skeletal_muscle_kg',
-      'body_fat_kg',
-    ]),
-  );
+    );
 
   const [
     isHydrating,
@@ -821,29 +619,6 @@ export default function InbodyPage() {
   const records =
     getInbodyRecords();
 
-  const toggleMetric = (
-    key: string,
-  ) => {
-    setSelectedMetrics(
-      (previous) => {
-        const next =
-          new Set(previous);
-
-        if (next.has(key)) {
-          if (next.size <= 1) {
-            return previous;
-          }
-
-          next.delete(key);
-        } else {
-          next.add(key);
-        }
-
-        return next;
-      },
-    );
-  };
-
   if (!user) {
     return null;
   }
@@ -886,40 +661,17 @@ export default function InbodyPage() {
       setDeletingId(null);
     };
 
-  const chartSeries:
-    ChartSeries[] =
-    CHART_METRICS.filter(
+  const selectedMetricConfig =
+    CHART_METRICS.find(
       (metric) =>
-        selectedMetrics.has(
-          metric.key,
-        ),
-    ).map((metric) => ({
-      color: metric.color,
-
-      values: records.map(
-        (record) => {
-          const value =
-            record[
-              metric.key
-            ] as
-              | number
-              | undefined
-              | null;
-
-          return value !==
-            undefined &&
-            value !== null
-            ? value
-            : null;
-        },
-      ),
-    }));
+        metric.key === selectedMetric,
+    ) ?? CHART_METRICS[0];
 
   return (
     <div className="pb-28">
       <div className="flex items-center justify-between px-4 pb-4 pt-12">
         <h1 className="text-xl font-bold">
-          인바디
+          체성분 분석
         </h1>
 
         <Link
@@ -955,12 +707,12 @@ export default function InbodyPage() {
       ) : records.length === 0 ? (
         <div className="mx-4 rounded-2xl bg-zinc-900 p-10 text-center">
           <p className="mb-2 text-sm text-zinc-400">
-            인바디 기록이 없습니다
+            체성분 기록이 없습니다
           </p>
 
           <p className="mb-5 text-xs text-zinc-600">
-            인바디 측정 결과를 입력해 체성분
-            추이와 AI 예측을 확인하세요.
+            체성분 측정 결과를 입력해 변화 추이를
+            확인하세요.
           </p>
 
           <Link
@@ -972,99 +724,6 @@ export default function InbodyPage() {
         </div>
       ) : (
         <>
-          {records.length >= 2 && (
-            <div className="mx-4 mb-5 rounded-2xl bg-zinc-900 p-4">
-              <h2 className="mb-3 text-sm font-semibold">
-                체성분 추이
-              </h2>
-
-              <div className="mb-3 flex flex-wrap gap-1.5">
-                {CHART_METRICS.map(
-                  (metric) => {
-                    const active =
-                      selectedMetrics.has(
-                        metric.key,
-                      );
-
-                    const hasData =
-                      records.some(
-                        (record) => {
-                          const value =
-                            record[
-                              metric.key
-                            ] as
-                              | number
-                              | undefined
-                              | null;
-
-                          return (
-                            value !==
-                              undefined &&
-                            value !== null
-                          );
-                        },
-                      );
-
-                    return (
-                      <button
-                        key={
-                          metric.key
-                        }
-                        type="button"
-                        onClick={() =>
-                          toggleMetric(
-                            metric.key,
-                          )
-                        }
-                        disabled={!hasData}
-                        style={
-                          active
-                            ? {
-                                borderColor:
-                                  metric.color,
-
-                                color:
-                                  metric.color,
-
-                                backgroundColor:
-                                  `${metric.color}22`,
-                              }
-                            : {}
-                        }
-                        className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] transition-colors ${
-                          !hasData
-                            ? 'cursor-default border-zinc-800 text-zinc-700'
-                            : active
-                              ? 'font-semibold'
-                              : 'border-zinc-700 text-zinc-500'
-                        }`}
-                      >
-                        <span
-                          className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
-                          style={{
-                            backgroundColor:
-                              hasData
-                                ? active
-                                  ? metric.color
-                                  : '#52525b'
-                                : '#3f3f46',
-                          }}
-                        />
-
-                        {metric.label}
-                      </button>
-                    );
-                  },
-                )}
-              </div>
-
-              <LineChart
-                records={records}
-                series={chartSeries}
-              />
-            </div>
-          )}
-
           {latestRecord && (
             <div className="mx-4 mb-5 rounded-2xl bg-zinc-900 p-4">
               <div className="mb-3 flex items-center justify-between">
@@ -1365,12 +1024,204 @@ export default function InbodyPage() {
             </div>
           )}
 
-          {latestRecord && (
-            <div className="mx-4 mb-5">
-              <PredictionCard
-                record={latestRecord}
+          {records.length >= 2 && (
+            <div className="mx-4 mb-5 rounded-2xl bg-zinc-900 p-4">
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">
+                  체성분 추이
+                </h2>
+              </div>
+
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {CHART_METRICS.map(
+                  (metric) => {
+                    const active =
+                      selectedMetric ===
+                      metric.key;
+
+                    const dataCount =
+                      records.filter(
+                        (record) => {
+                          const value =
+                            record[
+                              metric.key
+                            ] as
+                              | number
+                              | undefined
+                              | null;
+
+                          return (
+                            value !==
+                              undefined &&
+                            value !== null &&
+                            Number.isFinite(
+                              value,
+                            )
+                          );
+                        },
+                      ).length;
+
+                    const hasData =
+                      dataCount >= 2;
+
+                    return (
+                      <button
+                        key={
+                          metric.key
+                        }
+                        type="button"
+                        onClick={() =>
+                          setSelectedMetric(
+                            metric.key,
+                          )
+                        }
+                        disabled={!hasData}
+                        style={
+                          active
+                            ? {
+                                borderColor:
+                                  metric.color,
+
+                                color:
+                                  metric.color,
+
+                                backgroundColor:
+                                  `${metric.color}22`,
+                              }
+                            : {}
+                        }
+                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[10px] transition-colors ${
+                          !hasData
+                            ? 'cursor-default border-zinc-800 text-zinc-700'
+                            : active
+                              ? 'font-semibold'
+                              : 'border-zinc-700 text-zinc-500'
+                        }`}
+                      >
+                        <span
+                          className="inline-block h-1.5 w-1.5 flex-shrink-0 rounded-full"
+                          style={{
+                            backgroundColor:
+                              hasData
+                                ? active
+                                  ? metric.color
+                                  : '#52525b'
+                                : '#3f3f46',
+                          }}
+                        />
+
+                        {metric.label}
+                      </button>
+                    );
+                  },
+                )}
+              </div>
+
+              <div className="mb-2 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] text-zinc-500">
+                    선택 항목
+                  </p>
+
+                  <p
+                    className="mt-0.5 text-sm font-semibold"
+                    style={{
+                      color:
+                        selectedMetricConfig.color,
+                    }}
+                  >
+                    {
+                      selectedMetricConfig.label
+                    }
+                  </p>
+                </div>
+
+                {(() => {
+                  const latestValue =
+                    latestRecord?.[
+                      selectedMetricConfig.key
+                    ] as
+                      | number
+                      | undefined
+                      | null;
+
+                  const previousValue =
+                    previousRecord?.[
+                      selectedMetricConfig.key
+                    ] as
+                      | number
+                      | undefined
+                      | null;
+
+                  if (
+                    latestValue ===
+                      undefined ||
+                    latestValue === null
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="text-right">
+                      <p className="text-[11px] text-zinc-500">
+                        최근 값
+                      </p>
+
+                      <div className="mt-0.5 flex items-center justify-end gap-2">
+                        <p className="text-sm font-bold text-zinc-200">
+                          {latestValue.toFixed(
+                            selectedMetricConfig.key ===
+                              'bmr_kcal'
+                              ? 0
+                              : selectedMetricConfig.key ===
+                                  'abdominal_fat_ratio'
+                                ? 2
+                                : 1,
+                          )}
+                          {
+                            selectedMetricConfig.unit
+                          }
+                        </p>
+
+                        {previousValue !==
+                          undefined &&
+                          previousValue !==
+                            null && (
+                          <DeltaBadge
+                            value={
+                              latestValue -
+                              previousValue
+                            }
+                            unit={
+                              selectedMetricConfig.unit
+                            }
+                            invert={
+                              selectedMetricConfig.key ===
+                                'body_fat_kg' ||
+                              selectedMetricConfig.key ===
+                                'body_fat_pct'
+                            }
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <LineChart
+                records={records}
+                metric={
+                  selectedMetricConfig
+                }
               />
             </div>
+          )}
+
+          {latestRecord && (
+            <AutoPredictionSync
+              record={latestRecord}
+            />
           )}
 
           <div className="px-4">
