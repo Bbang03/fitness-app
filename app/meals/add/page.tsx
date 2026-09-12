@@ -1312,7 +1312,7 @@ function MfdsFoodRow({
                 식약처 원본에 일부 탄단지 정보가 없어요
               </p>
               <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-                없는 값을 0g으로 저장하지 않습니다. 버거류는 FitTrack AI로 추정하거나 직접 입력할 수 있어요.
+                없는 값을 0g으로 저장하지 않습니다. 버거류는 CHAGOK AI로 추정하거나 직접 입력할 수 있어요.
               </p>
 
               {canEstimateWithAi && (
@@ -1368,7 +1368,7 @@ function MfdsFoodRow({
             <div className="mt-4 rounded-2xl border border-violet-500/15 bg-violet-500/[0.06] p-3.5">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold text-violet-300">
-                  FitTrack AI 탄단지 추정
+                  CHAGOK AI 탄단지 추정
                 </p>
                 <span className="rounded-md bg-violet-500/10 px-2 py-1 text-[9px] font-semibold text-violet-300">
                   AI 추정
@@ -1462,7 +1462,7 @@ function MfdsFoodRow({
             <p>
               기준 출처:{' '}
               {food.source === 'CACHE'
-                ? food.supplement?.sourceName ?? 'FitTrack 검증 캐시'
+                ? food.supplement?.sourceName ?? 'ChaGok 검증 캐시'
                 : `식품의약품안전처 · ${food.foodOrigin}`}
             </p>
             {extraNutrition && <p className="mt-1">{extraNutrition}</p>}
@@ -1516,7 +1516,7 @@ function MfdsFoodRow({
                   manualUsed
                     ? 'user_manual'
                     : aiEstimate
-                      ? 'MFDS + FitTrack burger kNN energy-constrained estimator'
+                      ? 'MFDS + MFDS + ChaGok burger kNN energy-constrained estimator'
                       : food.supplement?.sourceName ??
                         'MFDS',
                 nutrition_meta:

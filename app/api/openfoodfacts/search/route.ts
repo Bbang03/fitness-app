@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const url = `https://world.openfoodfacts.org/cgi/search.pl?${params}`;
 
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'FitTrack/1.0 (fitness-app)' },
+      headers: { 'User-Agent': 'ChaGok/1.0 (fitness-app)' },
       cache: 'no-store',
       signal: AbortSignal.timeout(8000),
     });

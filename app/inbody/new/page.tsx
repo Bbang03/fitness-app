@@ -634,7 +634,7 @@ export default function NewInbodyPage() {
         throw new Error(
           result.message ??
             result.error ??
-            '인바디 이미지 분석에 실패했습니다.',
+            '체성분 이미지 분석에 실패했습니다.',
         );
       }
 
@@ -773,7 +773,7 @@ export default function NewInbodyPage() {
       setError(
         cause instanceof Error
           ? cause.message
-          : '인바디 이미지 분석에 실패했습니다.',
+          : '체성분 이미지 분석에 실패했습니다.',
       );
     } finally {
       setAnalyzing(false);
@@ -880,7 +880,7 @@ export default function NewInbodyPage() {
         bodyFatConsistencyWarning
       ) {
         setError(
-          '체지방량과 체지방률의 관계가 크게 차이납니다. 인바디 결과지를 다시 확인해주세요.',
+          '체지방량과 체지방률의 관계가 크게 차이납니다. 체성분 결과지를 다시 확인해주세요.',
         );
 
         return;
@@ -952,7 +952,7 @@ export default function NewInbodyPage() {
         setSaving(false);
 
         setError(
-          '인바디 기록 저장에 실패했습니다.',
+          '체성분 기록 저장에 실패했습니다.',
         );
 
         return;
@@ -987,7 +987,7 @@ export default function NewInbodyPage() {
 
         <div>
           <h1 className="text-lg font-bold">
-            인바디 기록 추가
+            체성분 기록 추가
           </h1>
 
           <p className="mt-0.5 text-xs text-zinc-500">
@@ -1008,7 +1008,7 @@ export default function NewInbodyPage() {
 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">
-                인바디 결과지 자동 입력
+                체성분 결과지 자동 입력
               </p>
 
               <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
@@ -1030,7 +1030,7 @@ export default function NewInbodyPage() {
               </p>
 
               <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
-                인바디 앱에서 저장한 결과지 이미지를 선택해주세요.
+                체성분 측정 결과지 이미지를 선택해주세요.
                 <br />
                 JPG, PNG, WEBP · 최대 12MB
               </p>
@@ -1052,7 +1052,7 @@ export default function NewInbodyPage() {
                   src={
                     imagePreview
                   }
-                  alt="업로드한 인바디 결과지"
+                  alt="업로드한 체성분 결과지"
                   className="max-h-[420px] w-full object-contain"
                 />
 
@@ -1093,7 +1093,7 @@ export default function NewInbodyPage() {
                     <Sparkles
                       size={16}
                     />
-                    인바디 자동 인식
+                    체성분 자동 인식
                   </>
                 )}
               </button>

@@ -1359,7 +1359,7 @@ export default function DashboardPage() {
                 </div>
 
                 <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-blue-400">
-                  FitTrack AI
+                  CHAGOK AI
                 </p>
 
                 <h2 className="mt-2 text-xl font-bold leading-snug">
@@ -1434,7 +1434,7 @@ export default function DashboardPage() {
                 />
 
                 <DataSignal
-                  label="인바디"
+                  label="체성분"
                   value={`${inbodyRecords.length}회`}
                   ready={
                     inbodyRecords.length >
@@ -1478,7 +1478,7 @@ export default function DashboardPage() {
               icon={
                 Activity
               }
-              label="인바디"
+              label="체성분"
               iconClass="text-violet-400"
               bgClass="bg-violet-500/10"
             />
@@ -1642,7 +1642,7 @@ export default function DashboardPage() {
 
                 <div>
                   <p className="text-sm font-semibold">
-                    첫 인바디를 기록해보세요
+                    첫 체성분을 기록해보세요
                   </p>
 
                   <p className="mt-1 text-xs text-zinc-500">

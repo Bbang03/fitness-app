@@ -1,7 +1,7 @@
 {
   "name": "차곡 · ChaGOK",
   "short_name": "차곡",
-  "description": "운동 트래커 + 식단 기록 + 인바디 예측",
+  "description": "운동 트래커 + 식단 기록 + 체성분 예측",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f1e7",

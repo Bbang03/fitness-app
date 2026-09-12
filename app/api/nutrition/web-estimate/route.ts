@@ -98,7 +98,7 @@ async function fetchEvidence(result: PublicWebSearchResult) {
   try {
     const response = await fetch(result.url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; FitTrackNutrition/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; ChaGokNutrition/1.0)',
         Accept: 'text/html,text/plain;q=0.9',
       },
       // 검색 결과 페이지가 내부 주소로 우회 리디렉션하는 SSRF 경로를 막는다.
@@ -123,7 +123,7 @@ async function publicWebFallback(query: string, apiKey: string) {
     const fetchSearch = async (baseUrl: string) => {
       try {
         const response = await fetch(`${baseUrl}?q=${encodeURIComponent(searchQuery)}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FitTrackNutrition/1.0)' },
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ChaGokNutrition/1.0)' },
           signal: AbortSignal.timeout(8_000),
         });
         if (!response.ok) {

@@ -1420,7 +1420,7 @@ export default function OnboardingPage() {
 
               <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
                 이 정보는 앞으로
-                운동·식단·인바디 기록과
+                운동·식단·체성분 기록과
                 함께 체성분 변화 예측을
                 개인화하는 데 활용됩니다.
               </p>

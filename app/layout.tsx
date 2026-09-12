@@ -6,7 +6,7 @@ import AuthSessionSync from '@/components/AuthSessionSync';
 
 export const metadata: Metadata = {
   title: '차곡 · ChaGOK',
-  description: '운동 트래커 + 식단 기록 + 인바디 예측',
+  description: '운동 트래커 + 식단 기록 + 체성분 예측',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

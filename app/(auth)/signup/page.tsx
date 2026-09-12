@@ -639,7 +639,7 @@ export default function SignupPage() {
             </p>
 
             <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-              3. 인증 후 FitTrack에
+              3. 인증 후 ChaGok에
               로그인하면 온보딩 설문이
               시작됩니다.
             </p>
@@ -693,7 +693,7 @@ export default function SignupPage() {
         </h1>
 
         <p className="text-zinc-400 mt-1 text-sm">
-          FitTrack과 함께 시작하세요
+          ChaGok과 함께 시작하세요
         </p>
       </div>
 

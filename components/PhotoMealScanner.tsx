@@ -128,7 +128,7 @@ function internalFoodCandidates(query: string): ExternalCandidate[] {
     .map(food => ({
       id: food.id,
       name: food.name,
-      brand: 'FitTrack 대표값',
+      brand: 'ChaGok 대표값',
       source: '내부 DB' as const,
       per100g: food.per100g,
       score: 100,
