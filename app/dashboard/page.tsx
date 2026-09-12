@@ -1582,7 +1582,7 @@ export default function DashboardPage() {
 
                   <p className="mt-1 text-sm font-medium text-zinc-300">
                     {
-                      latestInbody.measured_at
+                      latestInbody.measured_at.slice(0, 10)
                     }
                   </p>
                 </div>
