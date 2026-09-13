@@ -1233,9 +1233,6 @@ function SwipeRoutineCard({
           </div>
         )}
 
-        <p className="mt-4 text-[10px] text-zinc-700">
-          눌러서 편집 · 왼쪽으로 밀어서 삭제
-        </p>
       </div>
     </div>
   );
