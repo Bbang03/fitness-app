@@ -2469,10 +2469,6 @@ export default function RoutineDetailPage() {
             운동 구성
           </h1>
 
-          <p className="mt-1 text-xs leading-relaxed text-zinc-600">
-            운동을 누르면 세부 설정을 변경할 수 있습니다.
-            길게 누른 뒤 움직이면 순서를 변경하거나 슈퍼세트로 묶을 수 있습니다.
-          </p>
         </section>
 
         {error && (
@@ -2697,12 +2693,6 @@ export default function RoutineDetailPage() {
           </div>
         )}
 
-        <div className="mt-6 rounded-2xl bg-zinc-900/35 px-4 py-3">
-          <p className="text-[11px] leading-relaxed text-zinc-600">
-            길게 누른 운동을 위아래로 옮기면 주변 운동이 자리를 비켜줍니다.
-            운동 사이에 놓으면 순서가 바뀌고, 다른 운동 중앙에 포개면 슈퍼세트가 만들어집니다.
-          </p>
-        </div>
       </main>
 
       {/* Drag helper */}
