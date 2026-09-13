@@ -1,0 +1,158 @@
+{
+  "contract_version": "behavior-correction-v0.2",
+  "status": "research_only_not_used_by_production",
+  "baseline_model": {
+    "model_version": "1.0.0",
+    "prediction_horizon": "28-35 days",
+    "role": "body_only_baseline",
+    "frozen": true
+  },
+  "architecture": {
+    "production_equation": "final_prediction = v1_prediction + gated_behavior_adjustment",
+    "correction_targets": [
+      "weight_kg",
+      "fat_mass_kg",
+      "skeletal_muscle_kg"
+    ],
+    "default_adjustment_kg": 0.0,
+    "target_specific_gating": true,
+    "never_replace_v1_when_branch_is_unsupported": true
+  },
+  "training_modes": {
+    "direct_v1_residual": {
+      "description": "Train directly on y - v1_prediction.",
+      "requirements": [
+        "all required v1 input features are available without proxy substitution",
+        "measurement semantics are sufficiently compatible with v1",
+        "v1 prediction can be generated for every training row without fabricating SMM"
+      ],
+      "enabled_now": false
+    },
+    "within_study_incremental_delta": {
+      "description": "Within each eligible external study, compare a body-only delta model with a behavior-augmented delta model. The incremental prediction (behavior model minus body-only model) is the candidate adjustment.",
+      "requirements": [
+        "real participant-linked baseline and follow-up outcomes",
+        "real behavior exposure",
+        "no target leakage into input features",
+        "out-of-fold comparison against the within-study body-only reference"
+      ],
+      "enabled_now": true,
+      "transport_to_v1": "research_only_until validated"
+    }
+  },
+  "data_policy": {
+    "real_data_only": true,
+    "synthetic_training_allowed": false,
+    "participant_linkage_required": true,
+    "baseline_and_followup_required": true,
+    "behavior_exposure_required": true,
+    "participant_safe_validation_required_when_repeated_rows_exist": true,
+    "leave_one_study_out_when_multiple_studies": true,
+    "do_not_proxy_smm_from_dxa_lean_mass": true
+  },
+  "timing_semantics": {
+    "training_behavior": "behavior/intervention exposure associated with the baseline-to-follow-up interval",
+    "app_inference_behavior": "completed recent behavior through D-1",
+    "inference_assumption": "recent behavior is used as a proxy for expected near-future behavior",
+    "warning": "External intervention exposure and app past behavior are not equivalent. Transport must be validated before production use."
+  },
+  "within_study_body_only_candidates": [
+    "current_weight_kg",
+    "current_fat_mass_kg",
+    "current_body_fat_pct",
+    "age_years",
+    "sex"
+  ],
+  "shared_behavior_numeric_candidates": [
+    "avg_kcal_per_day",
+    "protein_g_per_kg",
+    "fat_g_per_day",
+    "carbs_g_per_day",
+    "physical_activity_kcal_per_day"
+  ],
+  "shared_behavior_categorical_candidates": [
+    "diet_exposure_type",
+    "exercise_exposure_type"
+  ],
+  "allowed_diet_exposure_types": [
+    "habitual",
+    "low_sugar",
+    "moderate_sugar",
+    "low_carbohydrate",
+    "energy_restriction",
+    "ketogenic",
+    "fasting",
+    "high_protein",
+    "mixed_diet_intervention",
+    "control",
+    "unknown"
+  ],
+  "allowed_exercise_exposure_types": [
+    "none",
+    "resistance",
+    "aerobic",
+    "hiit",
+    "yoga_mobility",
+    "physiotherapy",
+    "mixed",
+    "control",
+    "unknown"
+  ],
+  "branch_policy": {
+    "diet_weight_fat": {
+      "targets": [
+        "weight_kg",
+        "fat_mass_kg"
+      ],
+      "status": "candidate",
+      "minimum_horizon_days": 28,
+      "maximum_horizon_days": 35,
+      "allowed_training_mode": "within_study_incremental_delta"
+    },
+    "exercise_smm": {
+      "targets": [
+        "skeletal_muscle_kg"
+      ],
+      "status": "blocked_for_30d_training_until_eligible_data",
+      "minimum_horizon_days": 28,
+      "maximum_horizon_days": 35
+    },
+    "exercise_weight_fat": {
+      "targets": [
+        "weight_kg",
+        "fat_mass_kg"
+      ],
+      "status": "auxiliary_only_until_transport_validated"
+    }
+  },
+  "target_policy": {
+    "weight_kg": {
+      "adjustment_allowed_for_research": true,
+      "production_allowed": false
+    },
+    "fat_mass_kg": {
+      "adjustment_allowed_for_research": true,
+      "production_allowed": false
+    },
+    "skeletal_muscle_kg": {
+      "adjustment_allowed_for_research": false,
+      "production_allowed": false,
+      "reason": "No eligible 28-35d real behavior dataset with actual SMM is currently available."
+    }
+  },
+  "evaluation": {
+    "primary_comparison": "within-study body-only delta vs behavior-augmented delta",
+    "primary_metric": "MAE",
+    "required_secondary_checks": [
+      "paired_bootstrap_delta",
+      "subgroup_error",
+      "adjustment_magnitude_distribution",
+      "zero_adjustment_fallback_rate"
+    ],
+    "promotion_rule": "Do not transport to v1 unless the behavior branch shows stable out-of-fold incremental signal and no material subgroup degradation."
+  },
+  "production_usage": {
+    "used_by_model": false,
+    "model_ready": false
+  }
+}
