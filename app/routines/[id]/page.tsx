@@ -3430,11 +3430,6 @@ export default function RoutineDetailPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-2xl border border-blue-500/15 bg-blue-500/[0.05] px-4 py-3">
-                    <p className="text-[11px] leading-relaxed text-zinc-500">
-                      세트의 무게·횟수·시간을 수정하면 선택한 세트부터 아래 세트까지 같은 값으로 적용됩니다.
-                    </p>
-                  </div>
                 </section>
               </main>
             </div>
