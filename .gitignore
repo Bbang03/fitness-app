@@ -41,3 +41,6 @@ __pycache__/
 *.py[cod]
 .env*
 !.env.example
+
+# local research datasets
+/data/research/
