@@ -1,0 +1,117 @@
+{
+  "contract_version": "behavior-v0.1",
+  "status": "candidate_not_used_by_production_model",
+
+  "prediction_policy": {
+    "prediction_horizon": "28-35 days",
+    "behavior_cutoff": "D-1",
+    "missing_meal_means_zero_intake": false,
+    "missing_workout_means_no_exercise": false,
+    "population_prior_enabled": false
+  },
+
+  "nutrition_features": [
+    "meal_7d_observed_days",
+    "meal_7d_coverage_ratio",
+    "meal_7d_avg_kcal",
+    "meal_7d_avg_carbs_g",
+    "meal_7d_avg_protein_g",
+    "meal_7d_avg_fat_g",
+
+    "meal_14d_observed_days",
+    "meal_14d_coverage_ratio",
+    "meal_14d_avg_kcal",
+    "meal_14d_avg_carbs_g",
+    "meal_14d_avg_protein_g",
+    "meal_14d_avg_fat_g",
+
+    "meal_30d_observed_days",
+    "meal_30d_coverage_ratio",
+    "meal_30d_avg_kcal",
+    "meal_30d_avg_carbs_g",
+    "meal_30d_avg_protein_g",
+    "meal_30d_avg_fat_g"
+  ],
+
+  "workout_features": [
+    "workout_7d_logged_training_days",
+    "workout_7d_logged_training_day_ratio",
+    "workout_7d_logged_completed_sessions",
+    "workout_7d_logged_set_count",
+    "workout_7d_logged_volume_kg",
+    "workout_7d_logged_sessions_per_week",
+    "workout_7d_logged_volume_kg_per_week",
+
+    "workout_14d_logged_training_days",
+    "workout_14d_logged_training_day_ratio",
+    "workout_14d_logged_completed_sessions",
+    "workout_14d_logged_set_count",
+    "workout_14d_logged_volume_kg",
+    "workout_14d_logged_sessions_per_week",
+    "workout_14d_logged_volume_kg_per_week",
+
+    "workout_30d_logged_training_days",
+    "workout_30d_logged_training_day_ratio",
+    "workout_30d_logged_completed_sessions",
+    "workout_30d_logged_set_count",
+    "workout_30d_logged_volume_kg",
+    "workout_30d_logged_sessions_per_week",
+    "workout_30d_logged_volume_kg_per_week"
+  ],
+
+  "effective_fallback_features": [
+    "effective_avg_kcal",
+    "effective_avg_protein_g",
+    "effective_avg_protein_g_per_kg",
+    "effective_logged_sessions_per_week",
+    "effective_logged_volume_kg_per_week"
+  ],
+
+  "profile_numeric_features": [
+    "profile_training_experience_months",
+    "profile_recent_training_frequency",
+    "profile_average_session_minutes",
+    "profile_average_sleep_hours"
+  ],
+
+  "profile_categorical_features": [
+    "training_consistency",
+    "activity_level",
+    "primary_goal",
+    "diet_experience",
+    "typical_meals_per_day"
+  ],
+
+  "fallback_source_features": [
+    "nutrition_source",
+    "training_source"
+  ],
+
+  "allowed_nutrition_sources": [
+    "observed_7d",
+    "observed_14d",
+    "observed_30d",
+    "personal_prior_31_90d",
+    "unavailable"
+  ],
+
+  "allowed_training_sources": [
+    "observed_logged_7d",
+    "observed_logged_14d",
+    "observed_logged_30d",
+    "personal_logged_prior_31_90d",
+    "unavailable"
+  ],
+
+  "missing_value_policy": {
+    "numeric_missing": null,
+    "categorical_missing": "unknown",
+    "do_not_impute_missing_meals_as_zero": true,
+    "do_not_impute_missing_workouts_as_zero_activity": true
+  },
+
+  "production_usage": {
+    "used_by_model": false,
+    "model_ready": false
+  }
+}
