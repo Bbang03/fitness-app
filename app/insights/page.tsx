@@ -32,11 +32,6 @@ import {
   useStore,
 } from '@/lib/store';
 
-import {
-  generatePredictionTrajectory,
-  type PredictionTrajectoryPoint,
-} from '@/lib/trajectory';
-
 
 type PredictionMetricKey =
   | 'weight_kg'
@@ -76,9 +71,6 @@ interface PredictionData {
     skeletal_muscle_kg: number;
     body_fat_pct: number;
   };
-
-  trajectory:
-    PredictionTrajectoryPoint[];
 }
 
 
@@ -110,9 +102,6 @@ interface PredictionApiResponse {
     skeletal_muscle_kg: number;
     body_fat_pct: number;
   };
-
-  trajectory?:
-    PredictionTrajectoryPoint[];
 
   source: {
     inbody_record_id: string;
@@ -252,50 +241,6 @@ function signed(
 function mapPredictionHistoryRow(
   row: PredictionHistoryRow,
 ): PredictionData {
-  const current = {
-    weight_kg:
-      Number(
-        row.current_weight_kg,
-      ),
-
-    fat_mass_kg:
-      Number(
-        row.current_fat_mass_kg,
-      ),
-
-    skeletal_muscle_kg:
-      Number(
-        row.current_skeletal_muscle_kg,
-      ),
-
-    body_fat_pct:
-      Number(
-        row.current_body_fat_pct,
-      ),
-  };
-
-  const prediction = {
-    weight_kg:
-      Number(
-        row.predicted_weight_kg,
-      ),
-
-    fat_mass_kg:
-      Number(
-        row.predicted_fat_mass_kg,
-      ),
-
-    skeletal_muscle_kg:
-      Number(
-        row.predicted_skeletal_muscle_kg,
-      ),
-
-    body_fat_pct:
-      Number(
-        row.predicted_body_fat_pct,
-      ),
-  };
-
   return {
     sourceRecordId:
       row.source_inbody_id,
@@ -304,8 +249,49 @@ function mapPredictionHistoryRow(
       row.endpoint_window ??
       '28~35일',
 
-    current,
-    prediction,
+    current: {
+      weight_kg:
+        Number(
+          row.current_weight_kg,
+        ),
+
+      fat_mass_kg:
+        Number(
+          row.current_fat_mass_kg,
+        ),
+
+      skeletal_muscle_kg:
+        Number(
+          row.current_skeletal_muscle_kg,
+        ),
+
+      body_fat_pct:
+        Number(
+          row.current_body_fat_pct,
+        ),
+    },
+
+    prediction: {
+      weight_kg:
+        Number(
+          row.predicted_weight_kg,
+        ),
+
+      fat_mass_kg:
+        Number(
+          row.predicted_fat_mass_kg,
+        ),
+
+      skeletal_muscle_kg:
+        Number(
+          row.predicted_skeletal_muscle_kg,
+        ),
+
+      body_fat_pct:
+        Number(
+          row.predicted_body_fat_pct,
+        ),
+    },
 
     change: {
       weight_kg:
@@ -328,17 +314,6 @@ function mapPredictionHistoryRow(
           row.delta_body_fat_pct,
         ),
     },
-
-    /*
-     * 기존 prediction_history에는 trajectory가 저장되어 있지 않다.
-     * 저장된 Day0 / Day30 endpoint는 그대로 재사용하고,
-     * production trajectory policy로 표시 경로만 결정론적으로 복원한다.
-     */
-    trajectory:
-      generatePredictionTrajectory(
-        current,
-        prediction,
-      ),
   };
 }
 
@@ -346,42 +321,6 @@ function mapPredictionHistoryRow(
 function mapPredictionApiResponse(
   payload: PredictionApiResponse,
 ): PredictionData {
-  const current = {
-    weight_kg:
-      payload.current
-        .weight_kg,
-
-    fat_mass_kg:
-      payload.current
-        .fat_mass_kg,
-
-    skeletal_muscle_kg:
-      payload.current
-        .skeletal_muscle_kg,
-
-    body_fat_pct:
-      payload.current
-        .body_fat_pct,
-  };
-
-  const prediction = {
-    weight_kg:
-      payload.prediction
-        .weight_kg,
-
-    fat_mass_kg:
-      payload.prediction
-        .fat_mass_kg,
-
-    skeletal_muscle_kg:
-      payload.prediction
-        .skeletal_muscle_kg,
-
-    body_fat_pct:
-      payload.prediction
-        .body_fat_pct,
-  };
-
   return {
     sourceRecordId:
       payload.source
@@ -392,8 +331,41 @@ function mapPredictionApiResponse(
         .endpoint_window ||
       '28~35일',
 
-    current,
-    prediction,
+    current: {
+      weight_kg:
+        payload.current
+          .weight_kg,
+
+      fat_mass_kg:
+        payload.current
+          .fat_mass_kg,
+
+      skeletal_muscle_kg:
+        payload.current
+          .skeletal_muscle_kg,
+
+      body_fat_pct:
+        payload.current
+          .body_fat_pct,
+    },
+
+    prediction: {
+      weight_kg:
+        payload.prediction
+          .weight_kg,
+
+      fat_mass_kg:
+        payload.prediction
+          .fat_mass_kg,
+
+      skeletal_muscle_kg:
+        payload.prediction
+          .skeletal_muscle_kg,
+
+      body_fat_pct:
+        payload.prediction
+          .body_fat_pct,
+    },
 
     change: {
       weight_kg:
@@ -412,23 +384,9 @@ function mapPredictionApiResponse(
         payload.change
           .body_fat_pct,
     },
-
-    /*
-     * 새 API는 backend가 계산한 trajectory를 그대로 사용한다.
-     * 구버전 응답과의 일시적 호환을 위해 trajectory가 없을 때만
-     * 동일한 shared policy artifact로 결정론적으로 복원한다.
-     */
-    trajectory:
-      payload.trajectory &&
-      payload.trajectory.length >
-        0
-        ? payload.trajectory
-        : generatePredictionTrajectory(
-            current,
-            prediction,
-          ),
   };
 }
+
 
 function getPredictionErrorMessage(
   status: number,
@@ -1104,11 +1062,11 @@ export default function InsightsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-blue-400">
-                    1개월 예상 변화 추이
+                    30일 체성분 예상 추이
                   </p>
 
                   <h2 className="mt-2 text-xl font-bold">
-                    예상 체성분 변화를
+                    한 달 뒤의 변화를
                     그래프로 확인해보세요
                   </h2>
                 </div>
@@ -1119,9 +1077,10 @@ export default function InsightsPage() {
               </div>
 
               <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                현재 체성분과 1개월 후
-                AI 예측 결과를 기준으로
-                계산한 예상 변화 경로를
+                최근 체성분 측정을
+                기준으로 AI가 예측한
+                한 달 뒤 값을 현재값과
+                연결해 예상 흐름을
                 보여줍니다.
               </p>
 
@@ -1219,11 +1178,13 @@ export default function InsightsPage() {
                   />
 
                   <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
-                    Day 1~29 구간은 별도의
-                    일별 AI 예측값이 아니라,
-                    현재값과 1개월 후 AI
-                    예측값을 기준으로 계산한
-                    예상 변화 추이입니다.
+                    그래프의 중간 구간은
+                    현재값과 AI가 예측한
+                    28~35일 후 값을
+                    연결한 시각적 예상
+                    추이입니다. AI 모델이
+                    직접 예측하는 시점은
+                    약 한 달 후입니다.
                   </p>
                 </>
               ) : null}
@@ -1496,13 +1457,15 @@ function PredictionTrendChart({
     ) ??
     PREDICTION_METRICS[0];
 
+  const currentValue =
+    prediction.current[
+      metricKey
+    ];
+
   const predictedValue =
     prediction.prediction[
       metricKey
     ];
-
-  const trajectory =
-    prediction.trajectory;
 
   const days = [
     0,
@@ -1512,38 +1475,55 @@ function PredictionTrendChart({
     30,
   ];
 
-  const trajectoryValues =
-    trajectory.map(
-      (
-        point,
-      ) =>
-        point[
-          metricKey
-        ],
-    );
-
-  const markerPoints =
-    days
-      .map(
-        (
-          day,
-        ) =>
-          trajectory.find(
-            (
-              point,
-            ) =>
-              point.day ===
-              day,
-          ),
-      )
-      .filter(
-        (
-          point,
-        ): point is
-          PredictionTrajectoryPoint =>
-          point !==
-          undefined,
+  /*
+   * Production 모델은 약 한 달 뒤 endpoint만 직접 예측한다.
+   * 중간 구간은 추가 예측값을 만들어내지 않고,
+   * 현재값과 endpoint 사이를 smoothstep으로 시각화한다.
+   * 3t^2 - 2t^3는 시작/끝의 기울기가 완만한 S-curve다.
+   */
+  const easedProgress = (
+    day: number,
+  ) => {
+    const t =
+      Math.min(
+        1,
+        Math.max(
+          0,
+          day / 30,
+        ),
       );
+
+    return (
+      t *
+      t *
+      (
+        3 -
+        2 * t
+      )
+    );
+  };
+
+  const valueAtDay = (
+    day: number,
+  ) =>
+    currentValue +
+    (
+      predictedValue -
+      currentValue
+    ) *
+      easedProgress(
+        day,
+      );
+
+  const markerValues =
+    days.map(
+      (
+        day,
+      ) =>
+        valueAtDay(
+          day,
+        ),
+    );
 
   const W = 340;
   const H = 190;
@@ -1567,12 +1547,14 @@ function PredictionTrendChart({
 
   const rawMin =
     Math.min(
-      ...trajectoryValues,
+      currentValue,
+      predictedValue,
     );
 
   const rawMax =
     Math.max(
-      ...trajectoryValues,
+      currentValue,
+      predictedValue,
     );
 
   const rawRange =
@@ -1630,58 +1612,64 @@ function PredictionTrendChart({
     ) *
       innerH;
 
-  /*
-   * Day 1~29는 frontend에서 spline/smoothstep으로 만들지 않는다.
-   * Backend 또는 shared production policy가 만든 trajectory point를
-   * 시간 순서대로 그대로 연결한다.
-   */
-  const path =
-    trajectory
-      .map(
-        (
-          point,
-          index,
-        ) => {
-          const command =
-            index === 0
-              ? 'M'
-              : 'L';
-
-          return (
-            `${command} ${xOfDay(
-              point.day,
-            ).toFixed(
-              1,
-            )} ${yOf(
-              point[
-                metricKey
-              ],
-            ).toFixed(
-              1,
-            )}`
-          );
-        },
-      )
-      .join(' ');
-
-  const firstPoint =
-    trajectory[0];
-
-  const lastPoint =
-    trajectory[
-      trajectory.length -
-        1
-    ];
-
   const startX =
     xOfDay(
-      firstPoint.day,
+      0,
     );
 
   const endX =
     xOfDay(
-      lastPoint.day,
+      30,
     );
+
+  const startY =
+    yOf(
+      currentValue,
+    );
+
+  const endY =
+    yOf(
+      predictedValue,
+    );
+
+  /*
+   * x control point를 정확히 1/3, 2/3 지점에 두면
+   * x축은 시간에 대해 선형으로 유지되고,
+   * y축만 smoothstep 형태의 부드러운 곡선이 된다.
+   */
+  const path = [
+    `M ${startX.toFixed(
+      1,
+    )} ${startY.toFixed(
+      1,
+    )}`,
+
+    `C ${(
+      startX +
+      innerW / 3
+    ).toFixed(
+      1,
+    )} ${startY.toFixed(
+      1,
+    )}`,
+
+    `${(
+      startX +
+      (
+        innerW * 2
+      ) / 3
+    ).toFixed(
+      1,
+    )} ${endY.toFixed(
+      1,
+    )}`,
+
+    `${endX.toFixed(
+      1,
+    )} ${endY.toFixed(
+      1,
+    )}`,
+  ].join(' ');
 
   const yTicks = [
     max,
@@ -1727,7 +1715,7 @@ function PredictionTrendChart({
           maxHeight:
             H,
         }}
-        aria-label={`${metric.label} 30일 예상 변화 추이 그래프`}
+        aria-label={`${metric.label} 30일 예상 추이 그래프`}
       >
         <defs>
           <linearGradient
@@ -1834,39 +1822,41 @@ function PredictionTrendChart({
           strokeLinejoin="round"
         />
 
-        {markerPoints.map(
+        {markerValues.map(
           (
-            point,
+            value,
             index,
           ) => (
             <circle
               key={
-                point.day
+                days[
+                  index
+                ]
               }
               cx={
                 xOfDay(
-                  point.day,
+                  days[
+                    index
+                  ],
                 )
               }
               cy={
                 yOf(
-                  point[
-                    metricKey
-                  ],
+                  value,
                 )
               }
               r={
                 index ===
                   0 ||
                 index ===
-                  markerPoints.length -
+                  markerValues.length -
                     1
                   ? 4
                   : 2.5
               }
               fill={
                 index ===
-                  markerPoints.length -
+                  markerValues.length -
                     1
                   ? '#60a5fa'
                   : '#a1a1aa'
