@@ -1,5 +1,6 @@
 /* Hallmark · component: guardian progress · genre: playful · theme: design.md · pre-emit critique: P5 H4 E4 S5 R5 V4 */
-import StoneGuardian from '@/components/StoneGuardian';
+import GolemAvatar from '@/components/golem/GolemAvatar';
+import { guardianLevelToGolemLevel } from '@/lib/golem/level';
 import type { GuardianProgress } from '@/lib/guardianProgress';
 
 const stageNames = ['잠든 돌', '새싹 돌', '단단한 돌', '쌓이는 돌', '수호석', '차곡 수호자'];
@@ -18,6 +19,11 @@ function RegionMeter({ label, points, level }: { label: string; points: number; 
 
 export default function GuardianProgressCard({ progress }: { progress: GuardianProgress }) {
   const maxLevel = progress.overallLevel >= 5;
+  const golemLevels = {
+    upper: guardianLevelToGolemLevel(progress.upperLevel),
+    lower: guardianLevelToGolemLevel(progress.lowerLevel),
+    core: guardianLevelToGolemLevel(progress.coreLevel),
+  };
 
   return (
     <section className="guardian-card" aria-labelledby="guardian-title">
@@ -40,7 +46,14 @@ export default function GuardianProgressCard({ progress }: { progress: GuardianP
       </div>
 
       <figure className="guardian-card__figure">
-        <StoneGuardian progress={progress} />
+        <div className="guardian-golem-frame" aria-hidden="true">
+          <GolemAvatar
+            upper={golemLevels.upper}
+            lower={golemLevels.lower}
+            core={golemLevels.core}
+            size={136}
+          />
+        </div>
         <figcaption>
           {progress.completedWorkouts === 0
             ? '운동 기록을 기다리는 중'

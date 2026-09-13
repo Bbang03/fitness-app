@@ -21,6 +21,16 @@ export const GOLEM_PART_LABELS: Record<GolemGrowthPart, string> = {
   core: '코어',
 };
 
+export function guardianLevelToGolemLevel(level: number): GolemLevel {
+  const normalizedLevel = Number.isFinite(level)
+    ? Math.min(5, Math.max(0, Math.trunc(level)))
+    : 0;
+
+  if (normalizedLevel >= 4) return 2;
+  if (normalizedLevel >= 2) return 1;
+  return 0;
+}
+
 /**
  * 실제 파츠를 연결할 때 null을 `/golem/{part}/...png` 또는 `.svg` 경로로
  * 교체하면 GolemAvatar가 placeholder 대신 해당 이미지를 렌더링합니다.
