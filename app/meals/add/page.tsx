@@ -849,6 +849,73 @@ function NutritionGrid({
   );
 }
 
+const PORTION_PRESETS = [
+  { label: '적게', ratio: 0.7 },
+  { label: '1인분', ratio: 1 },
+  { label: '많게', ratio: 1.5 },
+] as const;
+
+function PortionAmountControls({
+  defaultGrams,
+  grams,
+  disabled,
+  onChange,
+}: {
+  defaultGrams: number;
+  grams: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const amount = Math.max(1, Number(grams) || defaultGrams);
+
+  return (
+    <div className="mb-4 space-y-2.5">
+      <div className="grid grid-cols-3 gap-2" aria-label="섭취량 빠른 선택">
+        {PORTION_PRESETS.map(({ label, ratio }) => {
+          const presetGrams = Math.max(1, Math.round(defaultGrams * ratio));
+          const active = Math.round(amount) === presetGrams;
+
+          return (
+            <button
+              key={label}
+              type="button"
+              disabled={disabled}
+              aria-pressed={active}
+              onClick={() => onChange(String(presetGrams))}
+              className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                active
+                  ? 'border-blue-600 bg-blue-600 text-white'
+                  : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-blue-500/60 hover:text-blue-300'
+              }`}
+            >
+              {label}
+              <span className="mt-0.5 block text-[9px] opacity-70">{presetGrams}g</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <label className="flex items-center gap-3 text-xs text-zinc-500">
+        직접 입력
+        <span className="relative flex-1">
+          <input
+            type="number"
+            min="1"
+            max="10000"
+            step="1"
+            value={grams}
+            disabled={disabled}
+            inputMode="decimal"
+            onChange={(event) => onChange(event.target.value)}
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 pr-8 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">g</span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 function ManualNumber({
   label,
   unit,
@@ -1033,20 +1100,12 @@ function FoodRow({
 
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
-          <div className="mb-4 flex items-center gap-3">
-            <label className="text-xs text-zinc-500">섭취량</label>
-            <div className="relative flex-1">
-              <input
-                type="number"
-                value={grams}
-                disabled={disabled}
-                inputMode="decimal"
-                onChange={(event) => setGrams(event.target.value)}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 pr-8 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">g</span>
-            </div>
-          </div>
+          <PortionAmountControls
+            defaultGrams={food.serving_g}
+            grams={grams}
+            disabled={disabled}
+            onChange={setGrams}
+          />
           <NutritionGrid {...nutrition} />
           <button
             type="button"
@@ -1306,20 +1365,12 @@ function MfdsFoodRow({
 
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
-          <div className="mb-4 flex items-center gap-3">
-            <label className="text-xs text-zinc-500">섭취량 (g)</label>
-            <input
-              type="number"
-              min="1"
-              max="10000"
-              step="1"
-              value={grams}
-              disabled={disabled}
-              onChange={(event) => setGrams(event.target.value)}
-              className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-center text-sm font-semibold focus:border-emerald-500 focus:outline-none"
-            />
-            <span className="text-xs text-zinc-600">g</span>
-          </div>
+          <PortionAmountControls
+            defaultGrams={defaultServingG}
+            grams={grams}
+            disabled={disabled}
+            onChange={setGrams}
+          />
 
           <NutritionGrid {...nutrition} />
 
@@ -1606,20 +1657,12 @@ function OpenFoodFactsRow({
 
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
-          <div className="mb-4 flex items-center gap-3">
-            <label className="text-xs text-zinc-500">섭취량</label>
-            <div className="relative flex-1">
-              <input
-                type="number"
-                value={grams}
-                disabled={disabled}
-                onChange={(event) => setGrams(event.target.value)}
-                inputMode="decimal"
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 pr-8 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">g</span>
-            </div>
-          </div>
+          <PortionAmountControls
+            defaultGrams={defaultServing}
+            grams={grams}
+            disabled={disabled}
+            onChange={setGrams}
+          />
           <NutritionGrid {...nutrition} />
           <button
             type="button"
@@ -1762,20 +1805,12 @@ function FatSecretFoodRow({
                 </select>
               </div>
 
-              <div className="mb-4 flex items-center gap-3">
-                <label className="text-xs text-zinc-500">섭취량 (g)</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="10000"
-                  step="1"
-                  value={grams}
-                  disabled={disabled}
-                  onChange={(event) => setGrams(event.target.value)}
-                  className="flex-1 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
-                />
-                <span className="text-xs text-zinc-600">g</span>
-              </div>
+              <PortionAmountControls
+                defaultGrams={defaultServingG}
+                grams={grams}
+                disabled={disabled}
+                onChange={setGrams}
+              />
 
               <NutritionGrid {...nutrition} />
 

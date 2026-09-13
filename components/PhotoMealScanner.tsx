@@ -649,10 +649,9 @@ function ResultRow({
               {/* 양 조절 — 숫자 입력 대신 탭 위주 */}
               <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                 {[
-                  { ratio: 0.5, label: '반만' },
-                  { ratio: 0.75, label: '조금 적게' },
+                  { ratio: 0.7, label: '적게' },
                   { ratio: 1, label: '1인분' },
-                  { ratio: 1.5, label: '곱빼기' },
+                  { ratio: 1.5, label: '많게' },
                 ].map(option => {
                   const g = Math.max(1, Math.round(servingG * option.ratio));
                   const active = row.grams === g;
