@@ -27,6 +27,10 @@ import {
   searchFoods,
   type FoodItem,
 } from '@/lib/foodData';
+import {
+  getInitialPortionGrams,
+  getPortionSuggestion,
+} from '@/lib/portion';
 import type {
   MealItem,
   MealLog,
@@ -849,18 +853,16 @@ function NutritionGrid({
   );
 }
 
-const PORTION_PRESETS = [
-  { label: '적게', ratio: 0.7 },
-  { label: '1인분', ratio: 1 },
-  { label: '많게', ratio: 1.5 },
-] as const;
-
 function PortionAmountControls({
+  name,
+  servingDescription,
   defaultGrams,
   grams,
   disabled,
   onChange,
 }: {
+  name: string;
+  servingDescription?: string | null;
   defaultGrams: number;
   grams: string;
   disabled: boolean;
@@ -868,32 +870,45 @@ function PortionAmountControls({
 }) {
   const amount = Math.max(1, Number(grams) || defaultGrams);
 
+  const suggestion = getPortionSuggestion({
+    name,
+    servingDescription,
+    defaultGrams,
+  });
+
   return (
     <div className="mb-4 space-y-2.5">
       <div className="grid grid-cols-3 gap-2" aria-label="섭취량 빠른 선택">
-        {PORTION_PRESETS.map(({ label, ratio }) => {
-          const presetGrams = Math.max(1, Math.round(defaultGrams * ratio));
-          const active = Math.round(amount) === presetGrams;
+        {suggestion.presets.map((preset) => {
+          const active = Math.abs(amount - preset.grams) < 0.05;
 
           return (
             <button
-              key={label}
+              key={`${preset.label}-${preset.grams}`}
               type="button"
               disabled={disabled}
               aria-pressed={active}
-              onClick={() => onChange(String(presetGrams))}
+              onClick={() => onChange(String(preset.grams))}
               className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
                 active
                   ? 'border-blue-600 bg-blue-600 text-white'
                   : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-blue-500/60 hover:text-blue-300'
               }`}
             >
-              {label}
-              <span className="mt-0.5 block text-[9px] opacity-70">{presetGrams}g</span>
+              {preset.label}
+              <span className="mt-0.5 block text-[9px] opacity-70">
+                {roundOne(preset.grams)}g
+              </span>
             </button>
           );
         })}
       </div>
+
+      {suggestion.note && (
+        <p className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-3 py-2 text-[10px] leading-relaxed text-amber-300/80">
+          {suggestion.note}
+        </p>
+      )}
 
       <label className="flex items-center gap-3 text-xs text-zinc-500">
         직접 입력
@@ -902,7 +917,7 @@ function PortionAmountControls({
             type="number"
             min="1"
             max="10000"
-            step="1"
+            step="0.1"
             value={grams}
             disabled={disabled}
             inputMode="decimal"
@@ -1069,9 +1084,14 @@ function FoodRow({
   disabled: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [grams, setGrams] = useState(String(food.serving_g));
+  const initialGrams = getInitialPortionGrams({
+    name: food.name,
+    servingDescription: food.serving_desc,
+    defaultGrams: food.serving_g,
+  });
+  const [grams, setGrams] = useState(String(initialGrams));
 
-  const amount = Math.max(1, Number(grams) || food.serving_g);
+  const amount = Math.max(1, Number(grams) || initialGrams);
   const nutrition = calcNutrition(food, amount);
   const defaultNutrition = calcNutrition(food, food.serving_g);
 
@@ -1101,6 +1121,8 @@ function FoodRow({
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <PortionAmountControls
+            name={food.name}
+            servingDescription={food.serving_desc}
             defaultGrams={food.serving_g}
             grams={grams}
             disabled={disabled}
@@ -1138,7 +1160,12 @@ function MfdsFoodRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const defaultServingG = food.servingG && food.servingG > 0 ? food.servingG : 100;
-  const [grams, setGrams] = useState(String(defaultServingG));
+  const initialGrams = getInitialPortionGrams({
+    name: `${food.brand} ${food.name}`,
+    servingDescription: food.servingDescription,
+    defaultGrams: defaultServingG,
+  });
+  const [grams, setGrams] = useState(String(initialGrams));
   const [manual, setManual] = useState({
     kcal: '',
     carbs: '',
@@ -1150,7 +1177,7 @@ function MfdsFoodRow({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState('');
 
-  const amount = Math.max(1, Math.min(Number(grams) || defaultServingG, 10000));
+  const amount = Math.max(1, Math.min(Number(grams) || initialGrams, 10000));
   const multiplier = amount / defaultServingG;
   const base = food.total;
 
@@ -1366,6 +1393,8 @@ function MfdsFoodRow({
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <PortionAmountControls
+            name={`${food.brand} ${food.name}`}
+            servingDescription={food.servingDescription}
             defaultGrams={defaultServingG}
             grams={grams}
             disabled={disabled}
@@ -1626,10 +1655,14 @@ function OpenFoodFactsRow({
   disabled: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [grams, setGrams] = useState(String(food.servingG || 100));
-
   const defaultServing = food.servingG > 0 ? food.servingG : 100;
-  const amount = Math.max(1, Number(grams) || defaultServing);
+  const initialGrams = getInitialPortionGrams({
+    name: `${food.brand} ${food.name}`,
+    defaultGrams: defaultServing,
+  });
+  const [grams, setGrams] = useState(String(initialGrams));
+
+  const amount = Math.max(1, Number(grams) || initialGrams);
   const nutrition = scaleNutrition(food.per100g, amount / 100);
   const defaultNutrition = scaleNutrition(food.per100g, defaultServing / 100);
 
@@ -1658,6 +1691,7 @@ function OpenFoodFactsRow({
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <PortionAmountControls
+            name={`${food.brand} ${food.name}`}
             defaultGrams={defaultServing}
             grams={grams}
             disabled={disabled}
@@ -1718,7 +1752,19 @@ function FatSecretFoodRow({
       setDetail(json);
       const initial = json.servings.find((serving) => serving.isDefault) ?? json.servings[0];
       setSelectedServingId(initial.id);
-      setGrams(String(initial.metricAmount > 0 ? roundOne(initial.metricAmount) : 100));
+      const initialMetricAmount =
+        initial.metricAmount > 0
+          ? roundOne(initial.metricAmount)
+          : 100;
+      setGrams(
+        String(
+          getInitialPortionGrams({
+            name: `${json.brand} ${json.name}`,
+            servingDescription: initial.description,
+            defaultGrams: initialMetricAmount,
+          }),
+        ),
+      );
     } catch (error) {
       console.error('FatSecret detail failed:', error);
       setDetailError('상세 영양정보를 불러오지 못했습니다.');
@@ -1739,7 +1785,14 @@ function FatSecretFoodRow({
   const defaultServingG = selectedServing && selectedServing.metricAmount > 0
     ? selectedServing.metricAmount
     : 100;
-  const amount = Math.max(1, Math.min(Number(grams) || defaultServingG, 10000));
+  const initialSelectedGrams = selectedServing
+    ? getInitialPortionGrams({
+        name: `${detail?.brand ?? food.brand} ${detail?.name ?? food.name}`,
+        servingDescription: selectedServing.description,
+        defaultGrams: defaultServingG,
+      })
+    : defaultServingG;
+  const amount = Math.max(1, Math.min(Number(grams) || initialSelectedGrams, 10000));
   const multiplier = amount / defaultServingG;
   const nutrition = selectedServing
     ? scaleNutrition(selectedServing, multiplier)
@@ -1789,7 +1842,22 @@ function FatSecretFoodRow({
                     const nextId = event.target.value;
                     const nextServing = detail.servings.find((serving) => serving.id === nextId);
                     setSelectedServingId(nextId);
-                    setGrams(String(nextServing && nextServing.metricAmount > 0 ? roundOne(nextServing.metricAmount) : 100));
+                    if (nextServing) {
+                      const nextMetricAmount =
+                        nextServing.metricAmount > 0
+                          ? roundOne(nextServing.metricAmount)
+                          : 100;
+
+                      setGrams(
+                        String(
+                          getInitialPortionGrams({
+                            name: `${detail.brand} ${detail.name}`,
+                            servingDescription: nextServing.description,
+                            defaultGrams: nextMetricAmount,
+                          }),
+                        ),
+                      );
+                    }
                   }}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm text-white focus:border-blue-500 focus:outline-none"
                 >
@@ -1806,6 +1874,8 @@ function FatSecretFoodRow({
               </div>
 
               <PortionAmountControls
+                name={`${detail.brand} ${detail.name}`}
+                servingDescription={selectedServing.description}
                 defaultGrams={defaultServingG}
                 grams={grams}
                 disabled={disabled}
