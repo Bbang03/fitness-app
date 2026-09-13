@@ -320,6 +320,8 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 .guardian-card__next span { font-size:var(--text-body);font-weight:700; }
 .guardian-card__next small { margin-top:var(--space-1);color:var(--color-ink-secondary);font-size:var(--text-caption); }
 .guardian-card__next progress { margin:0; }
+.guardian-golem-frame { display:flex;align-items:center;justify-content:center;height:12rem; }
+.guardian-golem-frame + figcaption { margin-top:0; }
 .stone-guardian { display:block;width:100%;height:10rem;object-fit:contain;object-position:center;border-radius:var(--radius-card); }
 .stone-guardian__shadow { fill:var(--color-surface-muted); }
 .stone-guardian__stone { fill:var(--color-olive);stroke:var(--color-ink);stroke-width:2.5;stroke-linejoin:bevel; }
@@ -340,6 +342,8 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
   .guardian-card { grid-template-columns:minmax(0,1fr) 6.75rem;padding:var(--space-4);gap:var(--space-3); }
   .guardian-card__message { font-size:.875rem; }
   .guardian-card__next { grid-template-columns:1fr;gap:var(--space-2); }
+  .guardian-golem-frame { height:10rem; }
+  .guardian-golem-frame > [role="img"] { transform:scale(.7941176471);transform-origin:center; }
   .stone-guardian { height:9rem; }
 }
 \n+/* Dashboard · activity calendar · derived from workout and meal logs */

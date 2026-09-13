@@ -29,21 +29,22 @@ const STONE_LIGHT_BY_LEVEL: Record<GolemLevel, string> = {
 const outline = '2px solid #24372d';
 
 const ASSET_CANVAS_SIZE_AT_300 = 300;
-const AVATAR_STAGE_HEIGHT_AT_300 = 350;
+const AVATAR_STAGE_HEIGHT_AT_300 = 425;
 const AVATAR_STAGE_HEIGHT_RATIO =
   AVATAR_STAGE_HEIGHT_AT_300 / ASSET_CANVAS_SIZE_AT_300;
 const LOWER_ANCHOR_AT_300 = 203;
+const HEAD_ASSET_TRANSLATE_Y_AT_300 = -6;
 
 const LOWER_ASSET_TRANSLATE_Y_AT_300: Record<GolemLevel, number> = {
-  0: 37.2,
-  1: 57.3,
-  2: 76.7,
+  0: 93.8,
+  1: 136.3,
+  2: 147.1,
 };
 
 const LOWER_ASSET_BOTTOM_AT_300: Record<GolemLevel, number> = {
-  0: 310.9,
-  1: 329.5,
-  2: 349.9,
+  0: 333,
+  1: 399,
+  2: 424,
 };
 
 interface AssetLayerProps {
@@ -437,6 +438,7 @@ export default function GolemAvatar({
         </AssetLayer>
 
         <AssetLayer
+          actualStyle={{ transform: `translateY(${HEAD_ASSET_TRANSLATE_Y_AT_300 / ASSET_CANVAS_SIZE_AT_300 * 100}%)` }}
           label="기본 헤드"
           source={GOLEM_ASSET_SOURCES.head}
           style={{ position: 'absolute', left: '26%', top: '3%', width: '48%', height: '36%', zIndex: 4 }}
