@@ -47,9 +47,23 @@ interface PredictionMetricConfig {
 }
 
 
+interface PredictionBehaviorCorrection {
+  applied: boolean;
+
+  gate?: {
+    reason?: string | null;
+    observed_meal_days?: number;
+    minimum_observed_meal_days?: number;
+  };
+}
+
+
 interface PredictionData {
   sourceRecordId: string;
   endpointWindow: string;
+  predictionDate: string | null;
+  currentMeasuredAt: string;
+  behaviorCorrection: PredictionBehaviorCorrection | null;
 
   current: {
     weight_kg: number;
@@ -107,7 +121,10 @@ interface PredictionApiResponse {
     inbody_record_id: string;
     inbody_records_used: number;
     authenticated_user: boolean;
+    prediction_date?: string;
   };
+
+  behavior_correction?: PredictionBehaviorCorrection;
 
   prediction_history_id: string | null;
 }
@@ -116,6 +133,8 @@ interface PredictionApiResponse {
 interface PredictionHistoryRow {
   source_inbody_id: string;
   endpoint_window: string | null;
+  prediction_date: string;
+  current_measured_at: string;
 
   current_weight_kg: number;
   current_fat_mass_kg: number;
@@ -131,6 +150,14 @@ interface PredictionHistoryRow {
   delta_fat_mass_kg: number;
   delta_skeletal_muscle_kg: number;
   delta_body_fat_pct: number;
+
+  quality_meta:
+    | {
+        behavior_correction?:
+          | PredictionBehaviorCorrection
+          | null;
+      }
+    | null;
 
   created_at: string;
 }
@@ -158,6 +185,102 @@ const PREDICTION_METRICS: PredictionMetricConfig[] = [
     unit: '%',
   },
 ];
+
+
+const KST_OFFSET_MS =
+  9 * 60 * 60 * 1000;
+
+const SERVICE_ROLLOVER_HOUR_KST =
+  3;
+
+
+function dateKeyFromUtcParts(
+  value: Date,
+) {
+  const year =
+    value.getUTCFullYear();
+
+  const month =
+    String(
+      value.getUTCMonth() + 1,
+    ).padStart(
+      2,
+      '0',
+    );
+
+  const day =
+    String(
+      value.getUTCDate(),
+    ).padStart(
+      2,
+      '0',
+    );
+
+  return `${year}-${month}-${day}`;
+}
+
+
+function resolveServicePredictionDate(
+  now = new Date(),
+) {
+  const kst =
+    new Date(
+      now.getTime() +
+        KST_OFFSET_MS,
+    );
+
+  if (
+    kst.getUTCHours() <
+    SERVICE_ROLLOVER_HOUR_KST
+  ) {
+    kst.setUTCDate(
+      kst.getUTCDate() - 1,
+    );
+  }
+
+  return dateKeyFromUtcParts(
+    kst,
+  );
+}
+
+
+function millisecondsUntilNextServiceRollover(
+  now = new Date(),
+) {
+  const kst =
+    new Date(
+      now.getTime() +
+        KST_OFFSET_MS,
+    );
+
+  const next =
+    new Date(
+      kst.getTime(),
+    );
+
+  next.setUTCHours(
+    SERVICE_ROLLOVER_HOUR_KST,
+    0,
+    0,
+    0,
+  );
+
+  if (
+    next.getTime() <=
+    kst.getTime()
+  ) {
+    next.setUTCDate(
+      next.getUTCDate() + 1,
+    );
+  }
+
+  return Math.max(
+    1_000,
+    next.getTime() -
+      kst.getTime() +
+      1_000,
+  );
+}
 
 
 function dateKeyDaysAgo(
@@ -249,6 +372,18 @@ function mapPredictionHistoryRow(
       row.endpoint_window ??
       '28~35일',
 
+    predictionDate:
+      row.prediction_date ??
+      null,
+
+    currentMeasuredAt:
+      row.current_measured_at,
+
+    behaviorCorrection:
+      row.quality_meta
+        ?.behavior_correction ??
+      null,
+
     current: {
       weight_kg:
         Number(
@@ -331,6 +466,19 @@ function mapPredictionApiResponse(
         .endpoint_window ||
       '28~35일',
 
+    predictionDate:
+      payload.source
+        .prediction_date ??
+      null,
+
+    currentMeasuredAt:
+      payload.current
+        .measured_at,
+
+    behaviorCorrection:
+      payload.behavior_correction ??
+      null,
+
     current: {
       weight_kg:
         payload.current
@@ -411,6 +559,40 @@ function getPredictionErrorMessage(
 }
 
 
+function getBehaviorCorrectionDescription(
+  correction:
+    PredictionBehaviorCorrection | null,
+) {
+  if (!correction) {
+    return '식단 보정 정보를 확인할 수 없어 기본 체성분 예측을 표시합니다.';
+  }
+
+  if (correction.applied) {
+    return '최근 7일 식단 기록의 탄수화물·지방·단백질 섭취 정보를 사용해 체중과 체지방 예측을 보정했습니다.';
+  }
+
+  const gate =
+    correction.gate;
+
+  if (
+    gate?.reason ===
+    'insufficient_recent_meal_days'
+  ) {
+    const observed =
+      gate.observed_meal_days ??
+      0;
+
+    const minimum =
+      gate.minimum_observed_meal_days ??
+      3;
+
+    return `최근 7일 중 식단 기록이 ${observed}일로, 보정에 필요한 ${minimum}일보다 적어 기본 체성분 예측을 그대로 사용했습니다.`;
+  }
+
+  return '현재 식단 보정 조건을 충족하지 않아 기본 체성분 예측을 그대로 사용했습니다.';
+}
+
+
 export default function InsightsPage() {
   const router =
     useRouter();
@@ -469,6 +651,15 @@ export default function InsightsPage() {
     useState(0);
 
   const [
+    predictionServiceDate,
+    setPredictionServiceDate,
+  ] =
+    useState(
+      () =>
+        resolveServicePredictionDate(),
+    );
+
+  const [
     selectedPredictionMetric,
     setSelectedPredictionMetric,
   ] =
@@ -491,6 +682,40 @@ export default function InsightsPage() {
     router,
     loadInbodyRecords,
   ]);
+
+  useEffect(() => {
+    let timeoutId:
+      | ReturnType<
+          typeof setTimeout
+        >
+      | null =
+      null;
+
+    const scheduleNextRollover =
+      () => {
+        timeoutId =
+          setTimeout(
+            () => {
+              setPredictionServiceDate(
+                resolveServicePredictionDate(),
+              );
+
+              scheduleNextRollover();
+            },
+            millisecondsUntilNextServiceRollover(),
+          );
+      };
+
+    scheduleNextRollover();
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(
+          timeoutId,
+        );
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (
@@ -538,6 +763,8 @@ export default function InsightsPage() {
               .select(`
                 source_inbody_id,
                 endpoint_window,
+                prediction_date,
+                current_measured_at,
                 current_weight_kg,
                 current_fat_mass_kg,
                 current_skeletal_muscle_kg,
@@ -550,6 +777,7 @@ export default function InsightsPage() {
                 delta_fat_mass_kg,
                 delta_skeletal_muscle_kg,
                 delta_body_fat_pct,
+                quality_meta,
                 created_at
               `)
               .eq(
@@ -557,8 +785,8 @@ export default function InsightsPage() {
                 user.id,
               )
               .eq(
-                'source_inbody_id',
-                latest.id,
+                'prediction_date',
+                predictionServiceDate,
               )
               .order(
                 'created_at',
@@ -642,7 +870,10 @@ export default function InsightsPage() {
                 body:
                   JSON.stringify({
                     save_prediction:
-                      false,
+                      true,
+
+                    prediction_date:
+                      predictionServiceDate,
                   }),
 
                 cache:
@@ -749,6 +980,7 @@ export default function InsightsPage() {
   }, [
     user?.id,
     latest?.id,
+    predictionServiceDate,
     predictionRetryKey,
   ]);
 
@@ -1332,7 +1564,9 @@ export default function InsightsPage() {
                 label="기준 측정"
                 value={
                   formatMeasurementDate(
-                    latest.measured_at,
+                    prediction
+                      ?.currentMeasuredAt ??
+                      latest.measured_at,
                   )
                 }
               />
@@ -1362,13 +1596,13 @@ export default function InsightsPage() {
 
             <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
               현재 AI 체성분 예측은
-              체성분 측정 기록의 변화
-              패턴을 사용합니다. 위의
-              운동·식단 정보는 최근
-              활동을 한눈에 보기 위한
-              요약이며 체성분 예측 모델의
-              입력값으로 사용하지
-              않습니다.
+              체성분 측정 기록을 기본으로
+              사용합니다. 최근 식단 기록이
+              보정 조건을 충족하면
+              탄수화물·지방·단백질 정보를
+              체중·체지방 예측에 추가
+              반영하며, 운동 기록은 최근
+              활동 요약으로만 표시합니다.
             </p>
           </section>
         )}
@@ -1390,9 +1624,17 @@ export default function InsightsPage() {
               <InsightRow
                 title="최근 체성분 측정"
                 description={`${formatMeasurementDate(
-                  latest?.measured_at ??
-                    '',
+                  prediction.currentMeasuredAt,
                 )} 측정값을 현재 상태의 기준으로 사용했습니다.`}
+              />
+
+              <InsightRow
+                title="최근 식단 기록"
+                description={
+                  getBehaviorCorrectionDescription(
+                    prediction.behaviorCorrection,
+                  )
+                }
               />
 
               <InsightRow
