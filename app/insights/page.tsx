@@ -240,6 +240,13 @@ const PREDICTION_METRICS: PredictionMetricConfig[] = [
   },
 ];
 
+const predictionMemoryCache =
+  new Map<
+    string,
+    PredictionData
+  >();
+
+
 
 const KST_OFFSET_MS =
   9 * 60 * 60 * 1000;
@@ -801,6 +808,32 @@ export default function InsightsPage() {
 
     const loadPrediction =
       async () => {
+        const cacheKey =
+          `${user.id}:${predictionServiceDate}:${latest.id}`;
+
+        const cachedPrediction =
+          predictionMemoryCache.get(
+            cacheKey,
+          );
+
+        if (cachedPrediction) {
+          if (!cancelled) {
+            setPrediction(
+              cachedPrediction,
+            );
+
+            setPredictionLoading(
+              false,
+            );
+
+            setPredictionError(
+              '',
+            );
+          }
+
+          return;
+        }
+
         setPredictionLoading(
           true,
         );
@@ -879,20 +912,20 @@ export default function InsightsPage() {
                   PredictionHistoryRow,
               );
 
-            if (
-              mappedHistory
-                .predictionInterval
-            ) {
-              if (
-                !cancelled
-              ) {
-                setPrediction(
-                  mappedHistory,
-                );
-              }
+            predictionMemoryCache.set(
+              cacheKey,
+              mappedHistory,
+            );
 
-              return;
+            if (
+              !cancelled
+            ) {
+              setPrediction(
+                mappedHistory,
+              );
             }
+
+            return;
           }
 
           const {
@@ -941,7 +974,7 @@ export default function InsightsPage() {
                 body:
                   JSON.stringify({
                     save_prediction:
-                      !existingPrediction,
+                      true,
 
                     prediction_date:
                       predictionServiceDate,
@@ -1005,11 +1038,19 @@ export default function InsightsPage() {
           if (
             !cancelled
           ) {
-            setPrediction(
+            const mappedPrediction =
               mapPredictionApiResponse(
                 payload as
                   PredictionApiResponse,
-              ),
+              );
+
+            predictionMemoryCache.set(
+              cacheKey,
+              mappedPrediction,
+            );
+
+            setPrediction(
+              mappedPrediction,
             );
           }
         } catch (
@@ -1380,10 +1421,10 @@ export default function InsightsPage() {
               </div>
 
               <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                실제 체성분 측정 기록은
-                실선으로, 약 한 달 뒤 AI
-                예측은 중앙값과 50%·80%
-                예측 범위로 구분해 표시합니다.
+                실제 측정 기록은 실선으로,
+                미래 AI 예측은 중심 경로와
+                부드럽게 퍼지는 예측 분포로
+                함께 표시합니다.
               </p>
 
               {predictionLoading ? (
@@ -1503,12 +1544,11 @@ export default function InsightsPage() {
 
                   <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
                     실선과 점은 실제 체성분
-                    측정 기록입니다. 오른쪽
-                    ◆ 표시는 AI의 28~35일 후
-                    중앙 예측값이며, 음영은
-                    과거 내부 검증 오차 분포를
-                    바탕으로 계산한 50%·80%
-                    예측 범위입니다.
+                    측정 기록입니다. 현재 이후의
+                    선은 28~35일 후 AI 예측값까지
+                    이어지는 시각적 경로이며,
+                    음영은 미래 불확실성을 좁게
+                    표현한 예측 분포입니다.
                   </p>
                 </>
               ) : null}
@@ -1795,33 +1835,31 @@ function PredictionTrendChart({
     ) ??
     PREDICTION_METRICS[0];
 
+  const currentValue =
+    prediction.current[
+      metricKey
+    ];
+
   const predictedValue =
     prediction.prediction[
       metricKey
     ];
 
-  const intervalMetric =
+  const calibratedInterval =
     prediction
       .predictionInterval
       ?.metrics[
         metricKey
-      ] ??
-    null;
-
-  const interval80 =
-    intervalMetric
+      ]
       ?.intervals[
         '0.80'
       ] ??
-    intervalMetric
+    prediction
+      .predictionInterval
+      ?.metrics[
+        metricKey
+      ]
       ?.default_interval ??
-    null;
-
-  const interval50 =
-    intervalMetric
-      ?.intervals[
-        '0.50'
-      ] ??
     null;
 
   const anchorTime =
@@ -1874,7 +1912,7 @@ function PredictionTrendChart({
             b.measured_at,
           ).getTime(),
       )
-      .slice(-6);
+      .slice(-2);
 
   const hasAnchorRecord =
     sortedActuals.some(
@@ -1923,15 +1961,15 @@ function PredictionTrendChart({
                 b.measured_at,
               ).getTime(),
           )
-          .slice(-6);
+          .slice(-2);
 
   const W = 360;
-  const H = 225;
+  const H = 218;
 
   const PAD = {
-    top: 22,
-    right: 18,
-    bottom: 42,
+    top: 18,
+    right: 14,
+    bottom: 38,
     left: 42,
   };
 
@@ -1939,13 +1977,13 @@ function PredictionTrendChart({
     PAD.left;
 
   const anchorX =
-    228;
+    175;
 
-  const dividerX =
-    255;
+  const futureStartX =
+    anchorX;
 
-  const futureX =
-    314;
+  const futureEndX =
+    336;
 
   const historySpan =
     Math.max(
@@ -1989,55 +2027,211 @@ function PredictionTrendChart({
       }),
     );
 
-  const rangeValues = [
+  const visualHalfWidthByMetric: Record<
+    PredictionMetricKey,
+    {
+      inner: number;
+      outer: number;
+    }
+  > = {
+    weight_kg: {
+      inner: 0.12,
+      outer: 0.28,
+    },
+
+    fat_mass_kg: {
+      inner: 0.10,
+      outer: 0.22,
+    },
+
+    skeletal_muscle_kg: {
+      inner: 0.06,
+      outer: 0.14,
+    },
+
+    body_fat_pct: {
+      inner: 0.16,
+      outer: 0.36,
+    },
+  };
+
+  const visualWidth =
+    visualHalfWidthByMetric[
+      metricKey
+    ];
+
+  const lowerResidual =
+    calibratedInterval
+      ? predictedValue -
+        calibratedInterval.lower
+      : 1;
+
+  const upperResidual =
+    calibratedInterval
+      ? calibratedInterval.upper -
+        predictedValue
+      : 1;
+
+  const residualTotal =
+    Math.max(
+      0.0001,
+      lowerResidual +
+        upperResidual,
+    );
+
+  const lowerShare =
+    Math.min(
+      0.7,
+      Math.max(
+        0.3,
+        lowerResidual /
+          residualTotal,
+      ),
+    );
+
+  const upperShare =
+    1 -
+    lowerShare;
+
+  const futureSteps =
+    12;
+
+  const futurePoints =
+    Array.from(
+      {
+        length:
+          futureSteps +
+          1,
+      },
+      (
+        _,
+        index,
+      ) => {
+        const t =
+          index /
+          futureSteps;
+
+        const eased =
+          t *
+          t *
+          (
+            3 -
+            2 * t
+          );
+
+        const spreadProgress =
+          Math.pow(
+            t,
+            1.45,
+          );
+
+        const center =
+          currentValue +
+          (
+            predictedValue -
+            currentValue
+          ) *
+            eased;
+
+        const outerLowerWidth =
+          visualWidth.outer *
+          2 *
+          lowerShare *
+          spreadProgress;
+
+        const outerUpperWidth =
+          visualWidth.outer *
+          2 *
+          upperShare *
+          spreadProgress;
+
+        const innerLowerWidth =
+          visualWidth.inner *
+          2 *
+          lowerShare *
+          spreadProgress;
+
+        const innerUpperWidth =
+          visualWidth.inner *
+          2 *
+          upperShare *
+          spreadProgress;
+
+        return {
+          t,
+          x:
+            futureStartX +
+            (
+              futureEndX -
+              futureStartX
+            ) *
+              t,
+
+          center,
+          outerLower:
+            center -
+            outerLowerWidth,
+
+          outerUpper:
+            center +
+            outerUpperWidth,
+
+          innerLower:
+            center -
+            innerLowerWidth,
+
+          innerUpper:
+            center +
+            innerUpperWidth,
+        };
+      },
+    );
+
+  const chartValues = [
     ...actualPoints.map(
       (
         point,
       ) =>
         point.yValue,
     ),
-    predictedValue,
+    ...futurePoints.flatMap(
+      (
+        point,
+      ) => [
+        point.outerLower,
+        point.outerUpper,
+      ],
+    ),
   ];
-
-  if (interval80) {
-    rangeValues.push(
-      interval80.lower,
-      interval80.upper,
-    );
-  }
-
-  if (interval50) {
-    rangeValues.push(
-      interval50.lower,
-      interval50.upper,
-    );
-  }
 
   const rawMin =
     Math.min(
-      ...rangeValues,
+      ...chartValues,
     );
 
   const rawMax =
     Math.max(
-      ...rangeValues,
+      ...chartValues,
     );
 
   const rawRange =
-    rawMax -
-    rawMin;
-
-  const minimumPad =
-    metric.unit ===
-    '%'
-      ? 0.6
-      : 0.3;
+    Math.max(
+      rawMax -
+        rawMin,
+      metric.unit ===
+      '%'
+        ? 0.6
+        : 0.35,
+    );
 
   const padding =
     Math.max(
-      minimumPad,
+      metric.unit ===
+      '%'
+        ? 0.12
+        : 0.08,
       rawRange *
-        0.18,
+        0.10,
     );
 
   const min =
@@ -2104,6 +2298,82 @@ function PredictionTrendChart({
       )
       .join(' ');
 
+  const centerPath =
+    futurePoints
+      .map(
+        (
+          point,
+          index,
+        ) =>
+          `${
+            index ===
+            0
+              ? 'M'
+              : 'L'
+          } ${point.x.toFixed(
+            1,
+          )} ${yOf(
+            point.center,
+          ).toFixed(
+            1,
+          )}`,
+      )
+      .join(' ');
+
+  const bandPath = (
+    upperKey:
+      | 'outerUpper'
+      | 'innerUpper',
+    lowerKey:
+      | 'outerLower'
+      | 'innerLower',
+  ) => {
+    const upper =
+      futurePoints
+        .map(
+          (
+            point,
+            index,
+          ) =>
+            `${
+              index ===
+              0
+                ? 'M'
+                : 'L'
+            } ${point.x.toFixed(
+              1,
+            )} ${yOf(
+              point[
+                upperKey
+              ],
+            ).toFixed(
+              1,
+            )}`,
+        )
+        .join(' ');
+
+    const lower =
+      [...futurePoints]
+        .reverse()
+        .map(
+          (
+            point,
+          ) =>
+            `L ${point.x.toFixed(
+              1,
+            )} ${yOf(
+              point[
+                lowerKey
+              ],
+            ).toFixed(
+              1,
+            )}`,
+        )
+        .join(' ');
+
+    return `${upper} ${lower} Z`;
+  };
+
   const formatAxisDate = (
     value: string,
   ) => {
@@ -2141,7 +2411,10 @@ function PredictionTrendChart({
     actualPoints.length >
     0
   ) {
-    labelIndexes.add(0);
+    labelIndexes.add(
+      0,
+    );
+
     labelIndexes.add(
       actualPoints.length -
         1,
@@ -2168,34 +2441,6 @@ function PredictionTrendChart({
       predictedValue,
     );
 
-  const interval80Top =
-    interval80
-      ? yOf(
-          interval80.upper,
-        )
-      : null;
-
-  const interval80Bottom =
-    interval80
-      ? yOf(
-          interval80.lower,
-        )
-      : null;
-
-  const interval50Top =
-    interval50
-      ? yOf(
-          interval50.upper,
-        )
-      : null;
-
-  const interval50Bottom =
-    interval50
-      ? yOf(
-          interval50.lower,
-        )
-      : null;
-
   return (
     <div>
       <div className="mb-3 flex items-end justify-between px-2">
@@ -2220,20 +2465,6 @@ function PredictionTrendChart({
             )}
             {metric.unit}
           </p>
-
-          {interval80 && (
-            <p className="mt-0.5 text-[9px] text-zinc-500">
-              80% 범위{' '}
-              {interval80.lower.toFixed(
-                1,
-              )}
-              ~
-              {interval80.upper.toFixed(
-                1,
-              )}
-              {metric.unit}
-            </p>
-          )}
         </div>
       </div>
 
@@ -2248,19 +2479,10 @@ function PredictionTrendChart({
           AI 예측
         </span>
 
-        {interval50 && (
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-3 rounded-sm bg-blue-400/30" />
-            50%
-          </span>
-        )}
-
-        {interval80 && (
-          <span className="flex items-center gap-1.5">
-            <span className="h-2.5 w-3 rounded-sm bg-blue-400/15" />
-            80%
-          </span>
-        )}
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-3 rounded-sm bg-blue-400/20" />
+          예측 분포
+        </span>
       </div>
 
       <svg
@@ -2270,7 +2492,7 @@ function PredictionTrendChart({
           maxHeight:
             H,
         }}
-        aria-label={`${metric.label} 실제 측정 기록과 미래 예측 범위 그래프`}
+        aria-label={`${metric.label} 실제 측정 기록과 미래 예측 분포 그래프`}
       >
         {yTicks.map(
           (
@@ -2300,7 +2522,7 @@ function PredictionTrendChart({
                   y2={y}
                   stroke="#3f3f46"
                   strokeWidth="1"
-                  opacity="0.5"
+                  opacity="0.46"
                 />
 
                 <text
@@ -2324,39 +2546,6 @@ function PredictionTrendChart({
             );
           },
         )}
-
-        <line
-          x1={dividerX}
-          y1={
-            PAD.top -
-            3
-          }
-          x2={dividerX}
-          y2={
-            H -
-            PAD.bottom +
-            5
-          }
-          stroke="#52525b"
-          strokeWidth="1"
-          strokeDasharray="4 4"
-          opacity="0.8"
-        />
-
-        <text
-          x={
-            dividerX +
-            4
-          }
-          y={
-            PAD.top +
-            8
-          }
-          fontSize="8"
-          fill="#71717a"
-        >
-          예측
-        </text>
 
         {historyPath && (
           <path
@@ -2387,11 +2576,11 @@ function PredictionTrendChart({
                       point.yValue,
                     )
                   }
-                  r="7"
+                  r="6"
                   fill="none"
                   stroke="#60a5fa"
                   strokeWidth="1.5"
-                  opacity="0.75"
+                  opacity="0.72"
                 />
               )}
 
@@ -2406,8 +2595,8 @@ function PredictionTrendChart({
                 }
                 r={
                   point.isAnchor
-                    ? 4
-                    : 3
+                    ? 3.8
+                    : 2.8
                 }
                 fill={
                   point.isAnchor
@@ -2425,7 +2614,7 @@ function PredictionTrendChart({
                   }
                   y={
                     H -
-                    13
+                    11
                   }
                   textAnchor={
                     index ===
@@ -2449,86 +2638,42 @@ function PredictionTrendChart({
           ),
         )}
 
-        {interval80 &&
-          interval80Top !==
-            null &&
-          interval80Bottom !==
-            null && (
-            <rect
-              x={
-                futureX -
-                15
-              }
-              y={
-                interval80Top
-              }
-              width="30"
-              height={
-                Math.max(
-                  2,
-                  interval80Bottom -
-                    interval80Top,
-                )
-              }
-              rx="7"
-              fill="#60a5fa"
-              fillOpacity="0.14"
-              stroke="#60a5fa"
-              strokeOpacity="0.22"
-              strokeWidth="1"
-            />
-          )}
+        <path
+          d={
+            bandPath(
+              'outerUpper',
+              'outerLower',
+            )
+          }
+          fill="#60a5fa"
+          fillOpacity="0.11"
+          stroke="none"
+        />
 
-        {interval50 &&
-          interval50Top !==
-            null &&
-          interval50Bottom !==
-            null && (
-            <rect
-              x={
-                futureX -
-                9
-              }
-              y={
-                interval50Top
-              }
-              width="18"
-              height={
-                Math.max(
-                  2,
-                  interval50Bottom -
-                    interval50Top,
-                )
-              }
-              rx="5"
-              fill="#60a5fa"
-              fillOpacity="0.32"
-            />
-          )}
+        <path
+          d={
+            bandPath(
+              'innerUpper',
+              'innerLower',
+            )
+          }
+          fill="#60a5fa"
+          fillOpacity="0.20"
+          stroke="none"
+        />
 
-        {interval80 && (
-          <line
-            x1={futureX}
-            y1={
-              yOf(
-                interval80.lower,
-              )
-            }
-            x2={futureX}
-            y2={
-              yOf(
-                interval80.upper,
-              )
-            }
-            stroke="#60a5fa"
-            strokeWidth="1"
-            opacity="0.75"
-          />
-        )}
+        <path
+          d={centerPath}
+          fill="none"
+          stroke="#60a5fa"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
 
         <rect
           x={
-            futureX -
+            futureEndX -
             4
           }
           y={
@@ -2539,14 +2684,14 @@ function PredictionTrendChart({
           height="8"
           rx="1"
           fill="#60a5fa"
-          transform={`rotate(45 ${futureX} ${futureY})`}
+          transform={`rotate(45 ${futureEndX} ${futureY})`}
         />
 
         <text
-          x={futureX}
+          x={futureEndX}
           y={
             H -
-            13
+            11
           }
           textAnchor="middle"
           fontSize="8"
@@ -2555,14 +2700,6 @@ function PredictionTrendChart({
           28~35일 후
         </text>
       </svg>
-
-      {!interval80 && (
-        <p className="px-2 pb-1 text-[9px] leading-relaxed text-zinc-600">
-          중앙 예측값은 표시되지만,
-          현재 저장된 예측에는 예측 범위
-          정보가 없습니다.
-        </p>
-      )}
     </div>
   );
 }
@@ -2598,22 +2735,10 @@ function PredictionTrendSummary({
       metricKey
     ];
 
-  const interval80 =
-    prediction
-      .predictionInterval
-      ?.metrics[
-        metricKey
-      ]
-      ?.intervals[
-        '0.80'
-      ] ??
-    prediction
-      .predictionInterval
-      ?.metrics[
-        metricKey
-      ]
-      ?.default_interval ??
-    null;
+  const change =
+    prediction.change[
+      metricKey
+    ];
 
   return (
     <div className="mt-3 grid grid-cols-3 gap-2">
@@ -2633,15 +2758,12 @@ function PredictionTrendSummary({
       />
 
       <TrendSummaryItem
-        label="80% 예측 범위"
+        label="예상 변화"
         value={
-          interval80
-            ? `${interval80.lower.toFixed(
-                1,
-              )}~${interval80.upper.toFixed(
-                1,
-              )}${metric.unit}`
-            : '-'
+          signed(
+            change,
+            metric.unit,
+          )
         }
       />
     </div>
