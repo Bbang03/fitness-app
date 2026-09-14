@@ -58,12 +58,61 @@ interface PredictionBehaviorCorrection {
 }
 
 
+interface PredictionIntervalBand {
+  coverage: number;
+  lower: number;
+  upper: number;
+  lower_residual_quantile?: number;
+  upper_residual_quantile?: number;
+  empirical_participant_macro_coverage?: number | null;
+  empirical_row_coverage?: number | null;
+}
+
+
+interface PredictionIntervalMetric {
+  center: number;
+  unit: string;
+  calibration_target: string;
+  default_coverage: number;
+  default_interval: PredictionIntervalBand;
+  intervals: Record<
+    string,
+    PredictionIntervalBand
+  >;
+}
+
+
+interface PredictionIntervalData {
+  artifact_version: string;
+  production_model_version: string;
+  default_coverage: number;
+  available_coverages: number[];
+  center_policy: string;
+  behavior_correction_applied: boolean;
+  behavior_correction_uncertainty_calibrated: boolean;
+  metrics: Record<
+    PredictionMetricKey,
+    PredictionIntervalMetric
+  >;
+}
+
+
+interface PredictionChartRecord {
+  measured_at: string;
+  weight_kg: number;
+  fat_mass_kg: number;
+  skeletal_muscle_kg: number;
+  body_fat_pct: number;
+}
+
+
 interface PredictionData {
   sourceRecordId: string;
   endpointWindow: string;
   predictionDate: string | null;
   currentMeasuredAt: string;
   behaviorCorrection: PredictionBehaviorCorrection | null;
+  predictionInterval: PredictionIntervalData | null;
 
   current: {
     weight_kg: number;
@@ -125,6 +174,7 @@ interface PredictionApiResponse {
   };
 
   behavior_correction?: PredictionBehaviorCorrection;
+  prediction_interval?: PredictionIntervalData;
 
   prediction_history_id: string | null;
 }
@@ -155,6 +205,10 @@ interface PredictionHistoryRow {
     | {
         behavior_correction?:
           | PredictionBehaviorCorrection
+          | null;
+
+        prediction_interval?:
+          | PredictionIntervalData
           | null;
       }
     | null;
@@ -384,6 +438,11 @@ function mapPredictionHistoryRow(
         ?.behavior_correction ??
       null,
 
+    predictionInterval:
+      row.quality_meta
+        ?.prediction_interval ??
+      null,
+
     current: {
       weight_kg:
         Number(
@@ -477,6 +536,10 @@ function mapPredictionApiResponse(
 
     behaviorCorrection:
       payload.behavior_correction ??
+      null,
+
+    predictionInterval:
+      payload.prediction_interval ??
       null,
 
     current: {
@@ -810,18 +873,26 @@ export default function InsightsPage() {
           if (
             existingPrediction
           ) {
-            if (
-              !cancelled
-            ) {
-              setPrediction(
-                mapPredictionHistoryRow(
-                  existingPrediction as
-                    PredictionHistoryRow,
-                ),
+            const mappedHistory =
+              mapPredictionHistoryRow(
+                existingPrediction as
+                  PredictionHistoryRow,
               );
-            }
 
-            return;
+            if (
+              mappedHistory
+                .predictionInterval
+            ) {
+              if (
+                !cancelled
+              ) {
+                setPrediction(
+                  mappedHistory,
+                );
+              }
+
+              return;
+            }
           }
 
           const {
@@ -870,7 +941,7 @@ export default function InsightsPage() {
                 body:
                   JSON.stringify({
                     save_prediction:
-                      true,
+                      !existingPrediction,
 
                     prediction_date:
                       predictionServiceDate,
@@ -1294,12 +1365,12 @@ export default function InsightsPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold text-blue-400">
-                    30일 체성분 예상 추이
+                    체성분 기록 · 미래 예측
                   </p>
 
                   <h2 className="mt-2 text-xl font-bold">
-                    한 달 뒤의 변화를
-                    그래프로 확인해보세요
+                    지난 기록과 미래 예측 범위를
+                    함께 확인해보세요
                   </h2>
                 </div>
 
@@ -1309,11 +1380,10 @@ export default function InsightsPage() {
               </div>
 
               <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                최근 체성분 측정을
-                기준으로 AI가 예측한
-                한 달 뒤 값을 현재값과
-                연결해 예상 흐름을
-                보여줍니다.
+                실제 체성분 측정 기록은
+                실선으로, 약 한 달 뒤 AI
+                예측은 중앙값과 50%·80%
+                예측 범위로 구분해 표시합니다.
               </p>
 
               {predictionLoading ? (
@@ -1397,6 +1467,28 @@ export default function InsightsPage() {
                       metricKey={
                         selectedPredictionMetric
                       }
+                      records={
+                        inbodyRecords.map(
+                          (
+                            record,
+                          ) => ({
+                            measured_at:
+                              record.measured_at,
+
+                            weight_kg:
+                              record.weight_kg,
+
+                            fat_mass_kg:
+                              record.body_fat_kg,
+
+                            skeletal_muscle_kg:
+                              record.skeletal_muscle_kg,
+
+                            body_fat_pct:
+                              record.body_fat_pct,
+                          }),
+                        )
+                      }
                     />
                   </div>
 
@@ -1410,13 +1502,13 @@ export default function InsightsPage() {
                   />
 
                   <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
-                    그래프의 중간 구간은
-                    현재값과 AI가 예측한
-                    28~35일 후 값을
-                    연결한 시각적 예상
-                    추이입니다. AI 모델이
-                    직접 예측하는 시점은
-                    약 한 달 후입니다.
+                    실선과 점은 실제 체성분
+                    측정 기록입니다. 오른쪽
+                    ◆ 표시는 AI의 28~35일 후
+                    중앙 예측값이며, 음영은
+                    과거 내부 검증 오차 분포를
+                    바탕으로 계산한 50%·80%
+                    예측 범위입니다.
                   </p>
                 </>
               ) : null}
@@ -1682,12 +1774,16 @@ export default function InsightsPage() {
 function PredictionTrendChart({
   prediction,
   metricKey,
+  records,
 }: {
   prediction:
     PredictionData;
 
   metricKey:
     PredictionMetricKey;
+
+  records:
+    PredictionChartRecord[];
 }) {
   const metric =
     PREDICTION_METRICS.find(
@@ -1699,104 +1795,232 @@ function PredictionTrendChart({
     ) ??
     PREDICTION_METRICS[0];
 
-  const currentValue =
-    prediction.current[
-      metricKey
-    ];
-
   const predictedValue =
     prediction.prediction[
       metricKey
     ];
 
-  const days = [
-    0,
-    7,
-    14,
-    21,
-    30,
-  ];
+  const intervalMetric =
+    prediction
+      .predictionInterval
+      ?.metrics[
+        metricKey
+      ] ??
+    null;
 
-  /*
-   * Production 모델은 약 한 달 뒤 endpoint만 직접 예측한다.
-   * 중간 구간은 추가 예측값을 만들어내지 않고,
-   * 현재값과 endpoint 사이를 smoothstep으로 시각화한다.
-   * 3t^2 - 2t^3는 시작/끝의 기울기가 완만한 S-curve다.
-   */
-  const easedProgress = (
-    day: number,
-  ) => {
-    const t =
-      Math.min(
-        1,
-        Math.max(
-          0,
-          day / 30,
-        ),
-      );
+  const interval80 =
+    intervalMetric
+      ?.intervals[
+        '0.80'
+      ] ??
+    intervalMetric
+      ?.default_interval ??
+    null;
 
-    return (
-      t *
-      t *
-      (
-        3 -
-        2 * t
+  const interval50 =
+    intervalMetric
+      ?.intervals[
+        '0.50'
+      ] ??
+    null;
+
+  const anchorTime =
+    new Date(
+      prediction.currentMeasuredAt,
+    ).getTime();
+
+  const sortedActuals =
+    records
+      .filter(
+        (
+          record,
+        ) => {
+          const time =
+            new Date(
+              record.measured_at,
+            ).getTime();
+
+          const value =
+            record[
+              metricKey
+            ];
+
+          return (
+            Number.isFinite(
+              time,
+            ) &&
+            Number.isFinite(
+              value,
+            ) &&
+            (
+              !Number.isFinite(
+                anchorTime,
+              ) ||
+              time <=
+                anchorTime
+            )
+          );
+        },
       )
-    );
-  };
+      .sort(
+        (
+          a,
+          b,
+        ) =>
+          new Date(
+            a.measured_at,
+          ).getTime() -
+          new Date(
+            b.measured_at,
+          ).getTime(),
+      )
+      .slice(-6);
 
-  const valueAtDay = (
-    day: number,
-  ) =>
-    currentValue +
-    (
-      predictedValue -
-      currentValue
-    ) *
-      easedProgress(
-        day,
-      );
-
-  const markerValues =
-    days.map(
+  const hasAnchorRecord =
+    sortedActuals.some(
       (
-        day,
+        record,
       ) =>
-        valueAtDay(
-          day,
-        ),
+        record.measured_at ===
+        prediction.currentMeasuredAt,
     );
 
-  const W = 340;
-  const H = 190;
+  const actuals =
+    hasAnchorRecord
+      ? sortedActuals
+      : [
+          ...sortedActuals,
+          {
+            measured_at:
+              prediction.currentMeasuredAt,
+
+            weight_kg:
+              prediction.current
+                .weight_kg,
+
+            fat_mass_kg:
+              prediction.current
+                .fat_mass_kg,
+
+            skeletal_muscle_kg:
+              prediction.current
+                .skeletal_muscle_kg,
+
+            body_fat_pct:
+              prediction.current
+                .body_fat_pct,
+          },
+        ]
+          .sort(
+            (
+              a,
+              b,
+            ) =>
+              new Date(
+                a.measured_at,
+              ).getTime() -
+              new Date(
+                b.measured_at,
+              ).getTime(),
+          )
+          .slice(-6);
+
+  const W = 360;
+  const H = 225;
 
   const PAD = {
-    top: 18,
-    right: 14,
-    bottom: 30,
+    top: 22,
+    right: 18,
+    bottom: 42,
     left: 42,
   };
 
-  const innerW =
-    W -
-    PAD.left -
-    PAD.right;
+  const historyStartX =
+    PAD.left;
 
-  const innerH =
-    H -
-    PAD.top -
-    PAD.bottom;
+  const anchorX =
+    228;
+
+  const dividerX =
+    255;
+
+  const futureX =
+    314;
+
+  const historySpan =
+    Math.max(
+      1,
+      actuals.length -
+        1,
+    );
+
+  const actualPoints =
+    actuals.map(
+      (
+        record,
+        index,
+      ) => ({
+        x:
+          actuals.length ===
+          1
+            ? anchorX
+            : historyStartX +
+              (
+                (
+                  anchorX -
+                  historyStartX
+                ) *
+                index
+              ) /
+                historySpan,
+
+        yValue:
+          record[
+            metricKey
+          ],
+
+        measuredAt:
+          record.measured_at,
+
+        isAnchor:
+          index ===
+          actuals.length -
+            1,
+      }),
+    );
+
+  const rangeValues = [
+    ...actualPoints.map(
+      (
+        point,
+      ) =>
+        point.yValue,
+    ),
+    predictedValue,
+  ];
+
+  if (interval80) {
+    rangeValues.push(
+      interval80.lower,
+      interval80.upper,
+    );
+  }
+
+  if (interval50) {
+    rangeValues.push(
+      interval50.lower,
+      interval50.upper,
+    );
+  }
 
   const rawMin =
     Math.min(
-      currentValue,
-      predictedValue,
+      ...rangeValues,
     );
 
   const rawMax =
     Math.max(
-      currentValue,
-      predictedValue,
+      ...rangeValues,
     );
 
   const rawRange =
@@ -1806,14 +2030,14 @@ function PredictionTrendChart({
   const minimumPad =
     metric.unit ===
     '%'
-      ? 0.5
-      : 0.25;
+      ? 0.6
+      : 0.3;
 
   const padding =
     Math.max(
       minimumPad,
       rawRange *
-        0.8,
+        0.18,
     );
 
   const min =
@@ -1831,16 +2055,6 @@ function PredictionTrendChart({
       0.1,
     );
 
-  const xOfDay = (
-    day: number,
-  ) =>
-    PAD.left +
-    (
-      day /
-      30
-    ) *
-      innerW;
-
   const yOf = (
     value: number,
   ) =>
@@ -1852,66 +2066,11 @@ function PredictionTrendChart({
       ) /
       range
     ) *
-      innerH;
-
-  const startX =
-    xOfDay(
-      0,
-    );
-
-  const endX =
-    xOfDay(
-      30,
-    );
-
-  const startY =
-    yOf(
-      currentValue,
-    );
-
-  const endY =
-    yOf(
-      predictedValue,
-    );
-
-  /*
-   * x control point를 정확히 1/3, 2/3 지점에 두면
-   * x축은 시간에 대해 선형으로 유지되고,
-   * y축만 smoothstep 형태의 부드러운 곡선이 된다.
-   */
-  const path = [
-    `M ${startX.toFixed(
-      1,
-    )} ${startY.toFixed(
-      1,
-    )}`,
-
-    `C ${(
-      startX +
-      innerW / 3
-    ).toFixed(
-      1,
-    )} ${startY.toFixed(
-      1,
-    )}`,
-
-    `${(
-      startX +
       (
-        innerW * 2
-      ) / 3
-    ).toFixed(
-      1,
-    )} ${endY.toFixed(
-      1,
-    )}`,
-
-    `${endX.toFixed(
-      1,
-    )} ${endY.toFixed(
-      1,
-    )}`,
-  ].join(' ');
+        H -
+        PAD.top -
+        PAD.bottom
+      );
 
   const yTicks = [
     max,
@@ -1923,9 +2082,123 @@ function PredictionTrendChart({
     min,
   ];
 
+  const historyPath =
+    actualPoints
+      .map(
+        (
+          point,
+          index,
+        ) =>
+          `${
+            index ===
+            0
+              ? 'M'
+              : 'L'
+          } ${point.x.toFixed(
+            1,
+          )} ${yOf(
+            point.yValue,
+          ).toFixed(
+            1,
+          )}`,
+      )
+      .join(' ');
+
+  const formatAxisDate = (
+    value: string,
+  ) => {
+    const date =
+      new Date(
+        value,
+      );
+
+    if (
+      Number.isNaN(
+        date.getTime(),
+      )
+    ) {
+      return '';
+    }
+
+    return `${String(
+      date.getMonth() +
+        1,
+    ).padStart(
+      2,
+      '0',
+    )}.${String(
+      date.getDate(),
+    ).padStart(
+      2,
+      '0',
+    )}`;
+  };
+
+  const labelIndexes =
+    new Set<number>();
+
+  if (
+    actualPoints.length >
+    0
+  ) {
+    labelIndexes.add(0);
+    labelIndexes.add(
+      actualPoints.length -
+        1,
+    );
+
+    if (
+      actualPoints.length >=
+      4
+    ) {
+      labelIndexes.add(
+        Math.floor(
+          (
+            actualPoints.length -
+            1
+          ) /
+            2,
+        ),
+      );
+    }
+  }
+
+  const futureY =
+    yOf(
+      predictedValue,
+    );
+
+  const interval80Top =
+    interval80
+      ? yOf(
+          interval80.upper,
+        )
+      : null;
+
+  const interval80Bottom =
+    interval80
+      ? yOf(
+          interval80.lower,
+        )
+      : null;
+
+  const interval50Top =
+    interval50
+      ? yOf(
+          interval50.upper,
+        )
+      : null;
+
+  const interval50Bottom =
+    interval50
+      ? yOf(
+          interval50.lower,
+        )
+      : null;
+
   return (
     <div>
-      <div className="mb-2 flex items-end justify-between px-2">
+      <div className="mb-3 flex items-end justify-between px-2">
         <div>
           <p className="text-[10px] text-zinc-600">
             선택 항목
@@ -1938,7 +2211,7 @@ function PredictionTrendChart({
 
         <div className="text-right">
           <p className="text-[10px] text-zinc-600">
-            30일 후 예상
+            28~35일 후 AI 예측
           </p>
 
           <p className="mt-0.5 text-sm font-bold text-blue-300">
@@ -1947,7 +2220,47 @@ function PredictionTrendChart({
             )}
             {metric.unit}
           </p>
+
+          {interval80 && (
+            <p className="mt-0.5 text-[9px] text-zinc-500">
+              80% 범위{' '}
+              {interval80.lower.toFixed(
+                1,
+              )}
+              ~
+              {interval80.upper.toFixed(
+                1,
+              )}
+              {metric.unit}
+            </p>
+          )}
         </div>
+      </div>
+
+      <div className="mb-1 flex items-center gap-3 px-2 text-[9px] text-zinc-500">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-zinc-300" />
+          실제 측정
+        </span>
+
+        <span className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rotate-45 bg-blue-400" />
+          AI 예측
+        </span>
+
+        {interval50 && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-3 rounded-sm bg-blue-400/30" />
+            50%
+          </span>
+        )}
+
+        {interval80 && (
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-3 rounded-sm bg-blue-400/15" />
+            80%
+          </span>
+        )}
       </div>
 
       <svg
@@ -1957,30 +2270,8 @@ function PredictionTrendChart({
           maxHeight:
             H,
         }}
-        aria-label={`${metric.label} 30일 예상 추이 그래프`}
+        aria-label={`${metric.label} 실제 측정 기록과 미래 예측 범위 그래프`}
       >
-        <defs>
-          <linearGradient
-            id={`prediction-line-fill-${metricKey}`}
-            x1="0"
-            y1="0"
-            x2="0"
-            y2="1"
-          >
-            <stop
-              offset="0%"
-              stopColor="#60a5fa"
-              stopOpacity="0.16"
-            />
-
-            <stop
-              offset="100%"
-              stopColor="#60a5fa"
-              stopOpacity="0"
-            />
-          </linearGradient>
-        </defs>
-
         {yTicks.map(
           (
             tick,
@@ -2009,7 +2300,7 @@ function PredictionTrendChart({
                   y2={y}
                   stroke="#3f3f46"
                   strokeWidth="1"
-                  opacity="0.55"
+                  opacity="0.5"
                 />
 
                 <text
@@ -2034,111 +2325,248 @@ function PredictionTrendChart({
           },
         )}
 
-        <path
-          d={`${path} L ${endX.toFixed(
-            1,
-          )} ${(
+        <line
+          x1={dividerX}
+          y1={
+            PAD.top -
+            3
+          }
+          x2={dividerX}
+          y2={
             H -
-            PAD.bottom
-          ).toFixed(
-            1,
-          )} L ${startX.toFixed(
-            1,
-          )} ${(
-            H -
-            PAD.bottom
-          ).toFixed(
-            1,
-          )} Z`}
-          fill={`url(#prediction-line-fill-${metricKey})`}
-          stroke="none"
+            PAD.bottom +
+            5
+          }
+          stroke="#52525b"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+          opacity="0.8"
         />
 
-        <path
-          d={path}
-          fill="none"
-          stroke="#60a5fa"
-          strokeWidth="2.75"
-          strokeDasharray="7 5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        <text
+          x={
+            dividerX +
+            4
+          }
+          y={
+            PAD.top +
+            8
+          }
+          fontSize="8"
+          fill="#71717a"
+        >
+          예측
+        </text>
 
-        {markerValues.map(
+        {historyPath && (
+          <path
+            d={historyPath}
+            fill="none"
+            stroke="#d4d4d8"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {actualPoints.map(
           (
-            value,
+            point,
             index,
           ) => (
-            <circle
-              key={
-                days[
-                  index
-                ]
-              }
-              cx={
-                xOfDay(
-                  days[
-                    index
-                  ],
-                )
-              }
-              cy={
-                yOf(
-                  value,
-                )
-              }
-              r={
-                index ===
-                  0 ||
-                index ===
-                  markerValues.length -
-                    1
-                  ? 4
-                  : 2.5
-              }
-              fill={
-                index ===
-                  markerValues.length -
-                    1
-                  ? '#60a5fa'
-                  : '#a1a1aa'
-              }
-            />
+            <g
+              key={`${point.measuredAt}-${index}`}
+            >
+              {point.isAnchor && (
+                <circle
+                  cx={
+                    point.x
+                  }
+                  cy={
+                    yOf(
+                      point.yValue,
+                    )
+                  }
+                  r="7"
+                  fill="none"
+                  stroke="#60a5fa"
+                  strokeWidth="1.5"
+                  opacity="0.75"
+                />
+              )}
+
+              <circle
+                cx={
+                  point.x
+                }
+                cy={
+                  yOf(
+                    point.yValue,
+                  )
+                }
+                r={
+                  point.isAnchor
+                    ? 4
+                    : 3
+                }
+                fill={
+                  point.isAnchor
+                    ? '#60a5fa'
+                    : '#d4d4d8'
+                }
+              />
+
+              {labelIndexes.has(
+                index,
+              ) && (
+                <text
+                  x={
+                    point.x
+                  }
+                  y={
+                    H -
+                    13
+                  }
+                  textAnchor={
+                    index ===
+                    0
+                      ? 'start'
+                      : point.isAnchor
+                        ? 'end'
+                        : 'middle'
+                  }
+                  fontSize="8"
+                  fill="#71717a"
+                >
+                  {point.isAnchor
+                    ? '현재'
+                    : formatAxisDate(
+                        point.measuredAt,
+                      )}
+                </text>
+              )}
+            </g>
           ),
         )}
 
-        {days.map(
-          (
-            day,
-          ) => (
-            <text
-              key={
-                day
-              }
+        {interval80 &&
+          interval80Top !==
+            null &&
+          interval80Bottom !==
+            null && (
+            <rect
               x={
-                xOfDay(
-                  day,
-                )
+                futureX -
+                15
               }
               y={
-                H -
-                7
+                interval80Top
               }
-              textAnchor="middle"
-              fontSize="8"
-              fill="#71717a"
-            >
-              {day ===
-              0
-                ? '현재'
-                : `${day}일`}
-            </text>
-          ),
+              width="30"
+              height={
+                Math.max(
+                  2,
+                  interval80Bottom -
+                    interval80Top,
+                )
+              }
+              rx="7"
+              fill="#60a5fa"
+              fillOpacity="0.14"
+              stroke="#60a5fa"
+              strokeOpacity="0.22"
+              strokeWidth="1"
+            />
+          )}
+
+        {interval50 &&
+          interval50Top !==
+            null &&
+          interval50Bottom !==
+            null && (
+            <rect
+              x={
+                futureX -
+                9
+              }
+              y={
+                interval50Top
+              }
+              width="18"
+              height={
+                Math.max(
+                  2,
+                  interval50Bottom -
+                    interval50Top,
+                )
+              }
+              rx="5"
+              fill="#60a5fa"
+              fillOpacity="0.32"
+            />
+          )}
+
+        {interval80 && (
+          <line
+            x1={futureX}
+            y1={
+              yOf(
+                interval80.lower,
+              )
+            }
+            x2={futureX}
+            y2={
+              yOf(
+                interval80.upper,
+              )
+            }
+            stroke="#60a5fa"
+            strokeWidth="1"
+            opacity="0.75"
+          />
         )}
+
+        <rect
+          x={
+            futureX -
+            4
+          }
+          y={
+            futureY -
+            4
+          }
+          width="8"
+          height="8"
+          rx="1"
+          fill="#60a5fa"
+          transform={`rotate(45 ${futureX} ${futureY})`}
+        />
+
+        <text
+          x={futureX}
+          y={
+            H -
+            13
+          }
+          textAnchor="middle"
+          fontSize="8"
+          fill="#60a5fa"
+        >
+          28~35일 후
+        </text>
       </svg>
+
+      {!interval80 && (
+        <p className="px-2 pb-1 text-[9px] leading-relaxed text-zinc-600">
+          중앙 예측값은 표시되지만,
+          현재 저장된 예측에는 예측 범위
+          정보가 없습니다.
+        </p>
+      )}
     </div>
   );
 }
+
 
 function PredictionTrendSummary({
   prediction,
@@ -2170,10 +2598,22 @@ function PredictionTrendSummary({
       metricKey
     ];
 
-  const change =
-    prediction.change[
-      metricKey
-    ];
+  const interval80 =
+    prediction
+      .predictionInterval
+      ?.metrics[
+        metricKey
+      ]
+      ?.intervals[
+        '0.80'
+      ] ??
+    prediction
+      .predictionInterval
+      ?.metrics[
+        metricKey
+      ]
+      ?.default_interval ??
+    null;
 
   return (
     <div className="mt-3 grid grid-cols-3 gap-2">
@@ -2185,7 +2625,7 @@ function PredictionTrendSummary({
       />
 
       <TrendSummaryItem
-        label="30일 후"
+        label="AI 예측"
         value={`${predictedValue.toFixed(
           1,
         )}${metric.unit}`}
@@ -2193,12 +2633,15 @@ function PredictionTrendSummary({
       />
 
       <TrendSummaryItem
-        label="예상 변화"
+        label="80% 예측 범위"
         value={
-          signed(
-            change,
-            metric.unit,
-          )
+          interval80
+            ? `${interval80.lower.toFixed(
+                1,
+              )}~${interval80.upper.toFixed(
+                1,
+              )}${metric.unit}`
+            : '-'
         }
       />
     </div>

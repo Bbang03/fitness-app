@@ -25,6 +25,12 @@ from api.behavior_runtime import (
     build_behavior_features,
     parse_datetime,
 )
+
+from api.prediction_interval_runtime import (
+    apply_prediction_intervals,
+    health_status as prediction_interval_health_status,
+)
+
 from api.model_runtime import (
     MANIFEST,
     MODELS,
@@ -1014,9 +1020,15 @@ async def save_prediction_history(
                     result.get(
                         "behavior_correction"
                     ),
+
+                "prediction_interval":
+                    result.get(
+                        "prediction_interval"
+                    ),
+
                 "prediction_date":
                     prediction_date.isoformat(),
-            },
+                            },
     }
 
     headers = (
@@ -1130,6 +1142,9 @@ async def health():
 
         "behavior_correction":
             behavior_correction_health_status(),
+
+        "prediction_interval":
+            prediction_interval_health_status(),
 
         "daily_refresh": {
             "rollover_hour_kst":
@@ -1348,6 +1363,10 @@ async def run_prediction_for_user(
         profile=profile,
         behavior_context=behavior_context,
         prediction_date=prediction_date,
+    )
+
+    result = apply_prediction_intervals(
+        result
     )
 
     correction_applied = bool(

@@ -1,0 +1,201 @@
+{
+  "artifact_name": "FitTrack Production Prediction Interval Calibration",
+  "artifact_version": "prediction-interval-v1.0.0",
+  "production_model_version": "1.0.0",
+  "endpoint_window": "28-35 days",
+  "source_model_id": "history_nested",
+  "calibration_method": "participant-balanced empirical nested-OOF signed residual quantiles",
+  "residual_definition": "actual_endpoint - predicted_endpoint",
+  "runtime_formula": {
+    "lower": "final_prediction + lower_residual_quantile",
+    "upper": "final_prediction + upper_residual_quantile"
+  },
+  "coverage_levels": [
+    0.5,
+    0.8
+  ],
+  "n_rows": 975,
+  "n_participants": 128,
+  "calibration_scope": "Internal participant-safe nested OOF calibration; not independent external validation.",
+  "participant_weighting": "Each participant contributes equal total calibration weight.",
+  "bf_contract": {
+    "actual": "reported InBody bf1_pct",
+    "prediction": "100 * predicted_fat_mass_kg / predicted_weight_kg"
+  },
+  "behavior_correction_policy": "Behavior correction shifts the final prediction center. Prediction interval residuals remain calibrated from frozen production-v1 nested OOF. Behavior-correction uncertainty is not independently calibrated.",
+  "bootstrap": {
+    "unit": "participant",
+    "repetitions": 1000,
+    "seed": 20260914
+  },
+  "metrics": {
+    "weight_kg": {
+      "unit": "kg",
+      "n_rows": 975,
+      "n_participants": 128,
+      "row_mae": 1.2612702627069363,
+      "participant_macro_mae": 1.1044317711958263,
+      "residual_mean": -0.2169960547057991,
+      "residual_median": -0.19869868434824411,
+      "residual_std": 1.6020433833703003,
+      "intervals": {
+        "0.50": {
+          "nominal_coverage": 0.5,
+          "lower_residual_quantile": -0.9230806734448992,
+          "upper_residual_quantile": 0.7816354225295158,
+          "interval_width": 1.704716095974415,
+          "empirical_row_coverage": 0.4276923076923077,
+          "empirical_participant_macro_coverage": 0.4995797012062212,
+          "lower_bootstrap_p025": -1.2100535728999564,
+          "lower_bootstrap_p50": -0.8777677581369971,
+          "lower_bootstrap_p975": -0.5769273923815471,
+          "upper_bootstrap_p025": 0.4066423981577038,
+          "upper_bootstrap_p50": 0.7832023261143191,
+          "upper_bootstrap_p975": 0.9938286507914285
+        },
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "lower_residual_quantile": -1.8420918954052734,
+          "upper_residual_quantile": 1.8025233708772106,
+          "interval_width": 3.644615266282484,
+          "empirical_row_coverage": 0.7394871794871795,
+          "empirical_participant_macro_coverage": 0.8009280863256938,
+          "lower_bootstrap_p025": -2.317234450161862,
+          "lower_bootstrap_p50": -1.8457422591319133,
+          "lower_bootstrap_p975": -1.4891474705600558,
+          "upper_bootstrap_p025": 1.435405259147922,
+          "upper_bootstrap_p50": 1.801494669831797,
+          "upper_bootstrap_p975": 2.486119054321776
+        }
+      }
+    },
+    "fat_mass_kg": {
+      "unit": "kg",
+      "n_rows": 975,
+      "n_participants": 128,
+      "row_mae": 1.034433181736206,
+      "participant_macro_mae": 0.9478541658555265,
+      "residual_mean": -0.18498303066439448,
+      "residual_median": -0.20656133848543234,
+      "residual_std": 1.3168217664503907,
+      "intervals": {
+        "0.50": {
+          "nominal_coverage": 0.5,
+          "lower_residual_quantile": -0.8816492583654583,
+          "upper_residual_quantile": 0.6739333962690309,
+          "interval_width": 1.555582654634489,
+          "empirical_row_coverage": 0.47692307692307695,
+          "empirical_participant_macro_coverage": 0.499666578458711,
+          "lower_bootstrap_p025": -1.0432707226372244,
+          "lower_bootstrap_p50": -0.8819144634303018,
+          "lower_bootstrap_p975": -0.7085042040981797,
+          "upper_bootstrap_p025": 0.4925407340584833,
+          "upper_bootstrap_p50": 0.6719947848651573,
+          "upper_bootstrap_p975": 0.9096285925526828
+        },
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "lower_residual_quantile": -1.589199338575572,
+          "upper_residual_quantile": 1.402172070377019,
+          "interval_width": 2.991371408952591,
+          "empirical_row_coverage": 0.7651282051282051,
+          "empirical_participant_macro_coverage": 0.8002103568758611,
+          "lower_bootstrap_p025": -1.849121944696344,
+          "lower_bootstrap_p50": -1.5881933504271366,
+          "lower_bootstrap_p975": -1.4170209318289506,
+          "upper_bootstrap_p025": 1.1341659388182428,
+          "upper_bootstrap_p50": 1.3950327568408074,
+          "upper_bootstrap_p975": 1.750663795249253
+        }
+      }
+    },
+    "smm_actual_kg": {
+      "unit": "kg",
+      "n_rows": 975,
+      "n_participants": 128,
+      "row_mae": 0.629251194565202,
+      "participant_macro_mae": 0.5620760201931836,
+      "residual_mean": 0.08291322225965186,
+      "residual_median": 0.021141952666830832,
+      "residual_std": 0.8241802642780963,
+      "intervals": {
+        "0.50": {
+          "nominal_coverage": 0.5,
+          "lower_residual_quantile": -0.3373287112417778,
+          "upper_residual_quantile": 0.49729331955675526,
+          "interval_width": 0.834622030798533,
+          "empirical_row_coverage": 0.4379487179487179,
+          "empirical_participant_macro_coverage": 0.4992333667352854,
+          "lower_bootstrap_p025": -0.5025214802798507,
+          "lower_bootstrap_p50": -0.33739152188654487,
+          "lower_bootstrap_p975": -0.2594508332018073,
+          "upper_bootstrap_p025": 0.3426118892165988,
+          "upper_bootstrap_p50": 0.5006185508024916,
+          "upper_bootstrap_p975": 0.6182928435816557
+        },
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "lower_residual_quantile": -0.7492641652780714,
+          "upper_residual_quantile": 0.9782789364409195,
+          "interval_width": 1.7275431017189908,
+          "empirical_row_coverage": 0.7333333333333333,
+          "empirical_participant_macro_coverage": 0.8011051701255393,
+          "lower_bootstrap_p025": -1.0194537707596725,
+          "lower_bootstrap_p50": -0.7495685830652918,
+          "lower_bootstrap_p975": -0.6490428184153376,
+          "upper_bootstrap_p025": 0.8302821827419786,
+          "upper_bootstrap_p50": 0.9772910288173992,
+          "upper_bootstrap_p975": 1.2189600735616948
+        }
+      }
+    },
+    "bf_pct": {
+      "unit": "percentage_point",
+      "n_rows": 975,
+      "n_participants": 128,
+      "row_mae": 1.188467799810795,
+      "participant_macro_mae": 1.0433504767778632,
+      "residual_mean": -0.1813343628559064,
+      "residual_median": -0.19739860635715445,
+      "residual_std": 1.5170940553601155,
+      "intervals": {
+        "0.50": {
+          "nominal_coverage": 0.5,
+          "lower_residual_quantile": -1.0665504495148763,
+          "upper_residual_quantile": 0.7553473099781179,
+          "interval_width": 1.8218977594929942,
+          "empirical_row_coverage": 0.4841025641025641,
+          "empirical_participant_macro_coverage": 0.5000446952100079,
+          "lower_bootstrap_p025": -1.2151795960338265,
+          "lower_bootstrap_p50": -1.0663026222700864,
+          "lower_bootstrap_p975": -0.7730459327237961,
+          "upper_bootstrap_p025": 0.48816211999764164,
+          "upper_bootstrap_p50": 0.7550888932584829,
+          "upper_bootstrap_p975": 0.9742649729806914
+        },
+        "0.80": {
+          "nominal_coverage": 0.8,
+          "lower_residual_quantile": -1.813353861456664,
+          "upper_residual_quantile": 1.5557739575376197,
+          "interval_width": 3.3691278189942837,
+          "empirical_row_coverage": 0.7610256410256411,
+          "empirical_participant_macro_coverage": 0.8003512055216802,
+          "lower_bootstrap_p025": -2.0716244644814914,
+          "lower_bootstrap_p50": -1.81203758216919,
+          "lower_bootstrap_p975": -1.4760926318319214,
+          "upper_bootstrap_p025": 1.3176174821291937,
+          "upper_bootstrap_p50": 1.5545004153490591,
+          "upper_bootstrap_p975": 1.8792885451988235
+        }
+      }
+    }
+  },
+  "provenance": {
+    "oof_path": "/content/drive/MyDrive/fittrack_body_prediction/data_collected_v1/processed/fittrack_longitudinal_history_v6_2/oof_history_comparison_v6_2.parquet",
+    "oof_sha256": "b863ad4af4fc91bb7c0299bd513e33f47c806fceeb43f708a2f656522f9c2cfc",
+    "canonical_path": "/content/drive/MyDrive/fittrack_body_prediction/data_collected_v1/processed/fittrack_unified_actual_benchmark_v6_0_1/canonical_actual_benchmark_rows_v6_0_1.parquet",
+    "canonical_sha256": "ae9a482063241eaabbff29f9ec05eec4af4d686ed68c156917f59eb3d6871ca3",
+    "manifest_path": "/content/drive/MyDrive/fittrack_body_prediction/data_collected_v1/processed/fittrack_production_v1/manifest.json",
+    "manifest_sha256": "4948fbea56130aa2054cfdf6b6d7f45b07f801ac4e518b007b884fa9987b7266"
+  }
+}
