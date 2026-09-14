@@ -58,6 +58,22 @@ SUPABASE_PUBLISHABLE_KEY = (
     )
 )
 
+SUPABASE_SECRET_KEY = (
+    os.environ
+    .get(
+        "SUPABASE_SECRET_KEY",
+        "",
+    )
+)
+
+CRON_SECRET = (
+    os.environ
+    .get(
+        "CRON_SECRET",
+        "",
+    )
+)
+
 
 def require_supabase_config():
 
@@ -69,6 +85,21 @@ def require_supabase_config():
     if not SUPABASE_PUBLISHABLE_KEY:
         raise RuntimeError(
             "SUPABASE_PUBLISHABLE_KEY is not configured."
+        )
+
+
+def require_cron_config():
+
+    require_supabase_config()
+
+    if not SUPABASE_SECRET_KEY:
+        raise RuntimeError(
+            "SUPABASE_SECRET_KEY is not configured."
+        )
+
+    if not CRON_SECRET:
+        raise RuntimeError(
+            "CRON_SECRET is not configured."
         )
 
 
@@ -165,6 +196,25 @@ def supabase_headers(
     token,
 ):
 
+    # New Supabase secret keys (sb_secret_...) are API keys,
+    # not JWTs. For server/admin requests they must be sent
+    # in the apikey header and MUST NOT be sent as
+    # Authorization: Bearer <secret>.
+    if (
+        SUPABASE_SECRET_KEY
+        and
+        token == SUPABASE_SECRET_KEY
+    ):
+        return {
+            "apikey":
+                SUPABASE_SECRET_KEY,
+
+            "Content-Type":
+                "application/json",
+        }
+
+    # Authenticated end-user requests keep using the
+    # publishable API key + the user's JWT bearer token.
     return {
         "apikey":
             SUPABASE_PUBLISHABLE_KEY,
@@ -209,6 +259,27 @@ async def verify_user(
         )
 
     return user_id
+
+
+def verify_cron_request(
+    authorization,
+):
+
+    if not CRON_SECRET:
+        raise HTTPException(
+            status_code=500,
+            detail="CRON_SECRET is not configured.",
+        )
+
+    expected = (
+        f"Bearer {CRON_SECRET}"
+    )
+
+    if authorization != expected:
+        raise HTTPException(
+            status_code=401,
+            detail="Unauthorized cron request.",
+        )
 
 
 # =================================================================================================
@@ -358,6 +429,84 @@ async def fetch_paginated_user_rows(
             )
 
     return all_rows
+
+
+async def fetch_all_profile_ids(
+    client,
+    token,
+):
+
+    headers = (
+        supabase_headers(
+            token
+        )
+    )
+
+    page_size = 1000
+    offset = 0
+    user_ids = []
+
+    while True:
+
+        params = [
+            (
+                "select",
+                "id",
+            ),
+            (
+                "order",
+                "id.asc",
+            ),
+            (
+                "limit",
+                str(
+                    page_size
+                ),
+            ),
+            (
+                "offset",
+                str(
+                    offset
+                ),
+            ),
+        ]
+
+        response = await client.get(
+            f"{SUPABASE_URL}/rest/v1/profiles",
+            headers=headers,
+            params=params,
+        )
+
+        if response.status_code != 200:
+            raise RuntimeError(
+                "Could not retrieve profile ids for cron refresh."
+            )
+
+        rows = response.json()
+
+        for row in rows:
+            user_id = row.get(
+                "id"
+            )
+
+            if user_id:
+                user_ids.append(
+                    user_id
+                )
+
+        if len(
+            rows
+        ) < page_size:
+            break
+
+        offset += page_size
+
+        if offset >= 100000:
+            raise RuntimeError(
+                "Unexpectedly large profile set."
+            )
+
+    return user_ids
 
 
 # =================================================================================================
@@ -678,13 +827,77 @@ def record_to_model_body(
 # SAVE RESULT
 # =================================================================================================
 
+async def fetch_prediction_history_for_date(
+    client,
+    token,
+    user_id,
+    prediction_date,
+):
+
+    params = [
+        (
+            "select",
+            "id,prediction_date,created_at",
+        ),
+        (
+            "user_id",
+            f"eq.{user_id}",
+        ),
+        (
+            "prediction_date",
+            f"eq.{prediction_date.isoformat()}",
+        ),
+        (
+            "order",
+            "created_at.desc",
+        ),
+        (
+            "limit",
+            "1",
+        ),
+    ]
+
+    response = await client.get(
+        f"{SUPABASE_URL}/rest/v1/prediction_history",
+        headers=(
+            supabase_headers(
+                token
+            )
+        ),
+        params=params,
+    )
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            "Could not check prediction history for prediction date."
+        )
+
+    rows = response.json()
+
+    if not rows:
+        return None
+
+    return rows[0]
+
+
 async def save_prediction_history(
     client,
     token,
     user_id,
     source_inbody_id,
+    prediction_date,
     result,
 ):
+
+    existing = await fetch_prediction_history_for_date(
+        client,
+        token,
+        user_id,
+        prediction_date,
+    )
+
+    if existing is not None:
+        return existing
 
     current = result[
         "current"
@@ -704,6 +917,9 @@ async def save_prediction_history(
 
         "source_inbody_id":
             source_inbody_id,
+
+        "prediction_date":
+            prediction_date.isoformat(),
 
         "model_version":
             result[
@@ -784,7 +1000,6 @@ async def save_prediction_history(
                 "body_fat_pct"
             ],
 
-        # Keep existing DB schema semantics unchanged.
         "history_meta":
             result[
                 "history"
@@ -799,6 +1014,8 @@ async def save_prediction_history(
                     result.get(
                         "behavior_correction"
                     ),
+                "prediction_date":
+                    prediction_date.isoformat(),
             },
     }
 
@@ -817,6 +1034,19 @@ async def save_prediction_history(
         headers=headers,
         json=payload,
     )
+
+    if response.status_code in (
+        409,
+    ):
+        existing = await fetch_prediction_history_for_date(
+            client,
+            token,
+            user_id,
+            prediction_date,
+        )
+
+        if existing is not None:
+            return existing
 
     if response.status_code not in (
         200,
@@ -900,7 +1130,374 @@ async def health():
 
         "behavior_correction":
             behavior_correction_health_status(),
+
+        "daily_refresh": {
+            "rollover_hour_kst":
+                SERVICE_ROLLOVER_HOUR,
+
+            "secret_key_configured":
+                bool(
+                    SUPABASE_SECRET_KEY
+                ),
+
+            "cron_secret_configured":
+                bool(
+                    CRON_SECRET
+                ),
+        },
     }
+
+
+async def run_prediction_for_user(
+    *,
+    client,
+    token,
+    user_id,
+    prediction_date,
+    save_prediction,
+    authenticated_user,
+):
+
+    behavior_cutoff_date = (
+        prediction_date
+        -
+        timedelta(
+            days=1
+        )
+    )
+
+    all_inbody_rows = await fetch_inbody_records(
+        client,
+        token,
+        user_id,
+    )
+
+    eligible_rows = []
+
+    for row in all_inbody_rows:
+
+        measured_at = parse_datetime(
+            row.get(
+                "measured_at"
+            )
+        )
+
+        if measured_at is None:
+            continue
+
+        if (
+            measured_at.date()
+            <=
+            behavior_cutoff_date
+        ):
+            eligible_rows.append(
+                row
+            )
+
+    rows = eligible_rows
+
+    if not rows:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No InBody record is available "
+                "on or before the prediction cutoff date."
+            ),
+        )
+
+    current_row = rows[
+        0
+    ]
+
+    current_body = record_to_model_body(
+        current_row
+    )
+
+    current_measured_at = parse_datetime(
+        current_row[
+            "measured_at"
+        ]
+    )
+
+    if current_measured_at is None:
+        raise ValueError(
+            "Latest InBody measured_at is invalid."
+        )
+
+    anchor_date = (
+        current_measured_at
+        .date()
+    )
+
+    prior_measurements = [
+        record_to_model_body(
+            row
+        )
+        for row in rows[
+            1:
+        ]
+    ]
+
+    personal_history_start = (
+        behavior_cutoff_date
+        -
+        timedelta(
+            days=
+                PERSONAL_HISTORY_LOOKBACK_DAYS
+                -
+                1
+        )
+    )
+
+    since_anchor_start = (
+        anchor_date
+        +
+        timedelta(
+            days=1
+        )
+    )
+
+    behavior_start_date = min(
+        personal_history_start,
+        since_anchor_start,
+    )
+
+    (
+        profile,
+        prediction_profile,
+        meal_rows,
+        workout_rows,
+    ) = await asyncio.gather(
+        fetch_profile(
+            client,
+            token,
+            user_id,
+        ),
+
+        fetch_prediction_profile(
+            client,
+            token,
+            user_id,
+        ),
+
+        fetch_meal_logs(
+            client,
+            token,
+            user_id,
+            behavior_start_date,
+            behavior_cutoff_date,
+        ),
+
+        fetch_workout_logs(
+            client,
+            token,
+            user_id,
+            behavior_start_date,
+            behavior_cutoff_date,
+        ),
+    )
+
+    behavior_context = build_behavior_context(
+        meal_rows=
+            meal_rows,
+
+        workout_rows=
+            workout_rows,
+
+        prediction_date=
+            prediction_date,
+
+        cutoff_date=
+            behavior_cutoff_date,
+
+        anchor_date=
+            anchor_date,
+    )
+
+    behavior_features = build_behavior_features(
+        meal_rows=
+            meal_rows,
+
+        workout_rows=
+            workout_rows,
+
+        behavior_context=
+            behavior_context,
+
+        cutoff_date=
+            behavior_cutoff_date,
+
+        current_weight_kg=
+            current_body[
+                "weight_kg"
+            ],
+
+        prediction_profile=
+            prediction_profile,
+    )
+
+    result = predict_internal(
+        current_body,
+        prior_measurements,
+        include_debug=False,
+    )
+
+    result = apply_behavior_correction(
+        result=result,
+        current_body=current_body,
+        profile=profile,
+        behavior_context=behavior_context,
+        prediction_date=prediction_date,
+    )
+
+    correction_applied = bool(
+        result[
+            "behavior_correction"
+        ][
+            "applied"
+        ]
+    )
+
+    behavior_context[
+        "behavior_used_by_model"
+    ] = correction_applied
+
+    behavior_features[
+        "used_by_model"
+    ] = correction_applied
+
+    behavior_features[
+        "model_ready"
+    ] = True
+
+    result[
+        "source"
+    ] = {
+        "inbody_record_id":
+            current_row[
+                "id"
+            ],
+
+        "inbody_records_used":
+            len(
+                rows
+            ),
+
+        "authenticated_user":
+            authenticated_user,
+
+        "profile_available":
+            profile is not None,
+
+        "prediction_profile_available":
+            prediction_profile is not None,
+
+        "meal_logs_fetched":
+            len(
+                meal_rows
+            ),
+
+        "workout_logs_fetched":
+            len(
+                workout_rows
+            ),
+
+        "prediction_date":
+            prediction_date.isoformat(),
+
+        "behavior_cutoff_date":
+            behavior_cutoff_date.isoformat(),
+
+        "behavior_used_by_model":
+            correction_applied,
+
+        "behavior_correction_version":
+            result[
+                "behavior_correction"
+            ][
+                "model_version"
+            ],
+    }
+
+    result[
+        "model"
+    ][
+        "behavior_correction_version"
+    ] = result[
+        "behavior_correction"
+    ][
+        "model_version"
+    ]
+
+    result[
+        "model"
+    ][
+        "behavior_correction_applied"
+    ] = correction_applied
+
+    result[
+        "profile_context"
+    ] = {
+        "profile":
+            (
+                None
+                if profile is None
+                else {
+                    "height_cm":
+                        profile.get(
+                            "height_cm"
+                        ),
+
+                    "sex":
+                        profile.get(
+                            "sex"
+                        ),
+
+                    "birth_year":
+                        profile.get(
+                            "birth_year"
+                        ),
+                }
+            ),
+
+        "prediction_profile":
+            prediction_profile,
+    }
+
+    result[
+        "behavior_context"
+    ] = behavior_context
+
+    result[
+        "behavior_features"
+    ] = behavior_features
+
+    if save_prediction:
+
+        saved = await save_prediction_history(
+            client,
+            token,
+            user_id,
+            current_row[
+                "id"
+            ],
+            prediction_date,
+            result,
+        )
+
+        result[
+            "prediction_history_id"
+        ] = saved[
+            "id"
+        ]
+
+    else:
+
+        result[
+            "prediction_history_id"
+        ] = None
+
+    return result
 
 
 @app.post(
@@ -928,15 +1525,6 @@ async def predict_me(
             )
         )
 
-        # Prediction on D uses data only through D-1.
-        behavior_cutoff_date = (
-            prediction_date
-            -
-            timedelta(
-                days=1
-            )
-        )
-
         token = extract_bearer_token(
             authorization
         )
@@ -950,347 +1538,14 @@ async def predict_me(
                 token,
             )
 
-            all_inbody_rows = await fetch_inbody_records(
-                client,
-                token,
-                user_id,
-            )
-
-            # InBody obeys the same D-1 cutoff.
-            eligible_rows = []
-
-            for row in all_inbody_rows:
-
-                measured_at = parse_datetime(
-                    row.get(
-                        "measured_at"
-                    )
-                )
-
-                if measured_at is None:
-                    continue
-
-                if (
-                    measured_at.date()
-                    <=
-                    behavior_cutoff_date
-                ):
-                    eligible_rows.append(
-                        row
-                    )
-
-            rows = eligible_rows
-
-            if not rows:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "No InBody record is available "
-                        "on or before the prediction cutoff date."
-                    ),
-                )
-
-            current_row = rows[
-                0
-            ]
-
-            current_body = record_to_model_body(
-                current_row
-            )
-
-            current_measured_at = parse_datetime(
-                current_row[
-                    "measured_at"
-                ]
-            )
-
-            if current_measured_at is None:
-                raise ValueError(
-                    "Latest InBody measured_at is invalid."
-                )
-
-            anchor_date = (
-                current_measured_at
-                .date()
-            )
-
-            prior_measurements = [
-                record_to_model_body(
-                    row
-                )
-                for row in rows[
-                    1:
-                ]
-            ]
-
-            # Need:
-            # - 7/14/30d windows
-            # - since latest InBody
-            # - personal prior from days 31-90
-            personal_history_start = (
-                behavior_cutoff_date
-                -
-                timedelta(
-                    days=
-                        PERSONAL_HISTORY_LOOKBACK_DAYS
-                        -
-                        1
-                )
-            )
-
-            since_anchor_start = (
-                anchor_date
-                +
-                timedelta(
-                    days=1
-                )
-            )
-
-            behavior_start_date = min(
-                personal_history_start,
-                since_anchor_start,
-            )
-
-            (
-                profile,
-                prediction_profile,
-                meal_rows,
-                workout_rows,
-            ) = await asyncio.gather(
-                fetch_profile(
-                    client,
-                    token,
-                    user_id,
-                ),
-
-                fetch_prediction_profile(
-                    client,
-                    token,
-                    user_id,
-                ),
-
-                fetch_meal_logs(
-                    client,
-                    token,
-                    user_id,
-                    behavior_start_date,
-                    behavior_cutoff_date,
-                ),
-
-                fetch_workout_logs(
-                    client,
-                    token,
-                    user_id,
-                    behavior_start_date,
-                    behavior_cutoff_date,
-                ),
-            )
-
-            behavior_context = build_behavior_context(
-                meal_rows=
-                    meal_rows,
-
-                workout_rows=
-                    workout_rows,
-
-                prediction_date=
-                    prediction_date,
-
-                cutoff_date=
-                    behavior_cutoff_date,
-
-                anchor_date=
-                    anchor_date,
-            )
-
-            behavior_features = build_behavior_features(
-                meal_rows=
-                    meal_rows,
-
-                workout_rows=
-                    workout_rows,
-
-                behavior_context=
-                    behavior_context,
-
-                cutoff_date=
-                    behavior_cutoff_date,
-
-                current_weight_kg=
-                    current_body[
-                        "weight_kg"
-                    ],
-
-                prediction_profile=
-                    prediction_profile,
-            )
-
-            # Step 1: frozen v1 prediction.
-            result = predict_internal(
-                current_body,
-                prior_measurements,
-                include_debug=False,
-            )
-
-            # Step 2: D-1 rolling 7-day diet correction.
-            #
-            # If the gate is not eligible, the correction runtime
-            # returns the frozen v1 prediction unchanged.
-            result = apply_behavior_correction(
-                result=result,
-                current_body=current_body,
-                profile=profile,
-                behavior_context=behavior_context,
+            return await run_prediction_for_user(
+                client=client,
+                token=token,
+                user_id=user_id,
                 prediction_date=prediction_date,
+                save_prediction=body.save_prediction,
+                authenticated_user=True,
             )
-
-            correction_applied = bool(
-                result[
-                    "behavior_correction"
-                ][
-                    "applied"
-                ]
-            )
-
-            behavior_context[
-                "behavior_used_by_model"
-            ] = correction_applied
-
-            behavior_features[
-                "used_by_model"
-            ] = correction_applied
-
-            behavior_features[
-                "model_ready"
-            ] = True
-
-            result[
-                "source"
-            ] = {
-                "inbody_record_id":
-                    current_row[
-                        "id"
-                    ],
-
-                "inbody_records_used":
-                    len(
-                        rows
-                    ),
-
-                "authenticated_user":
-                    True,
-
-                "profile_available":
-                    profile is not None,
-
-                "prediction_profile_available":
-                    prediction_profile is not None,
-
-                "meal_logs_fetched":
-                    len(
-                        meal_rows
-                    ),
-
-                "workout_logs_fetched":
-                    len(
-                        workout_rows
-                    ),
-
-                "prediction_date":
-                    prediction_date.isoformat(),
-
-                "behavior_cutoff_date":
-                    behavior_cutoff_date.isoformat(),
-
-                "behavior_used_by_model":
-                    correction_applied,
-
-                "behavior_correction_version":
-                    result[
-                        "behavior_correction"
-                    ][
-                        "model_version"
-                    ],
-            }
-
-            result[
-                "model"
-            ][
-                "behavior_correction_version"
-            ] = result[
-                "behavior_correction"
-            ][
-                "model_version"
-            ]
-
-            result[
-                "model"
-            ][
-                "behavior_correction_applied"
-            ] = correction_applied
-
-            result[
-                "profile_context"
-            ] = {
-                "profile":
-                    (
-                        None
-                        if profile is None
-                        else {
-                            "height_cm":
-                                profile.get(
-                                    "height_cm"
-                                ),
-
-                            "sex":
-                                profile.get(
-                                    "sex"
-                                ),
-
-                            "birth_year":
-                                profile.get(
-                                    "birth_year"
-                                ),
-                        }
-                    ),
-
-                "prediction_profile":
-                    prediction_profile,
-            }
-
-            result[
-                "behavior_context"
-            ] = behavior_context
-
-            result[
-                "behavior_features"
-            ] = behavior_features
-
-            if body.save_prediction:
-
-                saved = await save_prediction_history(
-                    client,
-                    token,
-                    user_id,
-                    current_row[
-                        "id"
-                    ],
-                    result,
-                )
-
-                result[
-                    "prediction_history_id"
-                ] = saved[
-                    "id"
-                ]
-
-            else:
-
-                result[
-                    "prediction_history_id"
-                ] = None
-
-            return result
 
     except HTTPException:
         raise
@@ -1315,4 +1570,179 @@ async def predict_me(
         raise HTTPException(
             status_code=500,
             detail="Prediction failed.",
+        )
+
+
+@app.get(
+    "/api/cron/refresh-predictions"
+)
+async def refresh_predictions_cron(
+    authorization:
+        Optional[str]
+        =
+        Header(
+            default=None
+        ),
+):
+
+    try:
+
+        require_cron_config()
+
+        verify_cron_request(
+            authorization
+        )
+
+        prediction_date = (
+            resolve_prediction_date(
+                None
+            )
+        )
+
+        token = SUPABASE_SECRET_KEY
+
+        async with httpx.AsyncClient(
+            timeout=30.0
+        ) as client:
+
+            user_ids = await fetch_all_profile_ids(
+                client,
+                token,
+            )
+
+            semaphore = asyncio.Semaphore(
+                3
+            )
+
+            async def refresh_one(
+                user_id,
+            ):
+
+                async with semaphore:
+
+                    existing = await fetch_prediction_history_for_date(
+                        client,
+                        token,
+                        user_id,
+                        prediction_date,
+                    )
+
+                    if existing is not None:
+                        return {
+                            "status": "already_current",
+                        }
+
+                    try:
+
+                        result = await run_prediction_for_user(
+                            client=client,
+                            token=token,
+                            user_id=user_id,
+                            prediction_date=prediction_date,
+                            save_prediction=True,
+                            authenticated_user=False,
+                        )
+
+                        correction = (
+                            result.get(
+                                "behavior_correction"
+                            )
+                            or {}
+                        )
+
+                        return {
+                            "status": "refreshed",
+                            "behavior_correction_applied": bool(
+                                correction.get(
+                                    "applied",
+                                    False,
+                                )
+                            ),
+                            "behavior_gate_reason": (
+                                correction.get(
+                                    "gate",
+                                    {}
+                                ).get(
+                                    "reason"
+                                )
+                            ),
+                        }
+
+                    except HTTPException as exc:
+
+                        if exc.status_code == 409:
+                            return {
+                                "status": "skipped_no_eligible_inbody",
+                            }
+
+                        return {
+                            "status": "failed",
+                        }
+
+                    except Exception as exc:
+
+                        return {
+                            "status": "failed",
+                        }
+
+            results = await asyncio.gather(
+                *[
+                    refresh_one(
+                        user_id
+                    )
+                    for user_id in user_ids
+                ]
+            )
+
+        counts = {}
+
+        for item in results:
+            status = item[
+                "status"
+            ]
+            counts[status] = (
+                counts.get(
+                    status,
+                    0,
+                )
+                +
+                1
+            )
+
+        return {
+            "status": "ok",
+            "service_date": prediction_date.isoformat(),
+            "timezone": str(
+                APP_TIMEZONE
+            ),
+            "scheduled_refresh_hour_kst": SERVICE_ROLLOVER_HOUR,
+            "users_seen": len(
+                user_ids
+            ),
+            "counts": counts,
+            "correction_applied_count": sum(
+                1
+                for item in results
+                if item.get(
+                    "behavior_correction_applied",
+                    False,
+                )
+            ),
+        }
+
+    except HTTPException:
+        raise
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=str(
+                exc
+            ),
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Prediction refresh failed.",
         )
