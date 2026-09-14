@@ -1574,6 +1574,9 @@ async def predict_me(
 
 
 @app.get(
+    "/api/cron_refresh_predictions"
+)
+@app.get(
     "/api/cron/refresh-predictions"
 )
 async def refresh_predictions_cron(
