@@ -15,9 +15,7 @@ import {
   AlertCircle,
   BrainCircuit,
   Dumbbell,
-  Gauge,
   RefreshCw,
-  Sparkles,
   Target,
   UtensilsCrossed,
 } from 'lucide-react';
@@ -375,36 +373,6 @@ function formatMeasurementDate(
 }
 
 
-function daysBetween(
-  newer: string,
-  older: string,
-) {
-  const newerDate =
-    new Date(newer);
-
-  const olderDate =
-    new Date(older);
-
-  const diff =
-    newerDate.getTime() -
-    olderDate.getTime();
-
-  if (
-    !Number.isFinite(diff)
-  ) {
-    return null;
-  }
-
-  return Math.max(
-    0,
-    Math.round(
-      diff /
-        86_400_000,
-    ),
-  );
-}
-
-
 function signed(
   value: number,
   unit: string,
@@ -626,40 +594,6 @@ function getPredictionErrorMessage(
     detail ||
     'AI 체성분 예측을 불러오지 못했습니다.'
   );
-}
-
-
-function getBehaviorCorrectionDescription(
-  correction:
-    PredictionBehaviorCorrection | null,
-) {
-  if (!correction) {
-    return '식단 보정 정보를 확인할 수 없어 기본 체성분 예측을 표시합니다.';
-  }
-
-  if (correction.applied) {
-    return '최근 7일 식단 기록의 탄수화물·지방·단백질 섭취 정보를 사용해 체중과 체지방 예측을 보정했습니다.';
-  }
-
-  const gate =
-    correction.gate;
-
-  if (
-    gate?.reason ===
-    'insufficient_recent_meal_days'
-  ) {
-    const observed =
-      gate.observed_meal_days ??
-      0;
-
-    const minimum =
-      gate.minimum_observed_meal_days ??
-      3;
-
-    return `최근 7일 중 식단 기록이 ${observed}일로, 보정에 필요한 ${minimum}일보다 적어 기본 체성분 예측을 그대로 사용했습니다.`;
-  }
-
-  return '현재 식단 보정 조건을 충족하지 않아 기본 체성분 예측을 그대로 사용했습니다.';
 }
 
 
@@ -1310,38 +1244,6 @@ export default function InsightsPage() {
     return null;
   }
 
-  const latestWeightDelta =
-    latest &&
-    previous
-      ? latest.weight_kg -
-        previous.weight_kg
-      : null;
-
-  const latestMuscleDelta =
-    latest &&
-    previous
-      ? latest
-          .skeletal_muscle_kg -
-        previous
-          .skeletal_muscle_kg
-      : null;
-
-  const latestFatPctDelta =
-    latest &&
-    previous
-      ? latest.body_fat_pct -
-        previous.body_fat_pct
-      : null;
-
-  const previousGapDays =
-    latest &&
-    previous
-      ? daysBetween(
-          latest.measured_at,
-          previous.measured_at,
-        )
-      : null;
-
   return (
     <AppShell>
       <header className="px-5 pt-10 pb-6">
@@ -1408,24 +1310,12 @@ export default function InsightsPage() {
                   <p className="text-xs font-semibold text-blue-400">
                     체성분 기록 · 미래 예측
                   </p>
-
-                  <h2 className="mt-2 text-xl font-bold">
-                    지난 기록과 미래 예측 범위를
-                    함께 확인해보세요
-                  </h2>
                 </div>
 
                 <span className="flex-shrink-0 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold text-blue-300">
-                  28~35일 후
+                  한 달 후
                 </span>
               </div>
-
-              <p className="mt-3 text-xs leading-relaxed text-zinc-500">
-                실제 측정 기록은 실선으로,
-                미래 AI 예측은 중심 경로와
-                부드럽게 퍼지는 예측 분포로
-                함께 표시합니다.
-              </p>
 
               {predictionLoading ? (
                 <div className="mt-5 flex min-h-56 items-center justify-center gap-2 rounded-2xl border border-zinc-800/80 bg-zinc-950/35 text-sm text-zinc-500">
@@ -1543,60 +1433,67 @@ export default function InsightsPage() {
                   />
 
                   <p className="mt-3 text-[10px] leading-relaxed text-zinc-600">
-                    실선과 점은 실제 체성분
-                    측정 기록입니다. 현재 이후의
-                    선은 28~35일 후 AI 예측값까지
-                    이어지는 시각적 경로이며,
-                    음영은 미래 불확실성을 좁게
-                    표현한 예측 분포입니다.
+                    식단 기록을 규칙적으로 남길수록
+                    최근 섭취 패턴을 더 충분히
+                    반영할 수 있어 예측의 안정성과
+                    개인화 수준을 높이는 데
+                    도움이 됩니다.
                   </p>
                 </>
               ) : null}
             </section>
 
-            <section className="mt-7">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-zinc-200">
-                  현재 체성분
-                </h2>
+            {prediction && (
+              <section className="mt-7">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-semibold text-zinc-200">
+                    예측 체성분
+                  </h2>
 
-                <span className="text-[10px] text-zinc-600">
-                  {formatMeasurementDate(
-                    latest.measured_at,
-                  )}
-                </span>
-              </div>
+                  <span className="text-[10px] text-zinc-600">
+                    한 달 후
+                  </span>
+                </div>
 
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <CurrentMetric
-                  label="체중"
-                  value={`${latest.weight_kg}kg`}
-                  delta={
-                    latestWeightDelta
-                  }
-                  unit="kg"
-                />
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <CurrentMetric
+                    label="체중"
+                    value={`${prediction.prediction.weight_kg.toFixed(
+                      1,
+                    )}kg`}
+                    delta={
+                      prediction.change.weight_kg
+                    }
+                    unit="kg"
+                  />
 
-                <CurrentMetric
-                  label="골격근량"
-                  value={`${latest.skeletal_muscle_kg}kg`}
-                  delta={
-                    latestMuscleDelta
-                  }
-                  unit="kg"
-                />
+                  <CurrentMetric
+                    label="골격근량"
+                    value={`${prediction.prediction.skeletal_muscle_kg.toFixed(
+                      1,
+                    )}kg`}
+                    delta={
+                      prediction.change
+                        .skeletal_muscle_kg
+                    }
+                    unit="kg"
+                  />
 
-                <CurrentMetric
-                  label="체지방률"
-                  value={`${latest.body_fat_pct}%`}
-                  delta={
-                    latestFatPctDelta
-                  }
-                  unit="%"
-                  invert
-                />
-              </div>
-            </section>
+                  <CurrentMetric
+                    label="체지방률"
+                    value={`${prediction.prediction.body_fat_pct.toFixed(
+                      1,
+                    )}%`}
+                    delta={
+                      prediction.change
+                        .body_fat_pct
+                    }
+                    unit="%"
+                    invert
+                  />
+                </div>
+              </section>
+            )}
           </>
         )}
 
@@ -1678,133 +1575,6 @@ export default function InsightsPage() {
           </div>
         </section>
 
-        {latest && (
-          <section className="mt-7 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
-            <div className="flex items-center gap-2">
-              <Gauge
-                size={17}
-                className="text-blue-400"
-              />
-
-              <p className="text-sm font-semibold">
-                체성분 예측 기준
-              </p>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <InfoMetric
-                label="기준 측정"
-                value={
-                  formatMeasurementDate(
-                    prediction
-                      ?.currentMeasuredAt ??
-                      latest.measured_at,
-                  )
-                }
-              />
-
-              <InfoMetric
-                label="예측 시점"
-                value="28~35일 후"
-              />
-
-              <InfoMetric
-                label="사용된 체성분"
-                value={`${inbodyRecords.length}개`}
-              />
-
-              <InfoMetric
-                label="이전 기록"
-                value={
-                  previous
-                    ? previousGapDays !==
-                      null
-                      ? `직전 ${previousGapDays}일 전`
-                      : '이전 기록 반영'
-                    : '첫 기록 기반'
-                }
-              />
-            </div>
-
-            <p className="mt-3 text-[11px] leading-relaxed text-zinc-600">
-              현재 AI 체성분 예측은
-              체성분 측정 기록을 기본으로
-              사용합니다. 최근 식단 기록이
-              보정 조건을 충족하면
-              탄수화물·지방·단백질 정보를
-              체중·체지방 예측에 추가
-              반영하며, 운동 기록은 최근
-              활동 요약으로만 표시합니다.
-            </p>
-          </section>
-        )}
-
-        {prediction && (
-          <section className="mt-7">
-            <div className="flex items-center gap-2">
-              <Sparkles
-                size={17}
-                className="text-amber-400"
-              />
-
-              <h2 className="text-sm font-semibold text-zinc-200">
-                이번 예측에 사용된 정보
-              </h2>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              <InsightRow
-                title="최근 체성분 측정"
-                description={`${formatMeasurementDate(
-                  prediction.currentMeasuredAt,
-                )} 측정값을 현재 상태의 기준으로 사용했습니다.`}
-              />
-
-              <InsightRow
-                title="최근 식단 기록"
-                description={
-                  getBehaviorCorrectionDescription(
-                    prediction.behaviorCorrection,
-                  )
-                }
-              />
-
-              <InsightRow
-                title="이전 체성분 기록"
-                description={
-                  previous
-                    ? `현재 측정보다 이전의 체성분 기록을 개인 변화 패턴에 반영했습니다.`
-                    : '이전 측정 기록이 없어 현재 체성분을 기준으로 예측했습니다.'
-                }
-              />
-            </div>
-          </section>
-        )}
-
-        <section className="mt-7 rounded-3xl border border-zinc-800 bg-zinc-950 p-5">
-          <div className="flex items-start gap-3">
-            <AlertCircle
-              size={17}
-              className="mt-0.5 flex-shrink-0 text-zinc-500"
-            />
-
-            <div>
-              <p className="text-xs font-semibold text-zinc-300">
-                예측 모델 안내
-              </p>
-
-              <p className="mt-2 text-[11px] leading-relaxed text-zinc-600">
-                AI 예측은 현재까지의
-                체성분 기록을 바탕으로 한
-                참고 정보입니다. 실제
-                변화는 생활 습관, 수분,
-                수면, 측정 조건 등 다양한
-                요인의 영향을 받아 예측과
-                차이가 발생할 수 있습니다.
-              </p>
-            </div>
-          </div>
-        </section>
       </main>
     </AppShell>
   );
@@ -2456,7 +2226,7 @@ function PredictionTrendChart({
 
         <div className="text-right">
           <p className="text-[10px] text-zinc-600">
-            28~35일 후 AI 예측
+            한 달 후 AI 예측
           </p>
 
           <p className="mt-0.5 text-sm font-bold text-blue-300">
@@ -2627,11 +2397,9 @@ function PredictionTrendChart({
                   fontSize="8"
                   fill="#71717a"
                 >
-                  {point.isAnchor
-                    ? '현재'
-                    : formatAxisDate(
-                        point.measuredAt,
-                      )}
+                  {formatAxisDate(
+                    point.measuredAt,
+                  )}
                 </text>
               )}
             </g>
@@ -2697,7 +2465,7 @@ function PredictionTrendChart({
           fontSize="8"
           fill="#60a5fa"
         >
-          28~35일 후
+          한 달 후
         </text>
       </svg>
     </div>
@@ -2893,48 +2661,6 @@ function DataRow({
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-
-function InfoMetric({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-zinc-950/40 p-3">
-      <p className="text-[10px] text-zinc-600">
-        {label}
-      </p>
-
-      <p className="mt-1 text-xs font-semibold text-zinc-300">
-        {value}
-      </p>
-    </div>
-  );
-}
-
-
-function InsightRow({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4">
-      <p className="text-xs font-semibold text-zinc-300">
-        {title}
-      </p>
-
-      <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-        {description}
-      </p>
     </div>
   );
 }
