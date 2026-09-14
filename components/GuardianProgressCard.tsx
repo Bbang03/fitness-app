@@ -1,6 +1,11 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 /* Hallmark · component: guardian progress · genre: playful · theme: design.md · pre-emit critique: P5 H4 E4 S5 R5 V4 */
 import GolemAvatar from '@/components/golem/GolemAvatar';
-import { guardianLevelToGolemLevel } from '@/lib/golem/level';
+import { applyGolemVisualDecay, getGolemLastActivity } from '@/lib/golem/decay';
+import { GOLEM_PART_LABELS, guardianLevelToGolemLevel } from '@/lib/golem/level';
+import type { WorkoutLog } from '@/lib/types';
 import type { GuardianProgress } from '@/lib/guardianProgress';
 
 const stageNames = ['잠든 돌', '새싹 돌', '단단한 돌', '쌓이는 돌', '수호석', '차곡 수호자'];
@@ -17,13 +22,33 @@ function RegionMeter({ label, points, level }: { label: string; points: number; 
   );
 }
 
-export default function GuardianProgressCard({ progress }: { progress: GuardianProgress }) {
+export default function GuardianProgressCard({ progress, logs }: { progress: GuardianProgress; logs: readonly WorkoutLog[] }) {
+  // Set the clock after hydration; refresh across midnight and when returning to the app.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const refresh = () => setNow(new Date());
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [logs]);
+  const lastActivity = useMemo(() => now ? getGolemLastActivity(logs, now) : null, [logs, now]);
   const maxLevel = progress.overallLevel >= 5;
-  const golemLevels = {
+  const baseGolemLevels = {
     upper: guardianLevelToGolemLevel(progress.upperLevel),
     lower: guardianLevelToGolemLevel(progress.lowerLevel),
     core: guardianLevelToGolemLevel(progress.coreLevel),
   };
+
+  const golemLevels = now && lastActivity
+    ? applyGolemVisualDecay(baseGolemLevels, lastActivity, now)
+    : baseGolemLevels;
+  const restingParts = (['upper', 'lower', 'core'] as const).filter(
+    (part) => golemLevels[part] < baseGolemLevels[part],
+  );
 
   return (
     <section className="guardian-card" aria-labelledby="guardian-title">
@@ -37,6 +62,12 @@ export default function GuardianProgressCard({ progress }: { progress: GuardianP
         </div>
 
         <p className="guardian-card__message">{progress.message}</p>
+        {restingParts.length > 0 ? (
+          <p className="guardian-card__message">
+            {restingParts.map((part) => GOLEM_PART_LABELS[part]).join('·')} 휴식 중 · 모습만 한 단계 쉬어가요.
+            누적 성장은 유지되며 해당 부위 운동을 완료하면 회복돼요.
+          </p>
+        ) : null}
 
         <div className="guardian-card__regions">
           <RegionMeter label="상체" points={progress.upperPoints} level={progress.upperLevel} />
