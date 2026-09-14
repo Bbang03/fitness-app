@@ -1,0 +1,126 @@
+{
+  "model_name": "fittrack-behavior-correction",
+  "model_version": "behavior-correction-v1.0.0",
+  "status": "production_candidate",
+  "architecture": {
+    "base_prediction": "frozen-v1",
+    "equation": "final_target = v1_target + (behavior_delta_model - body_delta_model)",
+    "correction_training_mode": "within_study_incremental_delta"
+  },
+  "targets": {
+    "weight_kg": {
+      "correction_enabled": true,
+      "target": "weight_kg",
+      "target_column": "delta_weight_kg",
+      "body_model_file": "weight_kg_body_delta.cbm",
+      "behavior_model_file": "weight_kg_behavior_delta.cbm",
+      "training_rows": 51,
+      "training_correction_summary_kg": {
+        "min": -2.602976804372788,
+        "median": 0.05229065551827716,
+        "mean": -0.008327285994771215,
+        "max": 2.4313117053222952,
+        "mean_abs": 0.5573540534180741
+      }
+    },
+    "fat_mass_kg": {
+      "correction_enabled": true,
+      "target": "fat_mass_kg",
+      "target_column": "delta_fat_mass_kg",
+      "body_model_file": "fat_mass_kg_body_delta.cbm",
+      "behavior_model_file": "fat_mass_kg_behavior_delta.cbm",
+      "training_rows": 51,
+      "training_correction_summary_kg": {
+        "min": -1.2454090731728553,
+        "median": 0.006424745117806663,
+        "mean": -0.05897164154663838,
+        "max": 0.581276521391781,
+        "mean_abs": 0.25578135963495285
+      }
+    },
+    "smm_actual_kg": {
+      "correction_enabled": false,
+      "policy": "frozen_v1_passthrough"
+    },
+    "body_fat_pct": {
+      "correction_enabled": false,
+      "policy": "recalculate_from_corrected_fat_mass_kg/corrected_weight_kg"
+    }
+  },
+  "feature_contract": {
+    "body_features": [
+      "age_years",
+      "sex",
+      "baseline_weight_kg",
+      "baseline_fat_mass_kg",
+      "baseline_body_fat_pct_tanita"
+    ],
+    "diet_features": [
+      "week1_carb_g_per_day",
+      "week1_fat_g_per_day",
+      "week1_protein_g_per_kg"
+    ],
+    "categorical_features": [
+      "sex"
+    ],
+    "service_mapping": {
+      "age_years": "prediction_date year minus profile.birth_year (approximate integer age)",
+      "sex": "profile.sex",
+      "baseline_weight_kg": "latest eligible InBody weight_kg",
+      "baseline_fat_mass_kg": "latest eligible InBody body_fat_kg",
+      "baseline_body_fat_pct_tanita": "latest eligible InBody body_fat_pct",
+      "week1_carb_g_per_day": "meal_7d_avg_carbs_g",
+      "week1_fat_g_per_day": "meal_7d_avg_fat_g",
+      "week1_protein_g_per_kg": "meal_7d_avg_protein_g / current_weight_kg"
+    }
+  },
+  "gate": {
+    "cutoff_policy": "D-1",
+    "rolling_window_days": 7,
+    "minimum_observed_meal_days": 3,
+    "requires_profile_sex": true,
+    "requires_profile_birth_year": true,
+    "missing_or_ineligible_policy": "zero_correction"
+  },
+  "training": {
+    "source_dataset": "Bath Keto Week1",
+    "training_participants": 51,
+    "diet_group_counts": {
+      "MODSUG": 18,
+      "LOWCHO": 17,
+      "LOWSUG": 16
+    },
+    "model_family": "CatBoostRegressor",
+    "parameters": {
+      "iterations": 200,
+      "depth": 3,
+      "learning_rate": 0.03,
+      "loss_function": "MAE",
+      "l2_leaf_reg": 5.0,
+      "random_seed": 20260914,
+      "verbose": false,
+      "allow_writing_files": false,
+      "thread_count": -1
+    },
+    "raw_diet_group_used_as_model_feature": false,
+    "paee_used": false,
+    "smm_used": false
+  },
+  "validation_evidence": {
+    "scope": "single-study internal development evidence",
+    "random_cv_week1": {
+      "weight_relative_mae_change_pct": -29.2941,
+      "fat_mass_relative_mae_change_pct": -19.2968,
+      "repeats_better": "5/5 for both targets",
+      "paired_bootstrap_ci_entirely_below_zero": true
+    },
+    "leave_one_diet_group_out_week1": {
+      "weight_relative_mae_change_pct": -18.0298,
+      "fat_mass_relative_mae_change_pct": -22.7175,
+      "held_out_groups_improved_weight": "3/3 directional",
+      "held_out_groups_improved_fat_mass": "3/3",
+      "pooled_bootstrap_ci_entirely_below_zero": true
+    },
+    "warning": "This is not independent deployment validation. The correction is transported from a paired within-study delta comparison to the frozen production v1."
+  }
+}

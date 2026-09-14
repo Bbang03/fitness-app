@@ -31,6 +31,10 @@ from api.model_runtime import (
     SELECTED_CONFIG,
     predict_internal,
 )
+from api.behavior_correction_runtime import (
+    apply_behavior_correction,
+    health_status as behavior_correction_health_status,
+)
 
 
 # =================================================================================================
@@ -85,6 +89,9 @@ class PredictMeRequest(
     ] = None
 
 
+SERVICE_ROLLOVER_HOUR = 3
+
+
 def resolve_prediction_date(
     requested_date,
 ):
@@ -92,13 +99,26 @@ def resolve_prediction_date(
     if requested_date is not None:
         return requested_date
 
-    return (
-        datetime
-        .now(
-            APP_TIMEZONE
-        )
-        .date()
+    now = datetime.now(
+        APP_TIMEZONE
     )
+
+    service_date = now.date()
+
+    # Service day rolls over at 03:00 KST.
+    # Between 00:00 and 02:59, keep serving the
+    # previous prediction date so D-1 behavior
+    # is not refreshed until the scheduled update.
+    if now.hour < SERVICE_ROLLOVER_HOUR:
+        service_date = (
+            service_date
+            -
+            timedelta(
+                days=1
+            )
+        )
+
+    return service_date
 
 
 # =================================================================================================
@@ -771,9 +791,15 @@ async def save_prediction_history(
             ],
 
         "quality_meta":
-            result[
-                "quality"
-            ],
+            {
+                **result[
+                    "quality"
+                ],
+                "behavior_correction":
+                    result.get(
+                        "behavior_correction"
+                    ),
+            },
     }
 
     headers = (
@@ -870,7 +896,10 @@ async def health():
             ),
 
         "behavior_pipeline":
-            "features-v0.1-ready",
+            "behavior-correction-v1-ready",
+
+        "behavior_correction":
+            behavior_correction_health_status(),
     }
 
 
@@ -1096,14 +1125,44 @@ async def predict_me(
                     prediction_profile,
             )
 
-            # Frozen v1 CatBoost runtime.
-            # New behavior features are intentionally
-            # NOT passed to the model yet.
+            # Step 1: frozen v1 prediction.
             result = predict_internal(
                 current_body,
                 prior_measurements,
                 include_debug=False,
             )
+
+            # Step 2: D-1 rolling 7-day diet correction.
+            #
+            # If the gate is not eligible, the correction runtime
+            # returns the frozen v1 prediction unchanged.
+            result = apply_behavior_correction(
+                result=result,
+                current_body=current_body,
+                profile=profile,
+                behavior_context=behavior_context,
+                prediction_date=prediction_date,
+            )
+
+            correction_applied = bool(
+                result[
+                    "behavior_correction"
+                ][
+                    "applied"
+                ]
+            )
+
+            behavior_context[
+                "behavior_used_by_model"
+            ] = correction_applied
+
+            behavior_features[
+                "used_by_model"
+            ] = correction_applied
+
+            behavior_features[
+                "model_ready"
+            ] = True
 
             result[
                 "source"
@@ -1137,12 +1196,38 @@ async def predict_me(
                         workout_rows
                     ),
 
+                "prediction_date":
+                    prediction_date.isoformat(),
+
                 "behavior_cutoff_date":
                     behavior_cutoff_date.isoformat(),
 
                 "behavior_used_by_model":
-                    False,
+                    correction_applied,
+
+                "behavior_correction_version":
+                    result[
+                        "behavior_correction"
+                    ][
+                        "model_version"
+                    ],
             }
+
+            result[
+                "model"
+            ][
+                "behavior_correction_version"
+            ] = result[
+                "behavior_correction"
+            ][
+                "model_version"
+            ]
+
+            result[
+                "model"
+            ][
+                "behavior_correction_applied"
+            ] = correction_applied
 
             result[
                 "profile_context"
