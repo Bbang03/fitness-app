@@ -1,4 +1,4 @@
-export const GOLEM_LEVELS = [0, 1, 2] as const;
+export const GOLEM_LEVELS = [0, 1, 2, 3, 4] as const;
 
 export type GolemLevel = (typeof GOLEM_LEVELS)[number];
 

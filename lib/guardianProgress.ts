@@ -44,7 +44,7 @@ function regionFromBodyPart(bodyPart: BodyPart): GuardianRegion {
   return 'cardio';
 }
 
-function inferRegion(exerciseName: string): GuardianRegion | null {
+export function inferRegion(exerciseName: string): GuardianRegion | null {
   const bodyPart = bodyPartByName.get(exerciseName);
   if (bodyPart) return regionFromBodyPart(bodyPart);
 

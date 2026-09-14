@@ -42,6 +42,11 @@ export default function GolemDemoPage() {
   const [isDebugMode, setIsDebugMode] =
     useState(false);
 
+  const [galleryUpper, setGalleryUpper] = useState<GolemLevel>(0);
+  const visibleCombinations = GOLEM_COMBINATIONS.filter(
+    (item) => item.upper === galleryUpper,
+  );
+
   function changeLevel(
     part: GolemGrowthPart,
     level: GolemLevel,
@@ -53,7 +58,7 @@ export default function GolemDemoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f1e8] px-4 py-10 text-[#20332a] sm:px-6">
+    <main className="min-h-screen md:relative md:left-1/2 md:w-[min(100vw,1152px)] md:-translate-x-1/2 bg-[#f4f1e8] px-4 py-10 text-[#20332a] sm:px-6">
       <div className="mx-auto max-w-5xl">
         <header className="text-center">
           <p className="text-sm font-bold tracking-[0.22em] text-[#607552]">
@@ -63,7 +68,7 @@ export default function GolemDemoPage() {
             차곡 골렘 조합 데모
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#627066] sm:text-base">
-            상체, 하체, 코어를 각각 Lv0부터 Lv2까지 바꾸며 총 27가지 조합을 확인할 수 있습니다.
+            상체, 하체, 코어를 각각 Lv0부터 Lv4까지 바꾸며 총 {GOLEM_COMBINATIONS.length}가지 조합을 확인할 수 있습니다.
           </p>
         </header>
 
@@ -119,14 +124,14 @@ export default function GolemDemoPage() {
                 <legend className="mb-2 text-sm font-bold">
                   {GOLEM_PART_LABELS[part]}
                 </legend>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-5 gap-2">
                   {GOLEM_LEVELS.map((level) => {
                     const isSelected = combination[part] === level;
 
                     return (
                       <button
                         aria-pressed={isSelected}
-                        className={`rounded-xl border px-3 py-2.5 text-sm font-bold transition-colors ${
+                        className={`rounded-xl border px-2 py-2.5 text-sm font-bold transition-colors ${
                           isSelected
                             ? 'border-[#37513f] bg-[#37513f] text-white'
                             : 'border-[#cfd3c7] bg-white text-[#516057] hover:border-[#829078] hover:bg-[#f5f7f1]'
@@ -152,16 +157,29 @@ export default function GolemDemoPage() {
                 조합 렌더링 체크
               </p>
               <h2 className="mt-1 text-2xl font-black">
-                전체 27가지 조합
+                전체 {GOLEM_COMBINATIONS.length}가지 조합
               </h2>
             </div>
             <span className="rounded-full bg-[#dfe7d6] px-3 py-1 text-sm font-bold">
-              {GOLEM_COMBINATIONS.length} / 27
+              {visibleCombinations.length} / {GOLEM_COMBINATIONS.length}
             </span>
           </div>
 
+          <label className="mt-4 flex items-center gap-3 text-sm font-bold">
+            상체 레벨별 보기
+            <select
+              className="rounded-lg border border-[#cfd3c7] bg-white px-3 py-2"
+              value={galleryUpper}
+              onChange={(event) => setGalleryUpper(Number(event.target.value) as GolemLevel)}
+            >
+              {GOLEM_LEVELS.map((level) => (
+                <option key={level} value={level}>{GOLEM_LEVEL_LABELS[level]}</option>
+              ))}
+            </select>
+          </label>
+
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {GOLEM_COMBINATIONS.map((item) => (
+            {visibleCombinations.map((item) => (
               <button
                 className="rounded-2xl border border-[#d8d8ca] bg-[#fffdf7] p-2 text-center transition hover:-translate-y-0.5 hover:border-[#809174] hover:shadow-md"
                 key={getGolemCombinationKey(item)}

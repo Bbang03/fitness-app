@@ -16,14 +16,18 @@ import type {
 
 const STONE_BY_LEVEL: Record<GolemLevel, string> = {
   0: '#8d9873',
-  1: '#71805b',
-  2: '#566a43',
+  1: '#7f8c67',
+  2: '#71805b',
+  3: '#64754f',
+  4: '#566a43',
 };
 
 const STONE_LIGHT_BY_LEVEL: Record<GolemLevel, string> = {
   0: '#aeb896',
-  1: '#91a174',
-  2: '#718958',
+  1: '#a0ad85',
+  2: '#91a174',
+  3: '#819566',
+  4: '#718958',
 };
 
 const outline = '2px solid #24372d';
@@ -35,16 +39,22 @@ const AVATAR_STAGE_HEIGHT_RATIO =
 const LOWER_ANCHOR_AT_300 = 203;
 const HEAD_ASSET_TRANSLATE_Y_AT_300 = -6;
 
+// Offsets follow each production PNG's measured waist attachment point.
+// Keep the pelvis attachment fixed; do not align by the feet.
 const LOWER_ASSET_TRANSLATE_Y_AT_300: Record<GolemLevel, number> = {
   0: 93.8,
-  1: 136.3,
-  2: 147.1,
+  1: 115.05,
+  2: 136.3,
+  3: 141.7,
+  4: 147.1,
 };
 
 const LOWER_ASSET_BOTTOM_AT_300: Record<GolemLevel, number> = {
   0: 333,
-  1: 399,
-  2: 424,
+  1: 365,
+  2: 399,
+  3: 411,
+  4: 424,
 };
 
 interface AssetLayerProps {
@@ -129,7 +139,7 @@ function HeadPlaceholder() {
 }
 
 function UpperPlaceholder({ level }: { level: GolemLevel }) {
-  const armScale = 0.82 + level * 0.13;
+  const armScale = 0.82 + (level / 2) * 0.13;
 
   return (
     <>
@@ -151,12 +161,12 @@ function UpperPlaceholder({ level }: { level: GolemLevel }) {
           key={side}
           style={{
             position: 'absolute',
-            [side]: level === 2 ? '-5%' : '0%',
+            [side]: level === 4 ? '-5%' : '0%',
             top: level === 0 ? '22%' : '12%',
             width: level === 0 ? '24%' : '29%',
             height: level === 0 ? '60%' : '76%',
             border: outline,
-            borderRadius: level === 2 ? '45% 35% 40% 35%' : '45%',
+            borderRadius: level === 4 ? '45% 35% 40% 35%' : '45%',
             background: `linear-gradient(145deg, ${STONE_LIGHT_BY_LEVEL[level]}, ${STONE_BY_LEVEL[level]})`,
             boxShadow: 'inset 5px -6px 0 rgb(35 55 38 / 18%)',
             transform: `scale(${armScale}) rotate(${side === 'left' ? 13 : -13}deg)`,
@@ -174,7 +184,7 @@ function UpperPlaceholder({ level }: { level: GolemLevel }) {
 }
 
 function LowerPlaceholder({ level }: { level: GolemLevel }) {
-  const legWidth = 27 + level * 4;
+  const legWidth = 27 + (level / 2) * 4;
 
   return (
     <>
@@ -195,19 +205,19 @@ function LowerPlaceholder({ level }: { level: GolemLevel }) {
           key={side}
           style={{
             position: 'absolute',
-            [side]: level === 2 ? '9%' : '15%',
+            [side]: level === 4 ? '9%' : '15%',
             bottom: '4%',
             width: `${legWidth}%`,
-            height: `${57 + level * 8}%`,
+            height: `${57 + (level / 2) * 8}%`,
             border: outline,
-            borderRadius: level === 2 ? '42% 42% 22% 22%' : '35% 35% 24% 24%',
+            borderRadius: level === 4 ? '42% 42% 22% 22%' : '35% 35% 24% 24%',
             background: `linear-gradient(145deg, ${STONE_LIGHT_BY_LEVEL[level]}, ${STONE_BY_LEVEL[level]})`,
             boxShadow: 'inset 5px -6px 0 rgb(35 55 38 / 18%)',
             transform: `rotate(${side === 'left' ? 4 : -4}deg)`,
           }}
         />
       ))}
-      {level === 2 ? (
+      {level === 4 ? (
         <div style={{ position: 'absolute', right: '11%', bottom: '26%', width: '20%', height: '12%', borderRadius: '50%', background: '#5f7d45' }} />
       ) : null}
     </>
@@ -215,9 +225,9 @@ function LowerPlaceholder({ level }: { level: GolemLevel }) {
 }
 
 function CorePlaceholder({ level }: { level: GolemLevel }) {
-  const dimensions = [22, 27, 31] as const;
+  const dimensions = [22, 24.5, 27, 29, 31] as const;
   const dimension = dimensions[level];
-  const rotation = level === 2 ? 45 : 0;
+  const rotation = level === 4 ? 45 : 0;
 
   return (
     <div
@@ -228,9 +238,9 @@ function CorePlaceholder({ level }: { level: GolemLevel }) {
         width: `${dimension}%`,
         aspectRatio: '1',
         border: '2px solid #f7bd4d',
-        borderRadius: level === 2 ? '18%' : '28%',
+        borderRadius: level === 4 ? '18%' : '28%',
         background: level === 0 ? '#ffe3a0' : '#ffd36c',
-        boxShadow: `0 0 ${6 + level * 5}px ${level * 2}px rgb(255 174 55 / 72%), inset 0 0 5px #fff7d1`,
+        boxShadow: `0 0 ${6 + (level / 2) * 5}px ${level}px rgb(255 174 55 / 72%), inset 0 0 5px #fff7d1`,
         transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
       }}
     />

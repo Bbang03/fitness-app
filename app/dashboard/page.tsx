@@ -1344,7 +1344,7 @@ export default function DashboardPage() {
   return (
     <AppShell>
       <main className="apple-page-header">
-        <GuardianProgressCard progress={guardianProgress} />
+        <GuardianProgressCard progress={guardianProgress} logs={myLogs} />
 
         <section className="mt-6" aria-label="오늘의 식단과 섭취량">
           <Link href="/meals" className="apple-card block p-5">

@@ -13,6 +13,8 @@ export const GOLEM_LEVEL_LABELS: Record<GolemLevel, string> = {
   0: 'Lv0',
   1: 'Lv1',
   2: 'Lv2',
+  3: 'Lv3',
+  4: 'Lv4',
 };
 
 export const GOLEM_PART_LABELS: Record<GolemGrowthPart, string> = {
@@ -26,14 +28,14 @@ export function guardianLevelToGolemLevel(level: number): GolemLevel {
     ? Math.min(5, Math.max(0, Math.trunc(level)))
     : 0;
 
-  if (normalizedLevel >= 4) return 2;
-  if (normalizedLevel >= 2) return 1;
-  return 0;
+  // Input is the Guardian regional level (not a raw set count).
+  // Guardian 0/1/2/3/4–5 → base visual Lv0/Lv1/Lv2/Lv3/Lv4.
+  return GOLEM_LEVELS[Math.min(normalizedLevel, 4)];
 }
 
 /**
- * 실제 파츠를 연결할 때 null을 `/golem/{part}/...png` 또는 `.svg` 경로로
- * 교체하면 GolemAvatar가 placeholder 대신 해당 이미지를 렌더링합니다.
+ * Upper, lower and Core use dedicated Lv0–Lv4 full-canvas assets.
+ * A null source uses the CSS placeholder.
  */
 export const GOLEM_ASSET_SOURCES: GolemAssetSources = {
   head: '/golem/head/base.png',
@@ -41,16 +43,22 @@ export const GOLEM_ASSET_SOURCES: GolemAssetSources = {
     0: '/golem/upper/lv0.png',
     1: '/golem/upper/lv1.png',
     2: '/golem/upper/lv2.png',
+    3: '/golem/upper/lv3.png',
+    4: '/golem/upper/lv4.png',
   },
   lower: {
     0: '/golem/lower/lv0.png',
     1: '/golem/lower/lv1.png',
     2: '/golem/lower/lv2.png',
+    3: '/golem/lower/lv3.png',
+    4: '/golem/lower/lv4.png',
   },
   core: {
     0: '/golem/core/lv0.png',
     1: '/golem/core/lv1.png',
     2: '/golem/core/lv2.png',
+    3: '/golem/core/lv3.png',
+    4: '/golem/core/lv4.png',
   },
 };
 
