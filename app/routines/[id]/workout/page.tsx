@@ -499,45 +499,126 @@ const adjustWeight = (
   index: number,
   amount: number,
 ) => {
-  const current =
-    parseFloat(
-      drafts[index]?.weight ??
-        '0',
-    ) || 0;
+  setDrafts(
+    (currentDrafts) => {
+      const current =
+        parseFloat(
+          currentDrafts[
+            index
+          ]?.weight ??
+            '0',
+        ) || 0;
 
-  const next = Math.max(
-    0,
-    Math.round(
-      (current + amount) * 10,
-    ) / 10,
+      const next =
+        Math.max(
+          0,
+          Math.round(
+            (
+              current +
+              amount
+            ) *
+              10,
+          ) /
+            10,
+        );
+
+      const nextValue =
+        Number.isInteger(
+          next,
+        )
+          ? String(
+              next,
+            )
+          : next.toFixed(
+              1,
+            );
+
+      return currentDrafts.map(
+        (
+          draft,
+          draftIndex,
+        ) => {
+          if (
+            draftIndex <
+            index
+          ) {
+            return draft;
+          }
+
+          if (
+            isDraftCompleted(
+              draftIndex,
+            )
+          ) {
+            return draft;
+          }
+
+          return {
+            ...draft,
+
+            weight:
+              nextValue,
+          };
+        },
+      );
+    },
   );
-
-  updateDraft(index, {
-    weight: Number.isInteger(next)
-      ? String(next)
-      : next.toFixed(1),
-  });
 };
 
 const adjustReps = (
   index: number,
   amount: number,
 ) => {
-  const current =
-    parseInt(
-      drafts[index]?.reps ??
-        '0',
-      10,
-    ) || 0;
+  setDrafts(
+    (currentDrafts) => {
+      const current =
+        Number.parseInt(
+          currentDrafts[
+            index
+          ]?.reps ??
+            '0',
+          10,
+        ) || 0;
 
-  updateDraft(index, {
-    reps: String(
-      Math.max(
-        1,
-        current + amount,
-      ),
-    ),
-  });
+      const next =
+        Math.max(
+          0,
+          current +
+            amount,
+        );
+
+      return currentDrafts.map(
+        (
+          draft,
+          draftIndex,
+        ) => {
+          if (
+            draftIndex <
+            index
+          ) {
+            return draft;
+          }
+
+          if (
+            isDraftCompleted(
+              draftIndex,
+            )
+          ) {
+            return draft;
+          }
+
+          return {
+            ...draft,
+
+            reps:
+              String(
+                next,
+              ),
+          };
+        },
+      );
+    },
+  );
 };
 
   // ─────────────────────────────────────────────
@@ -995,8 +1076,7 @@ const adjustReps = (
   const completeCurrentSet =
     () => {
       if (
-        loggingGuard.current ||
-        restTimer
+        loggingGuard.current
       ) {
         return;
       }
@@ -1048,12 +1128,16 @@ const adjustReps = (
         'reps_only'
       ) {
         const parsedReps =
-          parseInt(
+          Number.parseInt(
             draft.reps,
-          ) || 0;
+            10,
+          );
 
         if (
-          parsedReps <= 0
+          !Number.isFinite(
+            parsedReps,
+          ) ||
+          parsedReps < 0
         ) {
           return;
         }
@@ -1070,9 +1154,10 @@ const adjustReps = (
       }
 
       const parsedReps =
-        parseInt(
+        Number.parseInt(
           draft.reps,
-        ) || 0;
+          10,
+        );
 
       const parsedWeight =
         parseFloat(
@@ -1080,7 +1165,10 @@ const adjustReps = (
         ) || 0;
 
       if (
-        parsedReps <= 0
+        !Number.isFinite(
+          parsedReps,
+        ) ||
+        parsedReps < 0
       ) {
         return;
       }
@@ -1390,11 +1478,6 @@ const adjustReps = (
                         ? timedElapsedSeconds
                         : 0
                     }
-                    restActive={
-                      Boolean(
-                        restTimer,
-                      )
-                    }
                     onWeightChange={(
                       value,
                     ) =>
@@ -1603,12 +1686,7 @@ const adjustReps = (
                     onClick={
                       startCountdown
                     }
-                    disabled={
-                      Boolean(
-                        restTimer,
-                      )
-                    }
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white transition-colors hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white transition-colors hover:bg-blue-500"
                   >
                     <Play
                       size={18}
@@ -1686,8 +1764,7 @@ const adjustReps = (
 
         {/* Current Set Helper */}
         {recordType !==
-          'time' &&
-          !restTimer && (
+          'time' && (
             <section className="px-5 pt-5">
               <div className="rounded-2xl border border-blue-500/15 bg-blue-500/[0.05] px-4 py-3">
                 <p className="text-xs leading-relaxed text-zinc-500">
@@ -1766,8 +1843,8 @@ const adjustReps = (
         <div className="h-28" />
       </main>
 
-      {/* Rest Dock */}
-      {restTimer ? (
+      {/* Rest Timer */}
+      {restTimer && (
         <RestDock
           endTimestamp={
             restTimer.endTimestamp
@@ -1782,35 +1859,42 @@ const adjustReps = (
             onAdjustRest
           }
         />
-      ) : (
-        <footer className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-white/[0.06] bg-zinc-950/95 px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={
-              completeCurrentSet
-            }
-            disabled={
-              recordType ===
-                'time' &&
-              timedElapsedSeconds ===
-                0
-            }
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-base font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
-          >
-            <Check
-              size={20}
-              strokeWidth={3}
-            />
+      )}
 
-            {recordType ===
+      {/* Set Complete Footer */}
+      <footer className="fixed bottom-0 left-1/2 z-50 w-full max-w-md -translate-x-1/2 border-t border-white/[0.06] bg-zinc-950/95 px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={
+            completeCurrentSet
+          }
+          disabled={
+            recordType ===
               'time' &&
             timedElapsedSeconds ===
               0
-              ? '타이머를 시작해주세요'
-              : `${currentSet + 1}세트 완료`}
-          </button>
-        </footer>
-      )}
+          }
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-base font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
+        >
+          <Check
+            size={20}
+            strokeWidth={3}
+          />
+
+          {recordType ===
+              'time' &&
+            timedElapsedSeconds ===
+              0
+            ? '타이머를 시작해주세요'
+            : `${currentSet + 1}세트 완료`}
+        </button>
+
+        {restTimer && (
+          <p className="mt-2 text-center text-[10px] text-zinc-600">
+            휴식 시간이 남아 있어도 다음 세트를 계속할 수 있습니다.
+          </p>
+        )}
+      </footer>
 
       {/* Cancel Modal */}
       {confirmCancel && (
@@ -1879,8 +1963,6 @@ function SetRow({
   currentRemainingSeconds,
   timedElapsedSeconds,
 
-  restActive,
-
   onWeightChange,
   onRepsChange,
 
@@ -1912,8 +1994,6 @@ function SetRow({
   currentRemainingSeconds: number;
   timedElapsedSeconds: number;
 
-  restActive: boolean;
-
   onWeightChange: (
     value: string,
   ) => void;
@@ -1941,7 +2021,6 @@ function SetRow({
 
   const canComplete =
     isCurrent &&
-    !restActive &&
     !isCompleted &&
     (
       recordType !==
@@ -2249,7 +2328,7 @@ function RestDock({
       : 100;
 
   return (
-    <footer className="fixed bottom-0 left-1/2 z-40 w-full max-w-md -translate-x-1/2 rounded-t-3xl border-t border-red-500/20 bg-zinc-950/95 px-5 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-xl">
+    <footer className="fixed bottom-[94px] left-1/2 z-40 w-[calc(100%-24px)] max-w-[408px] -translate-x-1/2 rounded-2xl border border-red-500/20 bg-zinc-950/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
       <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-red-500" />
 
       <div className="flex items-center justify-between">
@@ -2310,6 +2389,7 @@ function RestDock({
           }}
         />
       </div>
+
     </footer>
   );
 }
@@ -2829,7 +2909,7 @@ export default function WorkoutPage() {
               activeWorkout: {
                 ...after,
 
-                phase: 'rest',
+                phase: 'exercise',
 
                 restTimer: {
                   endTimestamp:
@@ -3465,50 +3545,65 @@ function NumberCell({
 
   return (
     <>
-      <div className="relative">
+      <div
+        className={`grid h-14 grid-cols-[26px_1fr_26px] overflow-hidden rounded-xl border transition-colors ${
+          disabled
+            ? 'border-emerald-500/10 bg-emerald-500/[0.06]'
+            : 'border-zinc-800 bg-zinc-900'
+        }`}
+      >
         <button
           type="button"
           disabled={disabled}
-          onClick={() =>
-            !disabled &&
-            setKeypadOpen(true)
-          }
-          className={`h-14 w-full rounded-xl border px-8 text-center text-lg font-bold transition-colors ${
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onMinus();
+          }}
+          className={`select-none touch-manipulation text-xs font-semibold transition-colors ${
             disabled
-              ? 'border-emerald-500/10 bg-emerald-500/[0.06] text-emerald-300'
-              : 'border-zinc-800 bg-zinc-900 text-white active:border-blue-500'
+              ? 'cursor-default text-emerald-300/40'
+              : 'text-zinc-400 active:bg-zinc-800 active:text-white'
+          }`}
+          aria-label={`${label} 1 감소`}
+        >
+          −
+        </button>
+
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (!disabled) {
+              setKeypadOpen(true);
+            }
+          }}
+          className={`touch-manipulation border-x text-center text-lg font-bold tabular-nums transition-colors ${
+            disabled
+              ? 'border-emerald-500/10 text-emerald-300'
+              : 'border-zinc-800 text-white active:bg-zinc-800'
           }`}
         >
           {value || '0'}
         </button>
 
-        {!disabled && (
-          <>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onMinus();
-              }}
-              className="absolute left-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 transition-colors active:bg-zinc-800 active:text-white"
-              aria-label={`${label} 1 감소`}
-            >
-              −
-            </button>
-
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onPlus();
-              }}
-              className="absolute right-1 top-1/2 flex h-8 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-zinc-500 transition-colors active:bg-zinc-800 active:text-white"
-              aria-label={`${label} 1 증가`}
-            >
-              +
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          disabled={disabled}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onPlus();
+          }}
+          className={`select-none touch-manipulation text-xs font-semibold transition-colors ${
+            disabled
+              ? 'cursor-default text-emerald-300/40'
+              : 'text-zinc-400 active:bg-zinc-800 active:text-white'
+          }`}
+          aria-label={`${label} 1 증가`}
+        >
+          +
+        </button>
       </div>
 
       {keypadOpen &&
