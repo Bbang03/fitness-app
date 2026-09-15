@@ -145,6 +145,25 @@ test('combines workout and protein evidence into a natural daily comment', () =>
   assert.match(report.bodyComposition.note ?? '', /예측값은 실제 측정값이 아니라/);
 });
 
+test('shows an ISO measurement timestamp as a date-only value', () => {
+  const measured = inbody();
+  measured.measured_at = '2026-09-03T00:00:00+00:00';
+
+  const report = buildDailyComment({
+    date: DATE,
+    mealLogs: [],
+    workoutLogs: [],
+    latestMeasuredBodyComposition: measured,
+  });
+
+  assert.equal(report.bodyComposition.measured?.measuredAt, '2026-09-03');
+  const measuredEvidence = report.evidence.find(
+    (item) => item.id === 'measured_body_composition',
+  );
+  assert.match(measuredEvidence?.detail ?? '', /2026-09-03 측정/);
+  assert.doesNotMatch(measuredEvidence?.detail ?? '', /T00:00:00/);
+});
+
 test('does not call protein deficient when nutrition is missing', () => {
   const report = buildDailyComment({
     date: DATE,

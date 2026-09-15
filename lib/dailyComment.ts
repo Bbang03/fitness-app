@@ -448,6 +448,10 @@ function measuredSnapshot(
     return null;
   }
 
+  const measuredAt = measurementDateKey(record.measured_at);
+
+  if (!measuredAt) return null;
+
   if (
     !positiveFinite(record.weight_kg) ||
     !positiveFinite(record.skeletal_muscle_kg) ||
@@ -459,7 +463,7 @@ function measuredSnapshot(
 
   return {
     source: 'measured',
-    measuredAt: record.measured_at,
+    measuredAt,
     weightKg: round(record.weight_kg),
     skeletalMuscleKg: round(record.skeletal_muscle_kg),
     bodyFatKg: round(record.body_fat_kg),
