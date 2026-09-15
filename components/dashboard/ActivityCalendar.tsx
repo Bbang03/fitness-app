@@ -106,24 +106,8 @@ export default function ActivityCalendar({
     setSelectedDate(null);
   };
 
-  const goToToday = () => {
-    setYear(todayDate.getFullYear());
-    setMonth(todayDate.getMonth());
-    setSelectedDate(today);
-  };
-
   return (
-    <section className="activity-calendar" aria-labelledby="activity-calendar-title">
-      <div className="activity-calendar__heading">
-        <div>
-          <p className="activity-calendar__eyebrow">기록을 한눈에</p>
-          <h2 id="activity-calendar-title">나의 활동 달력</h2>
-        </div>
-        <button type="button" className="activity-calendar__today" onClick={goToToday}>
-          오늘
-        </button>
-      </div>
-
+    <section className="activity-calendar" aria-label="나의 활동 달력">
       <div className="activity-calendar__card">
         <div className="activity-calendar__monthbar">
           <button

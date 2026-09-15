@@ -349,12 +349,7 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 }
 \n+/* Dashboard · activity calendar · derived from workout and meal logs */
 .activity-calendar { margin-top:var(--space-6); color:var(--color-ink); }
-.activity-calendar__heading { display:flex;align-items:flex-end;justify-content:space-between;gap:var(--space-3); }
-.activity-calendar__eyebrow { color:var(--color-accent);font-size:var(--text-caption);font-weight:700; }
-.activity-calendar__heading h2 { margin-top:var(--space-1);font-family:var(--font-display);font-size:1.25rem;font-weight:750;letter-spacing:-.025em;line-height:1.2; }
-.activity-calendar__today { min-height:36px;padding:var(--space-2) var(--space-3);border:var(--rule-hairline) solid var(--color-rule);border-radius:var(--radius-pill);background:var(--color-surface);color:var(--color-accent);font-size:var(--text-caption);font-weight:700;white-space:nowrap; }
-.activity-calendar__today:hover { background:var(--color-accent-soft); }
-.activity-calendar__card { margin-top:var(--space-3);padding:var(--space-4);background:var(--color-surface);border:var(--rule-hairline) solid var(--color-rule);border-radius:var(--radius-card); }
+.activity-calendar__card { padding:var(--space-4);background:var(--color-surface);border:var(--rule-hairline) solid var(--color-rule);border-radius:var(--radius-card); }
 .activity-calendar__monthbar { display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:var(--space-2); }
 .activity-calendar__monthbar h3 { min-width:0;text-align:center;font-family:var(--font-display);font-size:var(--text-body);font-weight:750; }
 .activity-calendar__nav { display:flex;align-items:center;justify-content:center;width:44px;min-height:44px;border-radius:var(--radius-control);color:var(--color-ink-secondary); }
