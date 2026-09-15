@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
 import BottomNav from '@/components/BottomNav';
+import { ChagokLogo } from '@/components/ChagokBrand';
 import {
   AlertCircle,
   Minus,
@@ -669,7 +670,17 @@ export default function InbodyPage() {
 
   return (
     <div className="pb-28">
-      <div className="flex items-center justify-between px-4 pb-4 pt-12">
+      <div className="px-4 pt-6">
+        <Link
+          href="/dashboard"
+          aria-label="차곡 홈"
+          className="inline-flex"
+        >
+          <ChagokLogo />
+        </Link>
+      </div>
+
+      <div className="flex items-center justify-between px-4 pb-4 pt-5">
         <h1 className="text-xl font-bold">
           체성분 분석
         </h1>

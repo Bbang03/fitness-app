@@ -1256,21 +1256,14 @@ export default function InsightsPage() {
 
   return (
     <AppShell>
-      <header className="px-5 pt-10 pb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-400">
-          CHAGOK AI
-        </p>
-
-        <h1 className="mt-2 text-2xl font-bold tracking-tight">
+      <header className="px-5 pt-5 pb-6">
+        <h1 className="text-2xl font-bold tracking-tight">
           인사이트
         </h1>
 
         <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-          체성분 기록을 바탕으로
-          현재 상태와 앞으로의 변화를
-          보여주고, 운동·식단 기록은
-          최근 활동 요약으로 함께
-          확인합니다.
+          체성분 기록을 바탕으로 현재 상태와 앞으로의 변화를 보여주고,
+          운동·식단 기록은 최근 활동 요약으로 함께 확인합니다.
         </p>
       </header>
 

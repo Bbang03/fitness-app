@@ -841,12 +841,8 @@ export default function MealsPage() {
   return (
     <AppShell>
       {/* Header */}
-      <header className="apple-page-header">
+      <header className="px-5 pt-5 pb-6">
         <div>
-          <p className="apple-page-kicker">
-            오늘의 기록
-          </p>
-
           <h1 className="apple-page-title">
             식단
           </h1>

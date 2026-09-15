@@ -591,14 +591,10 @@ export default function RoutinesPage() {
   return (
     <AppShell>
       {/* Header */}
-      <header className="px-5 pt-10 pb-6">
+      <header className="px-5 pt-5 pb-6">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-xs font-medium text-blue-400">
-              WORKOUT
-            </p>
-
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight">
               운동
             </h1>
 
@@ -613,9 +609,7 @@ export default function RoutinesPage() {
             className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white transition-colors hover:bg-blue-500"
             aria-label="새 루틴 만들기"
           >
-            <Plus
-              size={20}
-            />
+            <Plus size={20} />
           </Link>
         </div>
       </header>
