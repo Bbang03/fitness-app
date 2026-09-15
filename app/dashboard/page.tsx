@@ -35,6 +35,7 @@ import {
 
 import AppShell from '@/components/AppShell';
 import ActivityCalendar from '@/components/dashboard/ActivityCalendar';
+import DailyCoachCard from '@/components/dashboard/DailyCoachCard';
 import GuardianProgressCard from '@/components/GuardianProgressCard';
 
 import {
@@ -44,6 +45,13 @@ import {
 import {
   predict,
 } from '@/lib/prediction';
+
+import {
+  buildDailyComment,
+  canShowDailyCommentPrediction,
+  completedWorkoutLogsWithinDays,
+  dailyCommentMealRecordStatus,
+} from '@/lib/dailyComment';
 
 import {
   buildCalendarDaySummaries,
@@ -819,38 +827,7 @@ export default function DashboardPage() {
   const weekLogs =
     useMemo(
       () => {
-        const now =
-          new Date();
-
-        return myLogs.filter(
-          (
-            log,
-          ) => {
-            const workoutDate =
-              new Date(
-                log.started_at,
-              );
-
-            const diffDays =
-              (
-                now.getTime() -
-                workoutDate.getTime()
-              ) /
-              (
-                1000 *
-                60 *
-                60 *
-                24
-              );
-
-            return (
-              diffDays >=
-                0 &&
-              diffDays <=
-                7
-            );
-          },
-        );
+        return completedWorkoutLogsWithinDays(myLogs, new Date(), 7);
       },
       [
         myLogs,
@@ -1095,8 +1072,7 @@ export default function DashboardPage() {
         log.date ===
         todayKey &&
         log.meal_type !== '간식' &&
-        log.items.length >
-          0,
+        log.items.some((item) => Boolean(normalizeMealNutrition(item))),
     );
 
   const todayMealCount =
@@ -1115,7 +1091,8 @@ export default function DashboardPage() {
         log,
       ) =>
         log.date ===
-        todayKey,
+        todayKey &&
+        Boolean(log.finished_at),
     ).length;
 
   const inbodyRecords =
@@ -1179,6 +1156,49 @@ export default function DashboardPage() {
             30,
         })
       : null;
+
+  const showDailyCommentPrediction = canShowDailyCommentPrediction({
+    today: todayKey,
+    measuredAt: latestInbody?.measured_at,
+    recordedNutritionDays: recentNutrition.recordedDays,
+    completedWorkoutVolumeKg: weeklyVolume,
+    confidence: prediction?.confidence,
+  });
+
+  const dailyComment = buildDailyComment({
+    date: todayKey,
+    mealLogs: myMealLogs,
+    workoutLogs: myLogs,
+    targets: calendarGoals,
+    latestMeasuredBodyComposition: latestInbody,
+    prediction: prediction && showDailyCommentPrediction
+      ? {
+          horizonDays: 30,
+          predictedWeightKg:
+            prediction.predictedWeight_kg,
+          predictedSkeletalMuscleKg:
+            prediction.predictedSkeletal_kg,
+          predictedBodyFatKg:
+            prediction.predictedBodyFatKg,
+          predictedBodyFatPct:
+            prediction.predictedBodyFatPct,
+          deltaWeightKg:
+            prediction.deltaWeight_kg,
+          deltaSkeletalMuscleKg:
+            prediction.deltaSkeletal_kg,
+          deltaBodyFatKg:
+            prediction.deltaBodyFatKg,
+          deltaBodyFatPct:
+            prediction.deltaBodyFatPct,
+          confidence: prediction.confidence,
+          modelVersion: prediction.modelVersion,
+          baselineMeasuredAt:
+            latestInbody?.measured_at,
+        }
+      : null,
+    mealRecordStatus:
+      dailyCommentMealRecordStatus(todayKey, myMealLogs),
+  });
 
   const proteinGoal =
     latestInbody
@@ -1355,6 +1375,8 @@ export default function DashboardPage() {
     <AppShell>
       <main className="apple-page-header">
         <GuardianProgressCard progress={guardianProgress} logs={myLogs} />
+
+        <DailyCoachCard report={dailyComment} />
 
         <section className="mt-6" aria-label="오늘의 식단과 섭취량">
           <Link href="/meals" className="apple-card block p-5">

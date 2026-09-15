@@ -623,6 +623,10 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_SUPABASE_PUBLISHABLE_KEY
 # MFDS
 MFDS_SERVICE_KEY=YOUR_MFDS_SERVICE_KEY
 
+# Daily coach copy polishing (optional; the rule-based copy is the fallback)
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+GEMINI_DAILY_COMMENT_MODEL=gemini-3.5-flash-lite
+
 # FatSecret
 # 실제 코드에서 사용하는 환경 변수명에 맞춰 팀 credential을 설정하세요.
 # Client secret은 절대 NEXT_PUBLIC_* 변수로 노출하지 않습니다.
@@ -639,8 +643,14 @@ INBODY_OCR_URL=http://127.0.0.1:8001
 Supabase service_role / secret key
 FatSecret client secret
 MFDS private service credentials
+GEMINI_API_KEY
 기타 server-side secret
 ```
+
+`GEMINI_API_KEY`는 서버의 `/api/daily-comment`에서만 사용합니다. 대시보드는
+식단·운동 원본 로그나 개인정보를 전송하지 않고, 규칙 엔진이 만든 최소 판정과
+기본 문장만 보내 표현을 다듬습니다. 키가 없거나 Gemini가 실패하거나 응답
+검증을 통과하지 못하면 규칙 기반 문장을 그대로 보여줍니다.
 
 ---
 
@@ -661,6 +671,22 @@ Production build check:
 ```bash
 npm run build
 ```
+
+### Run the daily coaching comment demo
+
+The rule-based daily comment core can be demonstrated without Supabase or a
+running web server. Node.js 22.6 or newer is required for native TypeScript
+stripping.
+
+```bash
+npm run demo:daily-comment
+npm run test:daily-comment
+```
+
+The demo combines a completed workout, a recorded meal, a real measured
+InBody snapshot, and a separate 30-day prediction. It prints the coaching
+comment, evidence, next action, and the explicit measured-versus-predicted
+body-composition note.
 
 ---
 
