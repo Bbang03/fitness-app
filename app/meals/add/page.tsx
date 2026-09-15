@@ -10,7 +10,12 @@ import {
   type ComponentType,
   type ReactNode,
 } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+
+import {
+  useRouter,
+  useSearchParams,
+} from 'next/navigation';
+
 import {
   ChevronLeft,
   Database,
@@ -20,23 +25,34 @@ import {
   X,
 } from 'lucide-react';
 
-import { useStore } from '@/lib/store';
-import { createClient } from '@/lib/supabase/client';
-import PhotoMealScanner from '@/components/PhotoMealScanner';
+import {
+  useStore,
+} from '@/lib/store';
+
+import {
+  createClient,
+} from '@/lib/supabase/client';
+
+import PhotoMealScanner
+  from '@/components/PhotoMealScanner';
+
 import {
   calcNutrition,
   searchFoods,
   type FoodItem,
 } from '@/lib/foodData';
+
 import {
   getInitialPortionGrams,
   getPortionSuggestion,
 } from '@/lib/portion';
+
 import type {
   MealItem,
   MealLog,
   MealType,
 } from '@/lib/types';
+
 import {
   canStartMealSave,
   MEAL_NUTRITION_LIMITS,
@@ -48,12 +64,14 @@ import {
   validateMealItems,
 } from '@/lib/mealSave';
 
+
 interface OpenFoodFactsFood {
   id: string;
   name: string;
   brand: string;
   dataType: string;
   servingG: number;
+
   per100g: {
     kcal: number;
     carbs_g: number;
@@ -62,6 +80,7 @@ interface OpenFoodFactsFood {
   };
 }
 
+
 interface MfdsFood {
   id: string;
   name: string;
@@ -69,70 +88,167 @@ interface MfdsFood {
   brand: string;
   foodGroup: string;
   foodOrigin: string;
-  servingG: number | null;
-  servingDescription: string;
+
+  servingG:
+    number | null;
+
+  servingDescription:
+    string;
+
   per100g: {
-    kcal: number | null;
-    carbs_g: number | null;
-    protein_g: number | null;
-    fat_g: number | null;
-    sugar_g: number | null;
-    sodium_mg: number | null;
-    saturated_fat_g: number | null;
+    kcal:
+      number | null;
+
+    carbs_g:
+      number | null;
+
+    protein_g:
+      number | null;
+
+    fat_g:
+      number | null;
+
+    sugar_g:
+      number | null;
+
+    sodium_mg:
+      number | null;
+
+    saturated_fat_g:
+      number | null;
   };
+
   total: {
-    kcal: number | null;
-    carbs_g: number | null;
-    protein_g: number | null;
-    fat_g: number | null;
-    sugar_g: number | null;
-    sodium_mg: number | null;
-    saturated_fat_g: number | null;
+    kcal:
+      number | null;
+
+    carbs_g:
+      number | null;
+
+    protein_g:
+      number | null;
+
+    fat_g:
+      number | null;
+
+    sugar_g:
+      number | null;
+
+    sodium_mg:
+      number | null;
+
+    saturated_fat_g:
+      number | null;
   } | null;
-  macroComplete: boolean;
-  source: 'MFDS' | 'CACHE';
-  researchDate: string | null;
-  updatedDate: string | null;
+
+  macroComplete:
+    boolean;
+
+  source:
+    'MFDS' |
+    'CACHE';
+
+  researchDate:
+    string | null;
+
+  updatedDate:
+    string | null;
+
   supplement?: {
-    sourceName: string;
-    sourceUrl: string | null;
-    carbs_g: number | null;
-    protein_g: number | null;
-    fat_g: number | null;
+    sourceName:
+      string;
+
+    sourceUrl:
+      string | null;
+
+    carbs_g:
+      number | null;
+
+    protein_g:
+      number | null;
+
+    fat_g:
+      number | null;
+
     status:
       | 'verified_supplement'
       | 'manual_verified'
       | 'ai_estimated';
-    confidence: number | null;
-    energyGapRatio: number | null;
+
+    confidence:
+      number | null;
+
+    energyGapRatio:
+      number | null;
   } | null;
 }
 
+
 interface BrandFoodOverride {
-  external_id: string | null;
-  brand_name: string;
-  menu_name: string;
-  serving_desc: string;
-  serving_g: number | null;
-  kcal: number;
-  carbs_g: number | null;
-  protein_g: number | null;
-  fat_g: number | null;
-  sugar_g?: number | null;
-  saturated_fat_g?: number | null;
-  sodium_mg?: number | null;
-  source_name: string;
-  source_url: string | null;
-  source_checked_at: string | null;
-  source_updated_at?: string | null;
+  external_id:
+    string | null;
+
+  brand_name:
+    string;
+
+  menu_name:
+    string;
+
+  serving_desc:
+    string;
+
+  serving_g:
+    number | null;
+
+  kcal:
+    number;
+
+  carbs_g:
+    number | null;
+
+  protein_g:
+    number | null;
+
+  fat_g:
+    number | null;
+
+  sugar_g?:
+    number | null;
+
+  saturated_fat_g?:
+    number | null;
+
+  sodium_mg?:
+    number | null;
+
+  source_name:
+    string;
+
+  source_url:
+    string | null;
+
+  source_checked_at:
+    string | null;
+
+  source_updated_at?:
+    string | null;
+
   macro_status:
     | 'incomplete'
     | 'verified_supplement'
     | 'manual_verified'
     | 'ai_estimated';
-  macro_confidence: number | null;
-  macro_provenance?: Record<string, unknown> | null;
+
+  macro_confidence:
+    number | null;
+
+  macro_provenance?:
+    Record<
+      string,
+      unknown
+    > | null;
 }
+
 
 interface FatSecretSearchFood {
   id: string;
@@ -142,6 +258,7 @@ interface FatSecretSearchFood {
   description: string;
   isBrand: boolean;
 }
+
 
 interface FatSecretServing {
   id: string;
@@ -156,83 +273,157 @@ interface FatSecretServing {
   isDefault: boolean;
 }
 
+
 interface FatSecretFoodDetail {
   id: string;
   name: string;
   brand: string;
   foodType: string;
   isBrand: boolean;
-  servings: FatSecretServing[];
+  servings:
+    FatSecretServing[];
 }
 
-interface AiMacroEstimate {
-  method: string;
 
-  confidenceScore: number;
+interface AiMacroEstimate {
+  method:
+    string;
+
+  confidenceScore:
+    number;
 
   validation: {
-    carbMaePer100g: number | null;
-    fatMaePer100g: number | null;
-    evaluated: number;
-    strategy: string;
+    carbMaePer100g:
+      number | null;
+
+    fatMaePer100g:
+      number | null;
+
+    evaluated:
+      number;
+
+    strategy:
+      string;
   };
 
   per100g: {
-    carbs_g: number;
-    fat_g: number;
+    carbs_g:
+      number;
+
+    fat_g:
+      number;
   };
 
   total: {
-    carbs_g: number;
-    fat_g: number;
+    carbs_g:
+      number;
+
+    fat_g:
+      number;
   } | null;
 
-  neighbors: Array<{
-    brand: string;
-    name: string;
-    distance: number;
-    carbs: number;
-    fat: number;
-  }>;
+  neighbors:
+    Array<{
+      brand: string;
+      name: string;
+      distance: number;
+      carbs: number;
+      fat: number;
+    }>;
 
   meta?: {
-    source?: string;
-    cached?: boolean;
-    cachedToDatabase?: boolean;
-    model?: string | null;
-    reasoning?: string;
-    energyGapRatio?: number | null;
-    officialMissing?: string[];
+    source?:
+      string;
+
+    cached?:
+      boolean;
+
+    cachedToDatabase?:
+      boolean;
+
+    model?:
+      string | null;
+
+    reasoning?:
+      string;
+
+    energyGapRatio?:
+      number | null;
+
+    officialMissing?:
+      string[];
   };
 }
 
+
 type AddItem = {
-  food_name: string;
-  serving: string;
-  kcal: number;
-  carbs_g: number;
-  protein_g: number;
-  fat_g: number;
-  nutrition_status?: string;
-  nutrition_confidence?: number | null;
-  nutrition_source?: string | null;
-  nutrition_meta?: Record<string, unknown>;
+  food_name:
+    string;
+
+  serving:
+    string;
+
+  kcal:
+    number;
+
+  carbs_g:
+    number;
+
+  protein_g:
+    number;
+
+  fat_g:
+    number;
+
+  nutrition_status?:
+    string;
+
+  nutrition_confidence?:
+    number | null;
+
+  nutrition_source?:
+    string | null;
+
+  nutrition_meta?:
+    Record<
+      string,
+      unknown
+    >;
 };
 
-const MEAL_TYPES: MealType[] = [
-  '아침',
-  '점심',
-  '저녁',
-  '간식',
-];
+
+type ServingDisplayUnit =
+  'g' |
+  'ml';
+
+
+const MEAL_TYPES:
+  MealType[] = [
+    '아침',
+    '점심',
+    '저녁',
+    '간식',
+  ];
+
 
 function localTodayKey() {
-  return new Date().toLocaleDateString('en-CA');
+  return new Date()
+    .toLocaleDateString(
+      'en-CA',
+    );
 }
 
-function roundOne(value: number) {
-  return Math.round(value * 10) / 10;
+
+function roundOne(
+  value: number,
+) {
+  return (
+    Math.round(
+      value * 10,
+    ) / 10
+  );
 }
+
 
 function scaleNutrition(
   nutrition: {
@@ -241,38 +432,95 @@ function scaleNutrition(
     protein_g: number;
     fat_g: number;
   },
-  multiplier: number,
+
+  multiplier:
+    number,
 ) {
   return {
-    kcal: Math.round(nutrition.kcal * multiplier),
-    carbs_g: roundOne(nutrition.carbs_g * multiplier),
-    protein_g: roundOne(nutrition.protein_g * multiplier),
-    fat_g: roundOne(nutrition.fat_g * multiplier),
+    kcal:
+      Math.round(
+        nutrition.kcal *
+        multiplier,
+      ),
+
+    carbs_g:
+      roundOne(
+        nutrition.carbs_g *
+        multiplier,
+      ),
+
+    protein_g:
+      roundOne(
+        nutrition.protein_g *
+        multiplier,
+      ),
+
+    fat_g:
+      roundOne(
+        nutrition.fat_g *
+        multiplier,
+      ),
   };
 }
 
-async function readJson(response: Response) {
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+
+async function readJson(
+  response:
+    Response,
+) {
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      `HTTP ${response.status}`,
+    );
   }
+
   return response.json();
 }
 
-function nullableNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+
+function nullableNumber(
+  value:
+    unknown,
+): number | null {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return null;
+  }
+
+  const parsed =
+    Number(
+      value,
+    );
+
+  return Number.isFinite(
+    parsed,
+  )
+    ? parsed
+    : null;
 }
 
+
 function isTrustedMacroStatus(
-  status: BrandFoodOverride['macro_status'],
+  status:
+    BrandFoodOverride[
+      'macro_status'
+    ],
 ) {
   return (
-    status === 'verified_supplement' ||
-    status === 'manual_verified' ||
-    status === 'ai_estimated'
+    status ===
+      'verified_supplement' ||
+    status ===
+      'manual_verified' ||
+    status ===
+      'ai_estimated'
   );
 }
+
 
 function calculateEnergyGapRatio({
   kcal,
@@ -280,10 +528,17 @@ function calculateEnergyGapRatio({
   protein_g,
   fat_g,
 }: {
-  kcal: number | null;
-  carbs_g: number | null;
-  protein_g: number | null;
-  fat_g: number | null;
+  kcal:
+    number | null;
+
+  carbs_g:
+    number | null;
+
+  protein_g:
+    number | null;
+
+  fat_g:
+    number | null;
 }) {
   if (
     kcal === null ||
@@ -300,36 +555,77 @@ function calculateEnergyGapRatio({
     protein_g * 4 +
     fat_g * 9;
 
-  return Math.abs(
-    macroKcal - kcal,
-  ) / kcal;
+  return (
+    Math.abs(
+      macroKcal -
+      kcal,
+    ) /
+    kcal
+  );
 }
 
+
 function energyConfidence(
-  gapRatio: number,
+  gapRatio:
+    number,
 ) {
-  if (gapRatio <= 0.03) return 0.99;
-  if (gapRatio <= 0.06) return 0.95;
-  if (gapRatio <= 0.10) return 0.90;
-  if (gapRatio <= 0.12) return 0.80;
+  if (
+    gapRatio <=
+    0.03
+  ) {
+    return 0.99;
+  }
+
+  if (
+    gapRatio <=
+    0.06
+  ) {
+    return 0.95;
+  }
+
+  if (
+    gapRatio <=
+    0.1
+  ) {
+    return 0.9;
+  }
+
+  if (
+    gapRatio <=
+    0.12
+  ) {
+    return 0.8;
+  }
+
   return 0;
 }
 
+
 function validateSupplement(
-  food: MfdsFood,
-  override: BrandFoodOverride,
+  food:
+    MfdsFood,
+
+  override:
+    BrandFoodOverride,
 ) {
   if (
     !food.total ||
-    override.external_id !== food.id ||
+    override.external_id !==
+      food.id ||
     !isTrustedMacroStatus(
       override.macro_status,
     )
   ) {
     return {
-      passed: false,
-      confidence: 0,
-      energyGapRatio: null as number | null,
+      passed:
+        false,
+
+      confidence:
+        0,
+
+      energyGapRatio:
+        null as
+          number | null,
     };
   }
 
@@ -355,15 +651,18 @@ function validateSupplement(
     );
 
   const servingMatch =
-    food.servingG !== null &&
-    overrideServing !== null &&
+    food.servingG !==
+      null &&
+    overrideServing !==
+      null &&
     Math.abs(
       food.servingG -
       overrideServing,
     ) <=
       Math.max(
         5,
-        food.servingG * 0.05,
+        food.servingG *
+          0.05,
       );
 
   const overrideCarbs =
@@ -386,15 +685,18 @@ function validateSupplement(
       food.total.kcal,
 
     carbs_g:
-      food.total.carbs_g ??
+      food.total
+        .carbs_g ??
       overrideCarbs,
 
     protein_g:
-      food.total.protein_g ??
+      food.total
+        .protein_g ??
       overrideProtein,
 
     fat_g:
-      food.total.fat_g ??
+      food.total
+        .fat_g ??
       overrideFat,
   };
 
@@ -404,23 +706,28 @@ function validateSupplement(
     );
 
   const energyPassed =
-    gapRatio !== null &&
-    gapRatio <= 0.12;
+    gapRatio !==
+      null &&
+    gapRatio <=
+      0.12;
 
   const storedConfidence =
     nullableNumber(
-      override.macro_confidence,
+      override
+        .macro_confidence,
     );
 
   const computedConfidence =
-    gapRatio === null
+    gapRatio ===
+      null
       ? 0
       : energyConfidence(
           gapRatio,
         );
 
   const confidence =
-    storedConfidence === null
+    storedConfidence ===
+      null
       ? computedConfidence
       : Math.min(
           storedConfidence,
@@ -433,17 +740,23 @@ function validateSupplement(
       menuMatch &&
       servingMatch &&
       energyPassed &&
-      confidence >= 0.8,
+      confidence >=
+        0.8,
 
     confidence,
+
     energyGapRatio:
       gapRatio,
   };
 }
 
+
 function mergeMfdsSupplements(
-  foods: MfdsFood[],
-  overrides: BrandFoodOverride[],
+  foods:
+    MfdsFood[],
+
+  overrides:
+    BrandFoodOverride[],
 ): MfdsFood[] {
   const overrideByExternalId =
     new Map<
@@ -471,7 +784,9 @@ function mergeMfdsSupplements(
   }
 
   return foods.map(
-    (food) => {
+    (
+      food,
+    ) => {
       const override =
         overrideByExternalId.get(
           food.id,
@@ -483,6 +798,7 @@ function mergeMfdsSupplements(
       ) {
         return {
           ...food,
+
           supplement:
             null,
         };
@@ -499,6 +815,7 @@ function mergeMfdsSupplements(
       ) {
         return {
           ...food,
+
           supplement:
             null,
         };
@@ -520,19 +837,22 @@ function mergeMfdsSupplements(
         );
 
       const filledCarbs =
-        food.total.carbs_g ===
+        food.total
+          .carbs_g ===
           null &&
         overrideCarbs !==
           null;
 
       const filledProtein =
-        food.total.protein_g ===
+        food.total
+          .protein_g ===
           null &&
         overrideProtein !==
           null;
 
       const filledFat =
-        food.total.fat_g ===
+        food.total
+          .fat_g ===
           null &&
         overrideFat !==
           null;
@@ -541,15 +861,18 @@ function mergeMfdsSupplements(
         ...food.total,
 
         carbs_g:
-          food.total.carbs_g ??
+          food.total
+            .carbs_g ??
           overrideCarbs,
 
         protein_g:
-          food.total.protein_g ??
+          food.total
+            .protein_g ??
           overrideProtein,
 
         fat_g:
-          food.total.fat_g ??
+          food.total
+            .fat_g ??
           overrideFat,
       };
 
@@ -575,10 +898,12 @@ function mergeMfdsSupplements(
           usedSupplement
             ? {
                 sourceName:
-                  override.source_name,
+                  override
+                    .source_name,
 
                 sourceUrl:
-                  override.source_url,
+                  override
+                    .source_url,
 
                 carbs_g:
                   filledCarbs
@@ -596,16 +921,23 @@ function mergeMfdsSupplements(
                     : null,
 
                 status:
-                  override.macro_status ===
-                    'manual_verified'
+                  override
+                    .macro_status ===
+                  'manual_verified'
                     ? 'manual_verified'
-                    : 'verified_supplement',
+                    : override
+                          .macro_status ===
+                        'ai_estimated'
+                      ? 'ai_estimated'
+                      : 'verified_supplement',
 
                 confidence:
-                  validation.confidence,
+                  validation
+                    .confidence,
 
                 energyGapRatio:
-                  validation.energyGapRatio,
+                  validation
+                    .energyGapRatio,
               }
             : null,
       };
@@ -613,9 +945,13 @@ function mergeMfdsSupplements(
   );
 }
 
+
 function toPer100g(
-  value: number | null,
-  servingG: number | null,
+  value:
+    number | null,
+
+  servingG:
+    number | null,
 ) {
   if (
     value === null ||
@@ -626,13 +962,18 @@ function toPer100g(
   }
 
   return roundOne(
-    (value * 100) /
+    (
+      value *
+      100
+    ) /
       servingG,
   );
 }
 
+
 function brandFoodToCachedMfds(
-  row: BrandFoodOverride,
+  row:
+    BrandFoodOverride,
 ): MfdsFood {
   const servingG =
     nullableNumber(
@@ -672,7 +1013,8 @@ function brandFoodToCachedMfds(
 
     saturated_fat_g:
       nullableNumber(
-        row.saturated_fat_g,
+        row
+          .saturated_fat_g,
       ),
   };
 
@@ -701,7 +1043,8 @@ function brandFoodToCachedMfds(
     servingDescription:
       row.serving_desc ||
       (
-        servingG !== null
+        servingG !==
+        null
           ? `1개 (${servingG}g)`
           : '1회'
       ),
@@ -745,7 +1088,8 @@ function brandFoodToCachedMfds(
 
       saturated_fat_g:
         toPer100g(
-          total.saturated_fat_g,
+          total
+            .saturated_fat_g,
           servingG,
         ),
     },
@@ -756,13 +1100,22 @@ function brandFoodToCachedMfds(
       isTrustedMacroStatus(
         row.macro_status,
       ) &&
-      (nullableNumber(
-        row.macro_confidence,
-      ) ?? 0) >= 0.8 &&
-      total.kcal !== null &&
-      total.carbs_g !== null &&
-      total.protein_g !== null &&
-      total.fat_g !== null,
+      (
+        nullableNumber(
+          row
+            .macro_confidence,
+        ) ??
+        0
+      ) >=
+        0.8 &&
+      total.kcal !==
+        null &&
+      total.carbs_g !==
+        null &&
+      total.protein_g !==
+        null &&
+      total.fat_g !==
+        null,
 
     source:
       'CACHE',
@@ -771,8 +1124,10 @@ function brandFoodToCachedMfds(
       null,
 
     updatedDate:
-      row.source_updated_at ??
-      row.source_checked_at,
+      row
+        .source_updated_at ??
+      row
+        .source_checked_at,
 
     supplement:
       isTrustedMacroStatus(
@@ -799,30 +1154,38 @@ function brandFoodToCachedMfds(
 
             confidence:
               nullableNumber(
-                row.macro_confidence,
+                row
+                  .macro_confidence,
               ),
 
             energyGapRatio:
-              calculateEnergyGapRatio({
-                kcal:
-                  total.kcal,
+              calculateEnergyGapRatio(
+                {
+                  kcal:
+                    total.kcal,
 
-                carbs_g:
-                  total.carbs_g,
+                  carbs_g:
+                    total
+                      .carbs_g,
 
-                protein_g:
-                  total.protein_g,
+                  protein_g:
+                    total
+                      .protein_g,
 
-                fat_g:
-                  total.fat_g,
-              }),
+                  fat_g:
+                    total
+                      .fat_g,
+                },
+              ),
           }
         : null,
   };
 }
 
+
 function normalizeMealSearchQuery(
-  value: string,
+  value:
+    string,
 ) {
   const trimmed =
     value.trim();
@@ -845,8 +1208,10 @@ function normalizeMealSearchQuery(
   );
 }
 
+
 function normalizeSearchText(
-  value: string,
+  value:
+    string,
 ) {
   return value
     .replace(
@@ -858,51 +1223,192 @@ function normalizeSearchText(
     );
 }
 
+
+/*
+ * 음식의 제공량 문자열을 보고
+ * 화면에서 사용할 단위를 결정한다.
+ *
+ * MFDS:
+ * "100mL 기준 · 원본 1,000mL"
+ *
+ * FatSecret:
+ * metricUnit = "ml"
+ *
+ * 둘 다 mL로 처리한다.
+ */
+function getServingDisplayUnit(
+  servingDescription?:
+    string | null,
+
+  metricUnit?:
+    string | null,
+): ServingDisplayUnit {
+  const text =
+    `${
+      servingDescription ??
+      ''
+    } ${
+      metricUnit ??
+      ''
+    }`
+      .replace(
+        /,/g,
+        '',
+      )
+      .trim();
+
+  if (
+    /(?:ml|㎖|밀리리터)/i.test(
+      text,
+    )
+  ) {
+    return 'ml';
+  }
+
+  if (
+    /\d+(?:\.\d+)?\s*l\b/i.test(
+      text,
+    ) ||
+    /리터/i.test(
+      text,
+    )
+  ) {
+    return 'ml';
+  }
+
+  return 'g';
+}
+
+
+function servingUnitLabel(
+  unit:
+    ServingDisplayUnit,
+) {
+  return unit ===
+    'ml'
+    ? 'mL'
+    : 'g';
+}
+
+
 function NutritionGrid({
   kcal,
   carbs_g,
   protein_g,
   fat_g,
 }: {
-  kcal: number | null;
-  carbs_g: number | null;
-  protein_g: number | null;
-  fat_g: number | null;
+  kcal:
+    number | null;
+
+  carbs_g:
+    number | null;
+
+  protein_g:
+    number | null;
+
+  fat_g:
+    number | null;
 }) {
   const values = [
     {
-      label: 'kcal',
-      value: kcal === null ? '—' : Math.round(kcal),
-      className: 'text-white',
+      label:
+        'kcal',
+
+      value:
+        kcal ===
+        null
+          ? '—'
+          : Math.round(
+              kcal,
+            ),
+
+      className:
+        'text-white',
     },
+
     {
-      label: '탄수',
-      value: carbs_g === null ? '—' : `${roundOne(carbs_g)}g`,
-      className: 'text-amber-400',
+      label:
+        '탄수',
+
+      value:
+        carbs_g ===
+        null
+          ? '—'
+          : `${roundOne(
+              carbs_g,
+            )}g`,
+
+      className:
+        'text-amber-400',
     },
+
     {
-      label: '단백',
-      value: protein_g === null ? '—' : `${roundOne(protein_g)}g`,
-      className: 'text-blue-400',
+      label:
+        '단백',
+
+      value:
+        protein_g ===
+        null
+          ? '—'
+          : `${roundOne(
+              protein_g,
+            )}g`,
+
+      className:
+        'text-blue-400',
     },
+
     {
-      label: '지방',
-      value: fat_g === null ? '—' : `${roundOne(fat_g)}g`,
-      className: 'text-rose-400',
+      label:
+        '지방',
+
+      value:
+        fat_g ===
+        null
+          ? '—'
+          : `${roundOne(
+              fat_g,
+            )}g`,
+
+      className:
+        'text-rose-400',
     },
   ];
 
   return (
     <div className="grid grid-cols-4 gap-2">
-      {values.map(({ label, value, className }) => (
-        <div key={label} className="rounded-xl bg-zinc-950/60 py-3 text-center">
-          <p className={`text-sm font-bold ${className}`}>{value}</p>
-          <p className="mt-1 text-[9px] text-zinc-600">{label}</p>
-        </div>
-      ))}
+      {values.map(
+        ({
+          label,
+          value,
+          className,
+        }) => (
+          <div
+            key={
+              label
+            }
+            className="rounded-xl bg-zinc-950/60 py-3 text-center"
+          >
+            <p
+              className={`text-sm font-bold ${className}`}
+            >
+              {
+                value
+              }
+            </p>
+
+            <p className="mt-1 text-[9px] text-zinc-600">
+              {
+                label
+              }
+            </p>
+          </div>
+        ),
+      )}
     </div>
   );
 }
+
 
 function PortionAmountControls({
   name,
@@ -911,76 +1417,174 @@ function PortionAmountControls({
   grams,
   disabled,
   onChange,
+  unit,
 }: {
-  name: string;
-  servingDescription?: string | null;
-  defaultGrams: number;
-  grams: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-}) {
-  const amount = Math.max(1, Number(grams) || defaultGrams);
+  name:
+    string;
 
-  const suggestion = getPortionSuggestion({
-    name,
-    servingDescription,
-    defaultGrams,
-  });
+  servingDescription?:
+    string | null;
+
+  defaultGrams:
+    number;
+
+  grams:
+    string;
+
+  disabled:
+    boolean;
+
+  onChange:
+    (
+      value:
+        string,
+    ) => void;
+
+  unit?:
+    ServingDisplayUnit;
+}) {
+  const amount =
+    Math.max(
+      1,
+      Number(
+        grams,
+      ) ||
+        defaultGrams,
+    );
+
+  const suggestion =
+    getPortionSuggestion({
+      name,
+      servingDescription,
+      defaultGrams,
+    });
+
+  const displayUnit =
+    unit ??
+    getServingDisplayUnit(
+      servingDescription,
+    );
+
+  const unitText =
+    servingUnitLabel(
+      displayUnit,
+    );
 
   return (
     <div className="mb-4 space-y-2.5">
-      <div className="grid grid-cols-3 gap-2" aria-label="섭취량 빠른 선택">
-        {suggestion.presets.map((preset) => {
-          const active = Math.abs(amount - preset.grams) < 0.05;
+      <div
+        className="grid grid-cols-3 gap-2"
+        aria-label="섭취량 빠른 선택"
+      >
+        {suggestion.presets.map(
+          (
+            preset,
+          ) => {
+            const active =
+              Math.abs(
+                amount -
+                preset.grams,
+              ) <
+              0.05;
 
-          return (
-            <button
-              key={`${preset.label}-${preset.grams}`}
-              type="button"
-              disabled={disabled}
-              aria-pressed={active}
-              onClick={() => onChange(String(preset.grams))}
-              className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
-                active
-                  ? 'border-blue-600 bg-blue-600 text-white'
-                  : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-blue-500/60 hover:text-blue-300'
-              }`}
-            >
-              {preset.label}
-              <span className="mt-0.5 block text-[9px] opacity-70">
-                {roundOne(preset.grams)}g
-              </span>
-            </button>
-          );
-        })}
+            const presetLabel =
+              displayUnit ===
+              'ml'
+                ? preset.label
+                    .replace(
+                      /(\d+(?:\.\d+)?)\s*g\b/gi,
+                      '$1mL',
+                    )
+                : preset.label;
+
+            return (
+              <button
+                key={`${preset.label}-${preset.grams}`}
+                type="button"
+                disabled={
+                  disabled
+                }
+                aria-pressed={
+                  active
+                }
+                onClick={() =>
+                  onChange(
+                    String(
+                      preset.grams,
+                    ),
+                  )
+                }
+                className={`min-h-11 rounded-xl border px-2 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+                  active
+                    ? 'border-blue-600 bg-blue-600 text-white'
+                    : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-blue-500/60 hover:text-blue-300'
+                }`}
+              >
+                {
+                  presetLabel
+                }
+
+                <span className="mt-0.5 block text-[9px] opacity-70">
+                  {roundOne(
+                    preset.grams,
+                  )}
+                  {
+                    unitText
+                  }
+                </span>
+              </button>
+            );
+          },
+        )}
       </div>
 
       {suggestion.note && (
         <p className="rounded-xl border border-amber-500/15 bg-amber-500/[0.06] px-3 py-2 text-[10px] leading-relaxed text-amber-300/80">
-          {suggestion.note}
+          {
+            suggestion.note
+          }
         </p>
       )}
 
       <label className="flex items-center gap-3 text-xs text-zinc-500">
         직접 입력
+
         <span className="relative flex-1">
           <input
             type="number"
             min="1"
             max="10000"
             step="0.1"
-            value={grams}
-            disabled={disabled}
+            value={
+              grams
+            }
+            disabled={
+              disabled
+            }
             inputMode="decimal"
-            onChange={(event) => onChange(event.target.value)}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 pr-8 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
+            onChange={(
+              event,
+            ) =>
+              onChange(
+                event
+                  .target
+                  .value,
+              )
+            }
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5 pr-10 text-center text-sm font-semibold focus:border-blue-500 focus:outline-none"
           />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">g</span>
+
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-600">
+            {
+              unitText
+            }
+          </span>
         </span>
       </label>
     </div>
   );
 }
+
 
 function ManualNumber({
   id,
@@ -993,136 +1597,349 @@ function ManualNumber({
   error,
   required = false,
 }: {
-  id: string;
-  field: MealNutritionField;
-  label: string;
-  unit: string;
-  value: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-  error?: string;
-  required?: boolean;
+  id:
+    string;
+
+  field:
+    MealNutritionField;
+
+  label:
+    string;
+
+  unit:
+    string;
+
+  value:
+    string;
+
+  disabled:
+    boolean;
+
+  onChange:
+    (
+      value:
+        string,
+    ) => void;
+
+  error?:
+    string;
+
+  required?:
+    boolean;
 }) {
-  const errorId = `${id}-error`;
+  const errorId =
+    `${id}-error`;
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1.5 block text-xs text-zinc-500">
-        {label} <span className="text-zinc-700">({unit})</span>
+      <label
+        htmlFor={
+          id
+        }
+        className="mb-1.5 block text-xs text-zinc-500"
+      >
+        {
+          label
+        }{' '}
+
+        <span className="text-zinc-700">
+          (
+          {
+            unit
+          }
+          )
+        </span>
       </label>
+
       <input
-        id={id}
+        id={
+          id
+        }
         type="number"
-        value={value}
-        disabled={disabled}
-        required={required}
+        value={
+          value
+        }
+        disabled={
+          disabled
+        }
+        required={
+          required
+        }
         min="0"
-        max={MEAL_NUTRITION_LIMITS[field]}
+        max={
+          MEAL_NUTRITION_LIMITS[
+            field
+          ]
+        }
         step="0.1"
         inputMode="decimal"
-        onChange={(event) => onChange(event.target.value)}
-        aria-invalid={Boolean(error)}
-        aria-describedby={error ? errorId : undefined}
+        onChange={(
+          event,
+        ) =>
+          onChange(
+            event
+              .target
+              .value,
+          )
+        }
+        aria-invalid={
+          Boolean(
+            error,
+          )
+        }
+        aria-describedby={
+          error
+            ? errorId
+            : undefined
+        }
         className={`w-full rounded-xl border bg-zinc-950/60 px-3 py-3 text-sm text-white transition-colors focus:border-blue-500 focus:outline-none disabled:opacity-50 ${
-          error ? 'border-red-500/70' : 'border-zinc-800'
+          error
+            ? 'border-red-500/70'
+            : 'border-zinc-800'
         }`}
         placeholder="0"
       />
+
       {error && (
-        <p id={errorId} role="alert" className="mt-1 text-[11px] text-red-400">
-          {error}
+        <p
+          id={
+            errorId
+          }
+          role="alert"
+          className="mt-1 text-[11px] text-red-400"
+        >
+          {
+            error
+          }
         </p>
       )}
     </div>
   );
 }
 
+
 const MANUAL_INPUT_IDS = {
-  food_name: 'manual-food-name',
-  grams: 'manual-serving-size',
-  serving: 'manual-serving-note',
-  kcal: 'manual-kcal',
-  carbs_g: 'manual-carbs',
-  protein_g: 'manual-protein',
-  fat_g: 'manual-fat',
+  food_name:
+    'manual-food-name',
+
+  grams:
+    'manual-serving-size',
+
+  serving:
+    'manual-serving-note',
+
+  kcal:
+    'manual-kcal',
+
+  carbs_g:
+    'manual-carbs',
+
+  protein_g:
+    'manual-protein',
+
+  fat_g:
+    'manual-fat',
 } as const;
 
-type ManualField = keyof typeof MANUAL_INPUT_IDS;
-type ManualErrors = Partial<Record<ManualField, string>>;
 
-const MANUAL_SERVING_MIN_G = 0.1;
-const MANUAL_SERVING_MAX_G = 10_000;
+type ManualField =
+  keyof typeof MANUAL_INPUT_IDS;
+
+
+type ManualErrors =
+  Partial<
+    Record<
+      ManualField,
+      string
+    >
+  >;
+
+
+const MANUAL_SERVING_MIN_G =
+  0.1;
+
+const MANUAL_SERVING_MAX_G =
+  10_000;
+
 
 type ManualFormValues = {
-  name: string;
-  serving: string;
-  grams: string;
-  kcal: string;
-  carbs: string;
-  protein: string;
-  fat: string;
+  name:
+    string;
+
+  serving:
+    string;
+
+  grams:
+    string;
+
+  kcal:
+    string;
+
+  carbs:
+    string;
+
+  protein:
+    string;
+
+  fat:
+    string;
 };
 
-const DEFAULT_MANUAL_FORM: ManualFormValues = {
-  name: '',
-  serving: '',
-  grams: '100',
-  kcal: '',
-  carbs: '',
-  protein: '',
-  fat: '',
-};
 
-const MANUAL_FORM_FIELDS: readonly (keyof ManualFormValues)[] = [
-  'name',
-  'serving',
-  'grams',
-  'kcal',
-  'carbs',
-  'protein',
-  'fat',
-];
+const DEFAULT_MANUAL_FORM:
+  ManualFormValues = {
+    name:
+      '',
 
-function hasManualDraft(form: ManualFormValues) {
+    serving:
+      '',
+
+    grams:
+      '100',
+
+    kcal:
+      '',
+
+    carbs:
+      '',
+
+    protein:
+      '',
+
+    fat:
+      '',
+  };
+
+
+const MANUAL_FORM_FIELDS:
+  readonly (
+    keyof ManualFormValues
+  )[] = [
+    'name',
+    'serving',
+    'grams',
+    'kcal',
+    'carbs',
+    'protein',
+    'fat',
+  ];
+
+
+function hasManualDraft(
+  form:
+    ManualFormValues,
+) {
   return MANUAL_FORM_FIELDS.some(
-    (field) => form[field] !== DEFAULT_MANUAL_FORM[field],
+    (
+      field,
+    ) =>
+      form[
+        field
+      ] !==
+      DEFAULT_MANUAL_FORM[
+        field
+      ],
   );
 }
 
-function readManualDraft(key: string): ManualFormValues {
-  const draft: ManualFormValues = { ...DEFAULT_MANUAL_FORM };
 
-  if (typeof window === 'undefined') return draft;
+function readManualDraft(
+  key:
+    string,
+): ManualFormValues {
+  const draft:
+    ManualFormValues = {
+      ...DEFAULT_MANUAL_FORM,
+    };
+
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return draft;
+  }
 
   try {
-    const raw = window.sessionStorage.getItem(key);
-    if (!raw) return draft;
+    const raw =
+      window
+        .sessionStorage
+        .getItem(
+          key,
+        );
 
-    const parsed: unknown = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return draft;
+    if (!raw) {
+      return draft;
+    }
 
-    for (const field of MANUAL_FORM_FIELDS) {
-      const value = (parsed as Record<string, unknown>)[field];
-      if (typeof value === 'string') {
-        draft[field] = value;
+    const parsed:
+      unknown =
+      JSON.parse(
+        raw,
+      );
+
+    if (
+      !parsed ||
+      typeof parsed !==
+        'object'
+    ) {
+      return draft;
+    }
+
+    for (
+      const field
+      of MANUAL_FORM_FIELDS
+    ) {
+      const value =
+        (
+          parsed as
+            Record<
+              string,
+              unknown
+            >
+        )[
+          field
+        ];
+
+      if (
+        typeof value ===
+        'string'
+      ) {
+        draft[
+          field
+        ] =
+          value;
       }
     }
   } catch {
-    // Session storage can be unavailable in privacy mode. The form remains usable.
+    // sessionStorage 접근 실패는 무시.
   }
 
   return draft;
 }
 
-function clearMealDraftStorage(key: string) {
-  if (typeof window === 'undefined') return;
+
+function clearMealDraftStorage(
+  key:
+    string,
+) {
+  if (
+    typeof window ===
+    'undefined'
+  ) {
+    return;
+  }
 
   try {
-    window.sessionStorage.removeItem(key);
+    window
+      .sessionStorage
+      .removeItem(
+        key,
+      );
   } catch {
-    // Ignore storage errors; navigation and saving should still work.
+    // 저장소 오류가 있어도 화면 사용은 계속한다.
   }
 }
+
 
 function ManualForm({
   onAdd,
@@ -1130,279 +1947,736 @@ function ManualForm({
   draftKey,
   onDraftChange,
 }: {
-  onAdd: (item: AddItem) => boolean | Promise<boolean>;
-  disabled: boolean;
-  draftKey: string;
-  onDraftChange?: (hasDraft: boolean) => void;
+  onAdd:
+    (
+      item:
+        AddItem,
+    ) =>
+      | boolean
+      | Promise<boolean>;
+
+  disabled:
+    boolean;
+
+  draftKey:
+    string;
+
+  onDraftChange?:
+    (
+      hasDraft:
+        boolean,
+    ) => void;
 }) {
-  const [form, setForm] = useState<ManualFormValues>({
-    ...DEFAULT_MANUAL_FORM,
-  });
-  const [errors, setErrors] = useState<ManualErrors>({});
-  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
-  const submitLockRef = useRef(false);
+  const [
+    form,
+    setForm,
+  ] =
+    useState<
+      ManualFormValues
+    >({
+      ...DEFAULT_MANUAL_FORM,
+    });
 
-  useEffect(() => {
-    setForm(readManualDraft(draftKey));
-    setErrors({});
-    setHydratedKey(draftKey);
-  }, [draftKey]);
+  const [
+    errors,
+    setErrors,
+  ] =
+    useState<
+      ManualErrors
+    >({});
 
-  useEffect(() => {
-    if (hydratedKey !== draftKey) return;
+  const [
+    hydratedKey,
+    setHydratedKey,
+  ] =
+    useState<
+      string | null
+    >(null);
 
-    const hasDraft = hasManualDraft(form);
-    onDraftChange?.(hasDraft);
+  const submitLockRef =
+    useRef(
+      false,
+    );
 
-    if (typeof window === 'undefined') return;
+  useEffect(
+    () => {
+      setForm(
+        readManualDraft(
+          draftKey,
+        ),
+      );
 
-    try {
-      if (hasDraft) {
-        window.sessionStorage.setItem(draftKey, JSON.stringify(form));
-      } else {
-        window.sessionStorage.removeItem(draftKey);
+      setErrors(
+        {},
+      );
+
+      setHydratedKey(
+        draftKey,
+      );
+    },
+    [
+      draftKey,
+    ],
+  );
+
+  useEffect(
+    () => {
+      if (
+        hydratedKey !==
+        draftKey
+      ) {
+        return;
       }
-    } catch {
-      // Session storage can be unavailable in privacy mode. The form remains usable.
-    }
-  }, [draftKey, form, hydratedKey, onDraftChange]);
+
+      const hasDraft =
+        hasManualDraft(
+          form,
+        );
+
+      onDraftChange?.(
+        hasDraft,
+      );
+
+      if (
+        typeof window ===
+        'undefined'
+      ) {
+        return;
+      }
+
+      try {
+        if (
+          hasDraft
+        ) {
+          window
+            .sessionStorage
+            .setItem(
+              draftKey,
+              JSON.stringify(
+                form,
+              ),
+            );
+        } else {
+          window
+            .sessionStorage
+            .removeItem(
+              draftKey,
+            );
+        }
+      } catch {
+        // 무시.
+      }
+    },
+    [
+      draftKey,
+      form,
+      hydratedKey,
+      onDraftChange,
+    ],
+  );
 
   const update =
-    (field: keyof typeof form) =>
-    (value: string) => {
-      setForm((previous) => ({ ...previous, [field]: value }));
-      setErrors((previous) => {
-        const errorField = field === 'name' ? 'food_name' : field;
-        if (!previous[errorField as ManualField]) return previous;
-        const next = { ...previous };
-        delete next[errorField as ManualField];
-        return next;
-      });
+    (
+      field:
+        keyof typeof form,
+    ) =>
+    (
+      value:
+        string,
+    ) => {
+      setForm(
+        (
+          previous,
+        ) => ({
+          ...previous,
+
+          [
+            field
+          ]:
+            value,
+        }),
+      );
+
+      setErrors(
+        (
+          previous,
+        ) => {
+          const errorField =
+            field ===
+            'name'
+              ? 'food_name'
+              : field;
+
+          if (
+            !previous[
+              errorField as
+                ManualField
+            ]
+          ) {
+            return previous;
+          }
+
+          const next = {
+            ...previous,
+          };
+
+          delete next[
+            errorField as
+              ManualField
+          ];
+
+          return next;
+        },
+      );
     };
 
-  const handleAdd = async () => {
-    if (disabled || hydratedKey !== draftKey || submitLockRef.current) return;
-
-    const nextErrors: ManualErrors = {};
-    const gramsText = form.grams.trim();
-    const grams = gramsText === '' ? 100 : Number(gramsText);
-
-    if (!Number.isFinite(grams)) {
-      nextErrors.grams = '섭취량은 유한한 숫자로 입력해주세요.';
-    } else if (grams < MANUAL_SERVING_MIN_G) {
-      nextErrors.grams = '섭취량은 0보다 큰 값으로 입력해주세요.';
-    } else if (grams > MANUAL_SERVING_MAX_G) {
-      nextErrors.grams = '섭취량은 10,000g 이하로 입력해주세요.';
-    }
-
-    const servingNote = form.serving.trim();
-    const serving = servingNote
-      ? `${servingNote}${/\d+(?:\.\d+)?\s*g\b/i.test(servingNote) ? '' : ` (${grams}g)`}`
-      : `${grams}g`;
-    const nutritionErrors = validateMealItem(
-      {
-        food_name: form.name,
-        serving,
-        kcal: form.kcal,
-        carbs_g: form.carbs,
-        protein_g: form.protein,
-        fat_g: form.fat,
-      },
-      { allowBlankOptionalMacros: true },
-    );
-    Object.assign(nextErrors, nutritionErrors);
-
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      const firstInvalid = (
-        Object.keys(MANUAL_INPUT_IDS) as ManualField[]
-      ).find((field) => nextErrors[field]);
-      if (firstInvalid) {
-        document.getElementById(MANUAL_INPUT_IDS[firstInvalid])?.focus();
+  const handleAdd =
+    async () => {
+      if (
+        disabled ||
+        hydratedKey !==
+          draftKey ||
+        submitLockRef
+          .current
+      ) {
+        return;
       }
-      return;
-    }
 
-    submitLockRef.current = true;
+      const nextErrors:
+        ManualErrors = {};
 
-    try {
-      const saved = await onAdd({
-        food_name: form.name.trim(),
-        serving,
-        kcal: Number(form.kcal),
-        carbs_g: form.carbs.trim() ? Number(form.carbs) : 0,
-        protein_g: form.protein.trim() ? Number(form.protein) : 0,
-        fat_g: form.fat.trim() ? Number(form.fat) : 0,
-      });
+      const gramsText =
+        form
+          .grams
+          .trim();
 
-      if (saved) {
-        clearMealDraftStorage(draftKey);
+      const grams =
+        gramsText ===
+        ''
+          ? 100
+          : Number(
+              gramsText,
+            );
+
+      if (
+        !Number.isFinite(
+          grams,
+        )
+      ) {
+        nextErrors.grams =
+          '섭취량은 유한한 숫자로 입력해주세요.';
+      } else if (
+        grams <
+        MANUAL_SERVING_MIN_G
+      ) {
+        nextErrors.grams =
+          '섭취량은 0보다 큰 값으로 입력해주세요.';
+      } else if (
+        grams >
+        MANUAL_SERVING_MAX_G
+      ) {
+        nextErrors.grams =
+          '섭취량은 10,000g 이하로 입력해주세요.';
       }
-    } finally {
-      submitLockRef.current = false;
-    }
-  };
+
+      const servingNote =
+        form
+          .serving
+          .trim();
+
+      const serving =
+        servingNote
+          ? `${servingNote}${
+              /\d+(?:\.\d+)?\s*g\b/i.test(
+                servingNote,
+              )
+                ? ''
+                : ` (${grams}g)`
+            }`
+          : `${grams}g`;
+
+      const nutritionErrors =
+        validateMealItem(
+          {
+            food_name:
+              form.name,
+
+            serving,
+
+            kcal:
+              form.kcal,
+
+            carbs_g:
+              form.carbs,
+
+            protein_g:
+              form.protein,
+
+            fat_g:
+              form.fat,
+          },
+
+          {
+            allowBlankOptionalMacros:
+              true,
+          },
+        );
+
+      Object.assign(
+        nextErrors,
+        nutritionErrors,
+      );
+
+      if (
+        Object.keys(
+          nextErrors,
+        ).length >
+        0
+      ) {
+        setErrors(
+          nextErrors,
+        );
+
+        const firstInvalid =
+          (
+            Object.keys(
+              MANUAL_INPUT_IDS,
+            ) as
+              ManualField[]
+          ).find(
+            (
+              field,
+            ) =>
+              nextErrors[
+                field
+              ],
+          );
+
+        if (
+          firstInvalid
+        ) {
+          document
+            .getElementById(
+              MANUAL_INPUT_IDS[
+                firstInvalid
+              ],
+            )
+            ?.focus();
+        }
+
+        return;
+      }
+
+      submitLockRef.current =
+        true;
+
+      try {
+        const saved =
+          await onAdd({
+            food_name:
+              form
+                .name
+                .trim(),
+
+            serving,
+
+            kcal:
+              Number(
+                form.kcal,
+              ),
+
+            carbs_g:
+              form
+                .carbs
+                .trim()
+                ? Number(
+                    form.carbs,
+                  )
+                : 0,
+
+            protein_g:
+              form
+                .protein
+                .trim()
+                ? Number(
+                    form.protein,
+                  )
+                : 0,
+
+            fat_g:
+              form
+                .fat
+                .trim()
+                ? Number(
+                    form.fat,
+                  )
+                : 0,
+          });
+
+        if (
+          saved
+        ) {
+          clearMealDraftStorage(
+            draftKey,
+          );
+        }
+      } finally {
+        submitLockRef.current =
+          false;
+      }
+    };
 
   const inputClass =
     'w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3 text-sm text-white placeholder-zinc-700 transition-colors focus:border-blue-500 focus:outline-none disabled:opacity-50';
-  const textInputClass = (field: ManualField) =>
-    `${inputClass} ${errors[field] ? 'border-red-500/70' : ''}`;
+
+  const textInputClass =
+    (
+      field:
+        ManualField,
+    ) =>
+      `${inputClass} ${
+        errors[
+          field
+        ]
+          ? 'border-red-500/70'
+          : ''
+      }`;
 
   return (
     <div className="space-y-4">
       <div>
         <label
-          htmlFor={MANUAL_INPUT_IDS.food_name}
+          htmlFor={
+            MANUAL_INPUT_IDS
+              .food_name
+          }
           className="mb-1.5 block text-xs font-medium text-zinc-500"
         >
           음식 이름 *
         </label>
+
         <input
-          id={MANUAL_INPUT_IDS.food_name}
-          type="text"
-          value={form.name}
-          disabled={disabled}
-          required
-          onChange={(event) => update('name')(event.target.value)}
-          aria-invalid={Boolean(errors.food_name)}
-          aria-describedby={
-            errors.food_name ? `${MANUAL_INPUT_IDS.food_name}-error` : undefined
+          id={
+            MANUAL_INPUT_IDS
+              .food_name
           }
-          className={textInputClass('food_name')}
+          type="text"
+          value={
+            form.name
+          }
+          disabled={
+            disabled
+          }
+          required
+          onChange={(
+            event,
+          ) =>
+            update(
+              'name',
+            )(
+              event
+                .target
+                .value,
+            )
+          }
+          aria-invalid={
+            Boolean(
+              errors
+                .food_name,
+            )
+          }
+          aria-describedby={
+            errors
+              .food_name
+              ? `${MANUAL_INPUT_IDS.food_name}-error`
+              : undefined
+          }
+          className={
+            textInputClass(
+              'food_name',
+            )
+          }
           placeholder="예: 닭가슴살 샐러드"
         />
-        {errors.food_name && (
+
+        {errors
+          .food_name && (
           <p
             id={`${MANUAL_INPUT_IDS.food_name}-error`}
             role="alert"
             className="mt-1 text-[11px] text-red-400"
           >
-            {errors.food_name}
+            {
+              errors
+                .food_name
+            }
           </p>
         )}
       </div>
 
       <div>
         <label
-          htmlFor={MANUAL_INPUT_IDS.grams}
+          htmlFor={
+            MANUAL_INPUT_IDS
+              .grams
+          }
           className="mb-1.5 block text-xs font-medium text-zinc-500"
         >
           섭취량 (g)
         </label>
+
         <input
-          id={MANUAL_INPUT_IDS.grams}
+          id={
+            MANUAL_INPUT_IDS
+              .grams
+          }
           type="number"
-          min={MANUAL_SERVING_MIN_G}
-          max={MANUAL_SERVING_MAX_G}
+          min={
+            MANUAL_SERVING_MIN_G
+          }
+          max={
+            MANUAL_SERVING_MAX_G
+          }
           step="0.1"
           inputMode="decimal"
-          value={form.grams}
-          disabled={disabled}
-          onChange={(event) => update('grams')(event.target.value)}
-          aria-invalid={Boolean(errors.grams)}
-          aria-describedby={
-            errors.grams ? `${MANUAL_INPUT_IDS.grams}-error` : undefined
+          value={
+            form.grams
           }
-          className={textInputClass('grams')}
+          disabled={
+            disabled
+          }
+          onChange={(
+            event,
+          ) =>
+            update(
+              'grams',
+            )(
+              event
+                .target
+                .value,
+            )
+          }
+          aria-invalid={
+            Boolean(
+              errors.grams,
+            )
+          }
+          aria-describedby={
+            errors.grams
+              ? `${MANUAL_INPUT_IDS.grams}-error`
+              : undefined
+          }
+          className={
+            textInputClass(
+              'grams',
+            )
+          }
           placeholder="예: 200"
         />
-        {errors.grams && (
+
+        {errors
+          .grams && (
           <p
             id={`${MANUAL_INPUT_IDS.grams}-error`}
             role="alert"
             className="mt-1 text-[11px] text-red-400"
           >
-            {errors.grams}
+            {
+              errors.grams
+            }
           </p>
         )}
       </div>
 
       <div>
         <label
-          htmlFor={MANUAL_INPUT_IDS.serving}
+          htmlFor={
+            MANUAL_INPUT_IDS
+              .serving
+          }
           className="mb-1.5 block text-xs font-medium text-zinc-500"
         >
           제공량 메모 (선택)
         </label>
+
         <input
-          id={MANUAL_INPUT_IDS.serving}
-          type="text"
-          value={form.serving}
-          disabled={disabled}
-          onChange={(event) => update('serving')(event.target.value)}
-          aria-invalid={Boolean(errors.serving)}
-          aria-describedby={
-            errors.serving ? `${MANUAL_INPUT_IDS.serving}-error` : undefined
+          id={
+            MANUAL_INPUT_IDS
+              .serving
           }
-          className={textInputClass('serving')}
+          type="text"
+          value={
+            form.serving
+          }
+          disabled={
+            disabled
+          }
+          onChange={(
+            event,
+          ) =>
+            update(
+              'serving',
+            )(
+              event
+                .target
+                .value,
+            )
+          }
+          aria-invalid={
+            Boolean(
+              errors.serving,
+            )
+          }
+          aria-describedby={
+            errors.serving
+              ? `${MANUAL_INPUT_IDS.serving}-error`
+              : undefined
+          }
+          className={
+            textInputClass(
+              'serving',
+            )
+          }
           placeholder="예: 닭가슴살 1팩"
         />
-        {errors.serving && (
+
+        {errors
+          .serving && (
           <p
             id={`${MANUAL_INPUT_IDS.serving}-error`}
             role="alert"
             className="mt-1 text-[11px] text-red-400"
           >
-            {errors.serving}
+            {
+              errors
+                .serving
+            }
           </p>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <ManualNumber
-          id={MANUAL_INPUT_IDS.kcal}
+          id={
+            MANUAL_INPUT_IDS
+              .kcal
+          }
           field="kcal"
           label="칼로리"
           unit="kcal"
-          value={form.kcal}
-          disabled={disabled}
+          value={
+            form.kcal
+          }
+          disabled={
+            disabled
+          }
           required
-          onChange={update('kcal')}
-          error={errors.kcal}
+          onChange={
+            update(
+              'kcal',
+            )
+          }
+          error={
+            errors.kcal
+          }
         />
+
         <ManualNumber
-          id={MANUAL_INPUT_IDS.carbs_g}
+          id={
+            MANUAL_INPUT_IDS
+              .carbs_g
+          }
           field="carbs_g"
           label="탄수화물"
           unit="g"
-          value={form.carbs}
-          disabled={disabled}
-          onChange={update('carbs')}
-          error={errors.carbs_g}
+          value={
+            form.carbs
+          }
+          disabled={
+            disabled
+          }
+          onChange={
+            update(
+              'carbs',
+            )
+          }
+          error={
+            errors
+              .carbs_g
+          }
         />
+
         <ManualNumber
-          id={MANUAL_INPUT_IDS.protein_g}
+          id={
+            MANUAL_INPUT_IDS
+              .protein_g
+          }
           field="protein_g"
           label="단백질"
           unit="g"
-          value={form.protein}
-          disabled={disabled}
-          onChange={update('protein')}
-          error={errors.protein_g}
+          value={
+            form.protein
+          }
+          disabled={
+            disabled
+          }
+          onChange={
+            update(
+              'protein',
+            )
+          }
+          error={
+            errors
+              .protein_g
+          }
         />
+
         <ManualNumber
-          id={MANUAL_INPUT_IDS.fat_g}
+          id={
+            MANUAL_INPUT_IDS
+              .fat_g
+          }
           field="fat_g"
           label="지방"
           unit="g"
-          value={form.fat}
-          disabled={disabled}
-          onChange={update('fat')}
-          error={errors.fat_g}
+          value={
+            form.fat
+          }
+          disabled={
+            disabled
+          }
+          onChange={
+            update(
+              'fat',
+            )
+          }
+          error={
+            errors
+              .fat_g
+          }
         />
       </div>
 
       <button
         type="button"
-        onClick={handleAdd}
-        disabled={disabled || hydratedKey !== draftKey}
+        onClick={
+          handleAdd
+        }
+        disabled={
+          disabled ||
+          hydratedKey !==
+            draftKey
+        }
         className="w-full rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white transition-colors hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600"
       >
-        {disabled ? '저장 중...' : '식사에 추가'}
+        {disabled
+          ? '저장 중...'
+          : '식사에 추가'}
       </button>
     </div>
   );
 }
+
 
 function SetSearchCard({
   baseQuery,
@@ -1410,10 +2684,17 @@ function SetSearchCard({
   onSearchSide,
   onSearchDrink,
 }: {
-  baseQuery: string;
-  onSearchBurger: () => void;
-  onSearchSide: () => void;
-  onSearchDrink: () => void;
+  baseQuery:
+    string;
+
+  onSearchBurger:
+    () => void;
+
+  onSearchSide:
+    () => void;
+
+  onSearchDrink:
+    () => void;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-surface)]">
@@ -1425,7 +2706,10 @@ function SetSearchCard({
             </p>
 
             <h3 className="mt-1 text-base font-bold text-[var(--color-ink)]">
-              {baseQuery} 세트
+              {
+                baseQuery
+              }{' '}
+              세트
             </h3>
           </div>
 
@@ -1454,7 +2738,9 @@ function SetSearchCard({
           </span>
 
           <span className="mt-1 block truncate text-[9px] text-[var(--color-ink-tertiary)]">
-            {baseQuery}
+            {
+              baseQuery
+            }
           </span>
         </button>
 
@@ -1494,74 +2780,203 @@ function SetSearchCard({
   );
 }
 
+
 function FoodRow({
   food,
   onAdd,
   disabled,
 }: {
-  food: FoodItem;
-  onAdd: (item: AddItem) => void;
-  disabled: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const initialGrams = getInitialPortionGrams({
-    name: food.name,
-    servingDescription: food.serving_desc,
-    defaultGrams: food.serving_g,
-  });
-  const [grams, setGrams] = useState(String(initialGrams));
+  food:
+    FoodItem;
 
-  const amount = Math.max(1, Number(grams) || initialGrams);
-  const nutrition = calcNutrition(food, amount);
-  const defaultNutrition = calcNutrition(food, food.serving_g);
+  onAdd:
+    (
+      item:
+        AddItem,
+    ) => void;
+
+  disabled:
+    boolean;
+}) {
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      false,
+    );
+
+  const servingUnit =
+    getServingDisplayUnit(
+      food.serving_desc,
+    );
+
+  const unitText =
+    servingUnitLabel(
+      servingUnit,
+    );
+
+  const initialGrams =
+    getInitialPortionGrams({
+      name:
+        food.name,
+
+      servingDescription:
+        food.serving_desc,
+
+      defaultGrams:
+        food.serving_g,
+    });
+
+  const [
+    grams,
+    setGrams,
+  ] =
+    useState(
+      String(
+        initialGrams,
+      ),
+    );
+
+  const amount =
+    Math.max(
+      1,
+      Number(
+        grams,
+      ) ||
+        initialGrams,
+    );
+
+  const nutrition =
+    calcNutrition(
+      food,
+      amount,
+    );
+
+  const defaultNutrition =
+    calcNutrition(
+      food,
+      food.serving_g,
+    );
 
   return (
     <article className="border-b border-zinc-800/50 last:border-0">
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() =>
+          setExpanded(
+            (
+              value,
+            ) =>
+              !value,
+          )
+        }
         className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-zinc-800/30"
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{food.name}</p>
+          <p className="truncate text-sm font-medium">
+            {
+              food.name
+            }
+          </p>
+
           <p className="mt-1 text-xs text-zinc-600">
-            {food.serving_desc} · {Math.round(defaultNutrition.kcal)} kcal
+            {
+              food
+                .serving_desc
+            }{' '}
+            ·{' '}
+            {Math.round(
+              defaultNutrition
+                .kcal,
+            )}{' '}
+            kcal
           </p>
         </div>
+
         <div className="text-right">
-          <p className="text-xs font-semibold text-zinc-400">{Math.round(defaultNutrition.kcal)} kcal</p>
-          <p className="mt-1 text-[10px] text-zinc-600">단 {roundOne(defaultNutrition.protein_g)}g</p>
+          <p className="text-xs font-semibold text-zinc-400">
+            {Math.round(
+              defaultNutrition
+                .kcal,
+            )}{' '}
+            kcal
+          </p>
+
+          <p className="mt-1 text-[10px] text-zinc-600">
+            단{' '}
+            {roundOne(
+              defaultNutrition
+                .protein_g,
+            )}
+            g
+          </p>
         </div>
+
         <Plus
-          size={16}
-          className={`flex-shrink-0 text-blue-400 transition-transform ${expanded ? 'rotate-45' : ''}`}
+          size={
+            16
+          }
+          className={`flex-shrink-0 text-blue-400 transition-transform ${
+            expanded
+              ? 'rotate-45'
+              : ''
+          }`}
         />
       </button>
 
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <PortionAmountControls
-            name={food.name}
-            servingDescription={food.serving_desc}
-            defaultGrams={food.serving_g}
-            grams={grams}
-            disabled={disabled}
-            onChange={setGrams}
+            name={
+              food.name
+            }
+            servingDescription={
+              food
+                .serving_desc
+            }
+            defaultGrams={
+              food.serving_g
+            }
+            grams={
+              grams
+            }
+            disabled={
+              disabled
+            }
+            onChange={
+              setGrams
+            }
+            unit={
+              servingUnit
+            }
           />
-          <NutritionGrid {...nutrition} />
+
+          <NutritionGrid
+            {...nutrition}
+          />
+
           <button
             type="button"
-            disabled={disabled}
+            disabled={
+              disabled
+            }
             onClick={() =>
               onAdd({
-                food_name: food.name,
-                serving: `${amount}g`,
+                food_name:
+                  food.name,
+
+                serving:
+                  `${amount}${unitText}`,
+
                 ...nutrition,
               })
             }
             className="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white disabled:bg-zinc-800 disabled:text-zinc-600"
           >
-            {disabled ? '저장 중...' : '이 음식 추가'}
+            {disabled
+              ? '저장 중...'
+              : '이 음식 추가'}
           </button>
         </div>
       )}
@@ -1569,23 +2984,51 @@ function FoodRow({
   );
 }
 
+
 function MfdsFoodRow({
   food,
   onAdd,
   disabled,
   autoEstimate,
 }: {
-  food: MfdsFood;
-  onAdd: (item: AddItem) => void;
-  disabled: boolean;
-  autoEstimate: boolean;
+  food:
+    MfdsFood;
+
+  onAdd:
+    (
+      item:
+        AddItem,
+    ) => void;
+
+  disabled:
+    boolean;
+
+  autoEstimate:
+    boolean;
 }) {
-  const [expanded, setExpanded] =
-    useState(false);
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      false,
+    );
+
+  const servingUnit =
+    getServingDisplayUnit(
+      food
+        .servingDescription,
+    );
+
+  const unitText =
+    servingUnitLabel(
+      servingUnit,
+    );
 
   const defaultServingG =
     food.servingG &&
-    food.servingG > 0
+    food.servingG >
+      0
       ? food.servingG
       : 100;
 
@@ -1593,25 +3036,41 @@ function MfdsFoodRow({
     getInitialPortionGrams({
       name:
         `${food.brand} ${food.name}`,
+
       servingDescription:
-        food.servingDescription,
+        food
+          .servingDescription,
+
       defaultGrams:
         defaultServingG,
     });
 
-  const [grams, setGrams] =
+  const [
+    grams,
+    setGrams,
+  ] =
     useState(
       String(
         initialGrams,
       ),
     );
 
-  const [manual, setManual] =
+  const [
+    manual,
+    setManual,
+  ] =
     useState({
-      kcal: '',
-      carbs: '',
-      protein: '',
-      fat: '',
+      kcal:
+        '',
+
+      carbs:
+        '',
+
+      protein:
+        '',
+
+      fat:
+        '',
     });
 
   const [
@@ -1626,16 +3085,22 @@ function MfdsFoodRow({
     aiLoading,
     setAiLoading,
   ] =
-    useState(false);
+    useState(
+      false,
+    );
 
   const [
     aiError,
     setAiError,
   ] =
-    useState('');
+    useState(
+      '',
+    );
 
   const autoAttemptedRef =
-    useRef(false);
+    useRef(
+      false,
+    );
 
   const amount =
     Math.max(
@@ -1645,6 +3110,7 @@ function MfdsFoodRow({
           grams,
         ) ||
           initialGrams,
+
         10000,
       ),
     );
@@ -1656,29 +3122,32 @@ function MfdsFoodRow({
   const base =
     food.total;
 
-  const manualNumber = (
-    value: string,
-  ) => {
-    if (
-      !value.trim()
-    ) {
-      return null;
-    }
+  const manualNumber =
+    (
+      value:
+        string,
+    ) => {
+      if (
+        !value.trim()
+      ) {
+        return null;
+      }
 
-    const parsed =
-      Number(
-        value,
-      );
+      const parsed =
+        Number(
+          value,
+        );
 
-    return (
-      Number.isFinite(
-        parsed,
-      ) &&
-      parsed >= 0
-    )
-      ? parsed
-      : null;
-  };
+      return (
+        Number.isFinite(
+          parsed,
+        ) &&
+        parsed >=
+          0
+      )
+        ? parsed
+        : null;
+    };
 
   const baseNutrition = {
     kcal:
@@ -1756,10 +3225,13 @@ function MfdsFoodRow({
     {
       key:
         'kcal',
+
       label:
         '칼로리',
+
       unit:
         'kcal',
+
       missing:
         base?.kcal ===
           null ||
@@ -1770,10 +3242,13 @@ function MfdsFoodRow({
     {
       key:
         'carbs',
+
       label:
         '탄수화물',
+
       unit:
         'g',
+
       missing:
         base?.carbs_g ===
           null ||
@@ -1784,10 +3259,13 @@ function MfdsFoodRow({
     {
       key:
         'protein',
+
       label:
         '단백질',
+
       unit:
         'g',
+
       missing:
         base?.protein_g ===
           null ||
@@ -1798,10 +3276,13 @@ function MfdsFoodRow({
     {
       key:
         'fat',
+
       label:
         '지방',
+
       unit:
         'g',
+
       missing:
         base?.fat_g ===
           null ||
@@ -1816,21 +3297,17 @@ function MfdsFoodRow({
   ) as Array<{
     key:
       keyof typeof manual;
+
     label:
       string;
+
     unit:
       string;
+
     missing:
       boolean;
   }>;
 
-  /*
-   * 음식 종류 제한 없음.
-   *
-   * kcal + protein 공식값이 있고
-   * carbs 또는 fat이 누락됐으면
-   * 어떤 음식이든 자동 보정 대상.
-   */
   const canEstimateWithAi =
     base?.kcal !==
       null &&
@@ -1873,6 +3350,7 @@ function MfdsFoodRow({
         const response =
           await fetch(
             '/api/macro-estimate',
+
             {
               method:
                 'POST',
@@ -1883,74 +3361,79 @@ function MfdsFoodRow({
               },
 
               body:
-                JSON.stringify({
-                  id:
-                    food.id,
+                JSON.stringify(
+                  {
+                    id:
+                      food.id,
 
-                  rawName:
-                    food.rawName,
+                    rawName:
+                      food.rawName,
 
-                  name:
-                    food.name,
+                    name:
+                      food.name,
 
-                  brand:
-                    food.brand,
+                    brand:
+                      food.brand,
 
-                  foodGroup:
-                    food.foodGroup,
+                    foodGroup:
+                      food.foodGroup,
 
-                  servingG:
-                    food.servingG,
+                    servingG:
+                      food.servingG,
 
-                  servingDescription:
-                    food.servingDescription,
+                    servingDescription:
+                      food
+                        .servingDescription,
 
-                  kcalPer100g:
-                    food
-                      .per100g
-                      .kcal,
+                    kcalPer100g:
+                      food
+                        .per100g
+                        .kcal,
 
-                  proteinPer100g:
-                    food
-                      .per100g
-                      .protein_g,
+                    proteinPer100g:
+                      food
+                        .per100g
+                        .protein_g,
 
-                  carbsPer100g:
-                    food
-                      .per100g
-                      .carbs_g,
+                    carbsPer100g:
+                      food
+                        .per100g
+                        .carbs_g,
 
-                  fatPer100g:
-                    food
-                      .per100g
-                      .fat_g,
+                    fatPer100g:
+                      food
+                        .per100g
+                        .fat_g,
 
-                  sugarPer100g:
-                    food
-                      .per100g
-                      .sugar_g,
+                    sugarPer100g:
+                      food
+                        .per100g
+                        .sugar_g,
 
-                  sodiumPer100g:
-                    food
-                      .per100g
-                      .sodium_mg,
+                    sodiumPer100g:
+                      food
+                        .per100g
+                        .sodium_mg,
 
-                  saturatedFatPer100g:
-                    food
-                      .per100g
-                      .saturated_fat_g,
-                }),
+                    saturatedFatPer100g:
+                      food
+                        .per100g
+                        .saturated_fat_g,
+                  },
+                ),
             },
           );
 
         const payload =
-          await response.json();
+          await response
+            .json();
 
         if (
           !response.ok
         ) {
           throw new Error(
-            payload?.message ??
+            payload
+              ?.message ??
               'AI 영양정보 보정에 실패했습니다.',
           );
         }
@@ -1975,13 +3458,6 @@ function MfdsFoodRow({
       }
     };
 
-  /*
-   * 검색 결과 상위 3개는
-   * 사용자가 펼치기 전에 미리 보정.
-   *
-   * DB 캐시가 있다면 서버에서
-   * Gemini 호출 없이 즉시 반환됨.
-   */
   useEffect(
     () => {
       if (
@@ -2086,11 +3562,6 @@ function MfdsFoodRow({
         next,
       );
 
-      /*
-       * 상위 3개가 아니더라도
-       * 사용자가 메뉴를 펼치면
-       * 자동으로 보정한다.
-       */
       if (
         next &&
         canEstimateWithAi &&
@@ -2142,7 +3613,12 @@ function MfdsFoodRow({
                           ?.status ===
                         'manual_verified'
                       ? '검증 완료'
-                      : '빠른 캐시'
+                      : food
+                            .supplement
+                            ?.status ===
+                          'ai_estimated'
+                        ? 'AI 보정'
+                        : '빠른 캐시'
                   : food.supplement
                     ? '식약처 + 검증 보완'
                     : '식약처'}
@@ -2150,10 +3626,13 @@ function MfdsFoodRow({
           </div>
 
           <p className="mt-1 truncate text-xs text-zinc-500">
-            {food.brand}
+            {
+              food.brand
+            }
             {' · '}
             {
-              food.servingDescription
+              food
+                .servingDescription
             }
           </p>
         </div>
@@ -2197,7 +3676,8 @@ function MfdsFoodRow({
           <PortionAmountControls
             name={`${food.brand} ${food.name}`}
             servingDescription={
-              food.servingDescription
+              food
+                .servingDescription
             }
             defaultGrams={
               defaultServingG
@@ -2210,6 +3690,9 @@ function MfdsFoodRow({
             }
             onChange={
               setGrams
+            }
+            unit={
+              servingUnit
             }
           />
 
@@ -2308,8 +3791,7 @@ function MfdsFoodRow({
                         inputMode="decimal"
                         value={
                           manual[
-                            field
-                              .key
+                            field.key
                           ]
                         }
                         disabled={
@@ -2323,8 +3805,10 @@ function MfdsFoodRow({
                               previous,
                             ) => ({
                               ...previous,
-                              [field
-                                .key]:
+
+                              [
+                                field.key
+                              ]:
                                 event
                                   .target
                                   .value,
@@ -2380,8 +3864,7 @@ function MfdsFoodRow({
                           inputMode="decimal"
                           value={
                             manual[
-                              field
-                                .key
+                              field.key
                             ]
                           }
                           disabled={
@@ -2395,8 +3878,10 @@ function MfdsFoodRow({
                                 previous,
                               ) => ({
                                 ...previous,
-                                [field
-                                  .key]:
+
+                                [
+                                  field.key
+                                ]:
                                   event
                                     .target
                                     .value,
@@ -2444,8 +3929,8 @@ function MfdsFoodRow({
                       탄수{' '}
                       {roundOne(
                         food
-                          .supplement!
-                          .carbs_g!,
+                          .supplement
+                          .carbs_g,
                       )}
                       g
                     </span>
@@ -2459,8 +3944,8 @@ function MfdsFoodRow({
                       단백{' '}
                       {roundOne(
                         food
-                          .supplement!
-                          .protein_g!,
+                          .supplement
+                          .protein_g,
                       )}
                       g
                     </span>
@@ -2474,8 +3959,8 @@ function MfdsFoodRow({
                       지방{' '}
                       {roundOne(
                         food
-                          .supplement!
-                          .fat_g!,
+                          .supplement
+                          .fat_g,
                       )}
                       g
                     </span>
@@ -2487,6 +3972,7 @@ function MfdsFoodRow({
           <div className="mt-3 rounded-xl bg-zinc-900/70 px-3 py-2.5 text-[10px] leading-relaxed text-zinc-600">
             <p>
               기준 출처:{' '}
+
               {food.source ===
               'CACHE'
                 ? food
@@ -2508,7 +3994,8 @@ function MfdsFoodRow({
               <p className="mt-1">
                 조사일:{' '}
                 {
-                  food.researchDate
+                  food
+                    .researchDate
                 }
               </p>
             )}
@@ -2517,7 +4004,8 @@ function MfdsFoodRow({
               <p className="mt-1">
                 업데이트:{' '}
                 {
-                  food.updatedDate
+                  food
+                    .updatedDate
                 }
               </p>
             )}
@@ -2543,7 +4031,8 @@ function MfdsFoodRow({
                   ) =>
                     manual[
                       field.key
-                    ].trim()
+                    ]
+                      .trim()
                       .length >
                     0,
                 );
@@ -2566,7 +4055,7 @@ function MfdsFoodRow({
                 serving:
                   `${Math.round(
                     amount,
-                  )}g (${food.servingDescription})`,
+                  )}${unitText} (${food.servingDescription})`,
 
                 kcal:
                   nutrition.kcal!,
@@ -2635,10 +4124,16 @@ function MfdsFoodRow({
 
                         mfds_food_id:
                           food.id,
+
+                        serving_unit:
+                          unitText,
                       }
                     : {
                         mfds_food_id:
                           food.id,
+
+                        serving_unit:
+                          unitText,
                       },
               });
             }}
@@ -2658,72 +4153,183 @@ function MfdsFoodRow({
   );
 }
 
+
 function OpenFoodFactsRow({
   food,
   onAdd,
   disabled,
 }: {
-  food: OpenFoodFactsFood;
-  onAdd: (item: AddItem) => void;
-  disabled: boolean;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const defaultServing = food.servingG > 0 ? food.servingG : 100;
-  const initialGrams = getInitialPortionGrams({
-    name: `${food.brand} ${food.name}`,
-    defaultGrams: defaultServing,
-  });
-  const [grams, setGrams] = useState(String(initialGrams));
+  food:
+    OpenFoodFactsFood;
 
-  const amount = Math.max(1, Number(grams) || initialGrams);
-  const nutrition = scaleNutrition(food.per100g, amount / 100);
-  const defaultNutrition = scaleNutrition(food.per100g, defaultServing / 100);
+  onAdd:
+    (
+      item:
+        AddItem,
+    ) => void;
+
+  disabled:
+    boolean;
+}) {
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      false,
+    );
+
+  const defaultServing =
+    food.servingG >
+    0
+      ? food.servingG
+      : 100;
+
+  const initialGrams =
+    getInitialPortionGrams({
+      name:
+        `${food.brand} ${food.name}`,
+
+      defaultGrams:
+        defaultServing,
+    });
+
+  const [
+    grams,
+    setGrams,
+  ] =
+    useState(
+      String(
+        initialGrams,
+      ),
+    );
+
+  const amount =
+    Math.max(
+      1,
+      Number(
+        grams,
+      ) ||
+        initialGrams,
+    );
+
+  const nutrition =
+    scaleNutrition(
+      food.per100g,
+      amount /
+        100,
+    );
+
+  const defaultNutrition =
+    scaleNutrition(
+      food.per100g,
+      defaultServing /
+        100,
+    );
 
   const subtitle = [
-    food.brand || null,
+    food.brand ||
+      null,
+
     `${defaultServing}g 기준`,
+
     `${defaultNutrition.kcal}kcal`,
   ]
-    .filter(Boolean)
-    .join(' · ');
+    .filter(
+      Boolean,
+    )
+    .join(
+      ' · ',
+    );
 
   return (
     <article className="border-b border-zinc-800/50 last:border-0">
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={() =>
+          setExpanded(
+            (
+              value,
+            ) =>
+              !value,
+          )
+        }
         className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-zinc-800/30"
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{food.name}</p>
-          <p className="mt-1 truncate text-xs text-zinc-600">{subtitle}</p>
+          <p className="truncate text-sm font-medium">
+            {
+              food.name
+            }
+          </p>
+
+          <p className="mt-1 truncate text-xs text-zinc-600">
+            {
+              subtitle
+            }
+          </p>
         </div>
-        <Plus size={16} className={`flex-shrink-0 text-blue-400 transition-transform ${expanded ? 'rotate-45' : ''}`} />
+
+        <Plus
+          size={
+            16
+          }
+          className={`flex-shrink-0 text-blue-400 transition-transform ${
+            expanded
+              ? 'rotate-45'
+              : ''
+          }`}
+        />
       </button>
 
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <PortionAmountControls
             name={`${food.brand} ${food.name}`}
-            defaultGrams={defaultServing}
-            grams={grams}
-            disabled={disabled}
-            onChange={setGrams}
+            defaultGrams={
+              defaultServing
+            }
+            grams={
+              grams
+            }
+            disabled={
+              disabled
+            }
+            onChange={
+              setGrams
+            }
+            unit="g"
           />
-          <NutritionGrid {...nutrition} />
+
+          <NutritionGrid
+            {...nutrition}
+          />
+
           <button
             type="button"
-            disabled={disabled}
+            disabled={
+              disabled
+            }
             onClick={() =>
               onAdd({
-                food_name: food.name,
-                serving: `${amount}g${food.brand ? ` (${food.brand})` : ''}`,
+                food_name:
+                  food.name,
+
+                serving:
+                  `${amount}g${
+                    food.brand
+                      ? ` (${food.brand})`
+                      : ''
+                  }`,
+
                 ...nutrition,
               })
             }
             className="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white disabled:bg-zinc-800 disabled:text-zinc-600"
           >
-            {disabled ? '저장 중...' : '이 음식 추가'}
+            {disabled
+              ? '저장 중...'
+              : '이 음식 추가'}
           </button>
         </div>
       )}
@@ -2731,185 +4337,497 @@ function OpenFoodFactsRow({
   );
 }
 
+
 function FatSecretFoodRow({
   food,
   onAdd,
   disabled,
 }: {
-  food: FatSecretSearchFood;
-  onAdd: (item: AddItem) => void;
-  disabled: boolean;
+  food:
+    FatSecretSearchFood;
+
+  onAdd:
+    (
+      item:
+        AddItem,
+    ) => void;
+
+  disabled:
+    boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const [detail, setDetail] = useState<FatSecretFoodDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState('');
-  const [selectedServingId, setSelectedServingId] = useState('');
-  const [grams, setGrams] = useState('100');
+  const [
+    expanded,
+    setExpanded,
+  ] =
+    useState(
+      false,
+    );
 
-  const loadDetail = async () => {
-    if (detail || detailLoading) return;
+  const [
+    detail,
+    setDetail,
+  ] =
+    useState<
+      FatSecretFoodDetail | null
+    >(null);
 
-    setDetailLoading(true);
-    setDetailError('');
+  const [
+    detailLoading,
+    setDetailLoading,
+  ] =
+    useState(
+      false,
+    );
 
-    try {
-      const response = await fetch(`/api/fatsecret/food?id=${encodeURIComponent(food.id)}`);
-      const json = (await readJson(response)) as FatSecretFoodDetail;
+  const [
+    detailError,
+    setDetailError,
+  ] =
+    useState(
+      '',
+    );
 
-      if (!json.servings?.length) {
-        setDetailError('제공량 영양정보를 찾지 못했습니다.');
+  const [
+    selectedServingId,
+    setSelectedServingId,
+  ] =
+    useState(
+      '',
+    );
+
+  const [
+    grams,
+    setGrams,
+  ] =
+    useState(
+      '100',
+    );
+
+  const loadDetail =
+    async () => {
+      if (
+        detail ||
+        detailLoading
+      ) {
         return;
       }
 
-      setDetail(json);
-      const initial = json.servings.find((serving) => serving.isDefault) ?? json.servings[0];
-      setSelectedServingId(initial.id);
-      const initialMetricAmount =
-        initial.metricAmount > 0
-          ? roundOne(initial.metricAmount)
-          : 100;
-      setGrams(
-        String(
-          getInitialPortionGrams({
-            name: `${json.brand} ${json.name}`,
-            servingDescription: initial.description,
-            defaultGrams: initialMetricAmount,
-          }),
-        ),
+      setDetailLoading(
+        true,
       );
-    } catch (error) {
-      console.error('FatSecret detail failed:', error);
-      setDetailError('상세 영양정보를 불러오지 못했습니다.');
-    } finally {
-      setDetailLoading(false);
-    }
-  };
 
-  const selectedServing = useMemo(() => {
-    if (!detail) return null;
-    return (
-      detail.servings.find((serving) => serving.id === selectedServingId) ??
-      detail.servings[0] ??
-      null
+      setDetailError(
+        '',
+      );
+
+      try {
+        const response =
+          await fetch(
+            `/api/fatsecret/food?id=${encodeURIComponent(
+              food.id,
+            )}`,
+          );
+
+        const json =
+          (
+            await readJson(
+              response,
+            )
+          ) as
+            FatSecretFoodDetail;
+
+        if (
+          !json.servings
+            ?.length
+        ) {
+          setDetailError(
+            '제공량 영양정보를 찾지 못했습니다.',
+          );
+
+          return;
+        }
+
+        setDetail(
+          json,
+        );
+
+        const initial =
+          json.servings.find(
+            (
+              serving,
+            ) =>
+              serving.isDefault,
+          ) ??
+          json.servings[
+            0
+          ];
+
+        setSelectedServingId(
+          initial.id,
+        );
+
+        const initialMetricAmount =
+          initial.metricAmount >
+          0
+            ? roundOne(
+                initial.metricAmount,
+              )
+            : 100;
+
+        setGrams(
+          String(
+            getInitialPortionGrams(
+              {
+                name:
+                  `${json.brand} ${json.name}`,
+
+                servingDescription:
+                  initial.description,
+
+                defaultGrams:
+                  initialMetricAmount,
+              },
+            ),
+          ),
+        );
+      } catch (
+        error
+      ) {
+        console.error(
+          'FatSecret detail failed:',
+          error,
+        );
+
+        setDetailError(
+          '상세 영양정보를 불러오지 못했습니다.',
+        );
+      } finally {
+        setDetailLoading(
+          false,
+        );
+      }
+    };
+
+  const selectedServing =
+    useMemo(
+      () => {
+        if (!detail) {
+          return null;
+        }
+
+        return (
+          detail.servings.find(
+            (
+              serving,
+            ) =>
+              serving.id ===
+              selectedServingId,
+          ) ??
+          detail.servings[
+            0
+          ] ??
+          null
+        );
+      },
+      [
+        detail,
+        selectedServingId,
+      ],
     );
-  }, [detail, selectedServingId]);
 
-  const defaultServingG = selectedServing && selectedServing.metricAmount > 0
-    ? selectedServing.metricAmount
-    : 100;
-  const initialSelectedGrams = selectedServing
-    ? getInitialPortionGrams({
-        name: `${detail?.brand ?? food.brand} ${detail?.name ?? food.name}`,
-        servingDescription: selectedServing.description,
-        defaultGrams: defaultServingG,
-      })
-    : defaultServingG;
-  const amount = Math.max(1, Math.min(Number(grams) || initialSelectedGrams, 10000));
-  const multiplier = amount / defaultServingG;
-  const nutrition = selectedServing
-    ? scaleNutrition(selectedServing, multiplier)
-    : null;
+  const defaultServingG =
+    selectedServing &&
+    selectedServing
+      .metricAmount >
+      0
+      ? selectedServing
+          .metricAmount
+      : 100;
 
-  const toggle = () => {
-    const next = !expanded;
-    setExpanded(next);
-    if (next) void loadDetail();
-  };
+  const selectedServingUnit =
+    getServingDisplayUnit(
+      selectedServing
+        ?.description,
+
+      selectedServing
+        ?.metricUnit,
+    );
+
+  const selectedUnitText =
+    servingUnitLabel(
+      selectedServingUnit,
+    );
+
+  const initialSelectedGrams =
+    selectedServing
+      ? getInitialPortionGrams(
+          {
+            name:
+              `${detail?.brand ?? food.brand} ${detail?.name ?? food.name}`,
+
+            servingDescription:
+              selectedServing
+                .description,
+
+            defaultGrams:
+              defaultServingG,
+          },
+        )
+      : defaultServingG;
+
+  const amount =
+    Math.max(
+      1,
+      Math.min(
+        Number(
+          grams,
+        ) ||
+          initialSelectedGrams,
+
+        10000,
+      ),
+    );
+
+  const multiplier =
+    amount /
+    defaultServingG;
+
+  const nutrition =
+    selectedServing
+      ? scaleNutrition(
+          selectedServing,
+          multiplier,
+        )
+      : null;
+
+  const toggle =
+    () => {
+      const next =
+        !expanded;
+
+      setExpanded(
+        next,
+      );
+
+      if (
+        next
+      ) {
+        void loadDetail();
+      }
+    };
 
   return (
     <article className="border-b border-zinc-800/50 last:border-0">
       <button
         type="button"
-        onClick={toggle}
+        onClick={
+          toggle
+        }
         className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-zinc-800/30"
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-medium">{food.name}</p>
+            <p className="truncate text-sm font-medium">
+              {
+                food.name
+              }
+            </p>
+
             {food.isBrand && (
-              <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400">브랜드</span>
+              <span className="rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-blue-400">
+                브랜드
+              </span>
             )}
           </div>
+
           <p className="mt-1 truncate text-xs text-zinc-600">
-            {[food.brand || null, food.foodType].filter(Boolean).join(' · ')}
+            {[
+              food.brand ||
+                null,
+
+              food.foodType,
+            ]
+              .filter(
+                Boolean,
+              )
+              .join(
+                ' · ',
+              )}
           </p>
         </div>
-        <Plus size={16} className={`flex-shrink-0 text-blue-400 transition-transform ${expanded ? 'rotate-45' : ''}`} />
+
+        <Plus
+          size={
+            16
+          }
+          className={`flex-shrink-0 text-blue-400 transition-transform ${
+            expanded
+              ? 'rotate-45'
+              : ''
+          }`}
+        />
       </button>
 
       {expanded && (
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           {detailLoading ? (
-            <SearchLoading label="FatSecret 상세정보 불러오는 중..." />
+            <SearchLoading
+              label="FatSecret 상세정보 불러오는 중..."
+            />
           ) : detailError ? (
-            <div className="rounded-xl bg-red-500/10 px-3 py-3 text-xs text-red-400">{detailError}</div>
-          ) : detail && selectedServing && nutrition ? (
+            <div className="rounded-xl bg-red-500/10 px-3 py-3 text-xs text-red-400">
+              {
+                detailError
+              }
+            </div>
+          ) : detail &&
+            selectedServing &&
+            nutrition ? (
             <>
               <div className="mb-4">
-                <label className="mb-1.5 block text-xs text-zinc-500">제공량</label>
+                <label className="mb-1.5 block text-xs text-zinc-500">
+                  제공량
+                </label>
+
                 <select
-                  value={selectedServing.id}
-                  disabled={disabled}
-                  onChange={(event) => {
-                    const nextId = event.target.value;
-                    const nextServing = detail.servings.find((serving) => serving.id === nextId);
-                    setSelectedServingId(nextId);
-                    if (nextServing) {
+                  value={
+                    selectedServing.id
+                  }
+                  disabled={
+                    disabled
+                  }
+                  onChange={(
+                    event,
+                  ) => {
+                    const nextId =
+                      event
+                        .target
+                        .value;
+
+                    const nextServing =
+                      detail.servings.find(
+                        (
+                          serving,
+                        ) =>
+                          serving.id ===
+                          nextId,
+                      );
+
+                    setSelectedServingId(
+                      nextId,
+                    );
+
+                    if (
+                      nextServing
+                    ) {
                       const nextMetricAmount =
-                        nextServing.metricAmount > 0
-                          ? roundOne(nextServing.metricAmount)
+                        nextServing.metricAmount >
+                        0
+                          ? roundOne(
+                              nextServing.metricAmount,
+                            )
                           : 100;
 
                       setGrams(
                         String(
-                          getInitialPortionGrams({
-                            name: `${detail.brand} ${detail.name}`,
-                            servingDescription: nextServing.description,
-                            defaultGrams: nextMetricAmount,
-                          }),
+                          getInitialPortionGrams(
+                            {
+                              name:
+                                `${detail.brand} ${detail.name}`,
+
+                              servingDescription:
+                                nextServing.description,
+
+                              defaultGrams:
+                                nextMetricAmount,
+                            },
+                          ),
                         ),
                       );
                     }
                   }}
                   className="w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm text-white focus:border-blue-500 focus:outline-none"
                 >
-                  {detail.servings.map((serving) => (
-                    <option key={serving.id} value={serving.id}>
-                      {serving.description}
-                      {serving.metricAmount > 0
-                        ? ` · ${roundOne(serving.metricAmount)}${serving.metricUnit}`
-                        : ''}
-                      {` · ${serving.kcal}kcal`}
-                    </option>
-                  ))}
+                  {detail.servings.map(
+                    (
+                      serving,
+                    ) => (
+                      <option
+                        key={
+                          serving.id
+                        }
+                        value={
+                          serving.id
+                        }
+                      >
+                        {
+                          serving.description
+                        }
+
+                        {serving.metricAmount >
+                        0
+                          ? ` · ${roundOne(
+                              serving.metricAmount,
+                            )}${serving.metricUnit}`
+                          : ''}
+
+                        {` · ${serving.kcal}kcal`}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
 
               <PortionAmountControls
                 name={`${detail.brand} ${detail.name}`}
-                servingDescription={selectedServing.description}
-                defaultGrams={defaultServingG}
-                grams={grams}
-                disabled={disabled}
-                onChange={setGrams}
+                servingDescription={
+                  selectedServing
+                    .description
+                }
+                defaultGrams={
+                  defaultServingG
+                }
+                grams={
+                  grams
+                }
+                disabled={
+                  disabled
+                }
+                onChange={
+                  setGrams
+                }
+                unit={
+                  selectedServingUnit
+                }
               />
 
-              <NutritionGrid {...nutrition} />
+              <NutritionGrid
+                {...nutrition}
+              />
 
               <button
                 type="button"
-                disabled={disabled}
+                disabled={
+                  disabled
+                }
                 onClick={() =>
                   onAdd({
-                    food_name: detail.name,
-                    serving: `${Math.round(amount)}g (${selectedServing.description})`,
+                    food_name:
+                      detail.name,
+
+                    serving:
+                      `${Math.round(
+                        amount,
+                      )}${selectedUnitText} (${selectedServing.description})`,
+
                     ...nutrition,
                   })
                 }
                 className="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white disabled:bg-zinc-800 disabled:text-zinc-600"
               >
-                {disabled ? '저장 중...' : '이 음식 추가'}
+                {disabled
+                  ? '저장 중...'
+                  : '이 음식 추가'}
               </button>
             </>
           ) : null}
@@ -2919,306 +4837,842 @@ function FatSecretFoodRow({
   );
 }
 
+
 function FoodSourceCard({
   title,
-  icon: Icon,
+  icon:
+    Icon,
   loading,
   children,
 }: {
-  title: string;
-  icon?: ComponentType<{ size?: number; className?: string }>;
-  loading?: boolean;
-  children: ReactNode;
+  title:
+    string;
+
+  icon?:
+    ComponentType<{
+      size?:
+        number;
+
+      className?:
+        string;
+    }>;
+
+  loading?:
+    boolean;
+
+  children:
+    ReactNode;
 }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-zinc-800/80 bg-zinc-900/60">
       <div className="flex items-center justify-between border-b border-zinc-800/60 px-4 py-3">
         <div className="flex items-center gap-2">
-          {Icon && <Icon size={14} className="text-zinc-600" />}
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">{title}</p>
+          {Icon && (
+            <Icon
+              size={
+                14
+              }
+              className="text-zinc-600"
+            />
+          )}
+
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+            {
+              title
+            }
+          </p>
         </div>
+
         {loading && (
           <div className="h-3 w-3 animate-spin rounded-full border border-zinc-700 border-t-blue-500" />
         )}
       </div>
-      {children}
+
+      {
+        children
+      }
     </div>
   );
 }
 
-function SearchLoading({ label = '검색 중...' }: { label?: string }) {
+
+function SearchLoading({
+  label =
+    '검색 중...',
+}: {
+  label?:
+    string;
+}) {
   return (
     <div className="py-8 text-center">
       <div className="mx-auto h-4 w-4 animate-spin rounded-full border border-zinc-700 border-t-blue-500" />
-      <p className="mt-3 text-xs text-zinc-600">{label}</p>
+
+      <p className="mt-3 text-xs text-zinc-600">
+        {
+          label
+        }
+      </p>
     </div>
   );
 }
 
-function EmptySource({ label = '검색 결과 없음' }: { label?: string }) {
-  return <div className="py-6 text-center text-xs text-zinc-700">{label}</div>;
+
+function EmptySource({
+  label =
+    '검색 결과 없음',
+}: {
+  label?:
+    string;
+}) {
+  return (
+    <div className="py-6 text-center text-xs text-zinc-700">
+      {
+        label
+      }
+    </div>
+  );
 }
 
+
 function AddMealInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const router =
+    useRouter();
+
+  const searchParams =
+    useSearchParams();
+
   const {
     currentUser,
     users,
     setMealLogs,
     addMealItem,
-  } = useStore();
+  } =
+    useStore();
 
-  const user = currentUser();
-  const storedUser = user
-    ? users.find((item) => item.id === user.id)
-    : null;
-  const isGuest = Boolean(storedUser?.is_guest);
+  const user =
+    currentUser();
+
+  const storedUser =
+    user
+      ? users.find(
+          (
+            item,
+          ) =>
+            item.id ===
+            user.id,
+        )
+      : null;
+
+  const isGuest =
+    Boolean(
+      storedUser
+        ?.is_guest,
+    );
 
   const fatSecretEnabled =
-    process.env.NEXT_PUBLIC_FATSECRET_ENABLED === 'true';
+    process.env
+      .NEXT_PUBLIC_FATSECRET_ENABLED ===
+    'true';
 
-  const date = searchParams.get('date') ?? localTodayKey();
-  const requestedMealType = searchParams.get('type');
-  const mealType: MealType = MEAL_TYPES.includes(requestedMealType as MealType)
-    ? (requestedMealType as MealType)
-    : '아침';
+  const date =
+    searchParams.get(
+      'date',
+    ) ??
+    localTodayKey();
 
-  const mealsHref = mealSaveDestination(date);
-  const draftKey = mealDraftStorageKey(date, mealType, user?.id ?? 'anonymous');
+  const requestedMealType =
+    searchParams.get(
+      'type',
+    );
 
-  const [tab, setTab] = useState<'search' | 'manual'>('search');
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<FoodItem[]>(() => searchFoods(''));
-  const [mfdsResults, setMfdsResults] = useState<MfdsFood[]>([]);
-  const [offResults, setOffResults] = useState<OpenFoodFactsFood[]>([]);
-  const [fsResults, setFsResults] = useState<FatSecretSearchFood[]>([]);
-  const [externalLoading, setExternalLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const [manualDraftDirty, setManualDraftDirty] = useState(false);
-  const mealSaveLockRef = useRef(false);
+  const mealType:
+    MealType =
+    MEAL_TYPES.includes(
+      requestedMealType as
+        MealType,
+    )
+      ? (
+          requestedMealType as
+            MealType
+        )
+      : '아침';
 
-  useEffect(() => {
-    if (!user) router.replace('/login');
-  }, [user?.id, router]);
+  const mealsHref =
+    mealSaveDestination(
+      date,
+    );
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const draftKey =
+    mealDraftStorageKey(
+      date,
+      mealType,
+      user?.id ??
+        'anonymous',
+    );
 
-    try {
-      setManualDraftDirty(Boolean(window.sessionStorage.getItem(draftKey)));
-    } catch {
-      setManualDraftDirty(false);
-    }
-  }, [draftKey]);
+  const [
+    tab,
+    setTab,
+  ] =
+    useState<
+      'search' |
+      'manual'
+    >(
+      'search',
+    );
 
-  useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!manualDraftDirty) return;
+  const [
+    query,
+    setQuery,
+  ] =
+    useState(
+      '',
+    );
 
-      event.preventDefault();
-      event.returnValue = '';
-    };
-
-    const handleMenuNavigation = (event: MouseEvent) => {
-      if (
-        !manualDraftDirty ||
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-
-      const link = target.closest('a[href]');
-      const href = link?.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-
-      let destination: URL;
-      try {
-        destination = new URL(href, window.location.href);
-      } catch {
-        return;
-      }
-
-      const current = new URL(window.location.href);
-      if (
-        destination.origin === current.origin &&
-        destination.pathname === current.pathname &&
-        destination.search === current.search &&
-        destination.hash === current.hash
-      ) {
-        return;
-      }
-
-      if (!window.confirm('작성 중인 식단이 있어요. 저장하지 않고 이동할까요?')) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-
-      clearMealDraftStorage(draftKey);
-      setManualDraftDirty(false);
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('click', handleMenuNavigation, true);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('click', handleMenuNavigation, true);
-    };
-  }, [draftKey, manualDraftDirty]);
-
-  useEffect(() => {
-    setResults(
-      searchFoods(
-        normalizeMealSearchQuery(
-          query,
+  const [
+    results,
+    setResults,
+  ] =
+    useState<
+      FoodItem[]
+    >(
+      () =>
+        searchFoods(
+          '',
         ),
-      ),
-    );
-  }, [query]);
-
-  useEffect(() => {
-    const trimmed =
-      query.trim();
-    
-    const searchQuery =
-      normalizeMealSearchQuery(
-        trimmed,
-      );
-    
-    if (
-      searchQuery.length < 2
-    ) {
-      setMfdsResults([]);
-      setOffResults([]);
-      setFsResults([]);
-      setExternalLoading(false);
-      return;
-    }
-
-    const hasHangul =
-      /[가-힣]/.test(
-        searchQuery,
-      );
-
-    let cancelled =
-      false;
-
-    setExternalLoading(
-      true,
     );
 
-    const timer =
-      window.setTimeout(
-        async () => {
-          // ─────────────────────────────────────
-          // 한글 검색:
-          // 1) Supabase 검증 캐시를 먼저 확인
-          // 2) 정확히 완성된 캐시가 있으면 MFDS 호출 생략
-          // 3) 캐시 미스일 때만 MFDS
-          // FatSecret/OFF는 호출하지 않는다.
-          // ─────────────────────────────────────
-          if (hasHangul) {
-            setOffResults([]);
-            setFsResults([]);
+  const [
+    mfdsResults,
+    setMfdsResults,
+  ] =
+    useState<
+      MfdsFood[]
+    >([]);
 
-            let cachedRows:
-              BrandFoodOverride[] =
-                [];
+  const [
+    offResults,
+    setOffResults,
+  ] =
+    useState<
+      OpenFoodFactsFood[]
+    >([]);
 
-            try {
-              const supabase =
-                createClient();
+  const [
+    fsResults,
+    setFsResults,
+  ] =
+    useState<
+      FatSecretSearchFood[]
+    >([]);
 
-              const {
-                data,
-                error,
-              } =
-                await supabase.rpc(
-                  'search_brand_foods',
-                  {
-                    p_query:
-                      searchQuery,
+  const [
+    externalLoading,
+    setExternalLoading,
+  ] =
+    useState(
+      false,
+    );
 
-                    p_limit:
-                      10,
+  const [
+    isSaving,
+    setIsSaving,
+  ] =
+    useState(
+      false,
+    );
+
+  const [
+    saveError,
+    setSaveError,
+  ] =
+    useState(
+      '',
+    );
+
+  const [
+    manualDraftDirty,
+    setManualDraftDirty,
+  ] =
+    useState(
+      false,
+    );
+
+  const mealSaveLockRef =
+    useRef(
+      false,
+    );
+
+  useEffect(
+    () => {
+      if (!user) {
+        router.replace(
+          '/login',
+        );
+      }
+    },
+    [
+      user?.id,
+      router,
+    ],
+  );
+
+  useEffect(
+    () => {
+      if (
+        typeof window ===
+        'undefined'
+      ) {
+        return;
+      }
+
+      try {
+        setManualDraftDirty(
+          Boolean(
+            window
+              .sessionStorage
+              .getItem(
+                draftKey,
+              ),
+          ),
+        );
+      } catch {
+        setManualDraftDirty(
+          false,
+        );
+      }
+    },
+    [
+      draftKey,
+    ],
+  );
+
+  useEffect(
+    () => {
+      const handleBeforeUnload =
+        (
+          event:
+            BeforeUnloadEvent,
+        ) => {
+          if (
+            !manualDraftDirty
+          ) {
+            return;
+          }
+
+          event.preventDefault();
+
+          event.returnValue =
+            '';
+        };
+
+      const handleMenuNavigation =
+        (
+          event:
+            MouseEvent,
+        ) => {
+          if (
+            !manualDraftDirty ||
+            event.defaultPrevented ||
+            event.button !==
+              0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          ) {
+            return;
+          }
+
+          const target =
+            event.target;
+
+          if (
+            !(
+              target instanceof
+              Element
+            )
+          ) {
+            return;
+          }
+
+          const link =
+            target.closest(
+              'a[href]',
+            );
+
+          const href =
+            link
+              ?.getAttribute(
+                'href',
+              );
+
+          if (
+            !href ||
+            href.startsWith(
+              '#',
+            ) ||
+            href.startsWith(
+              'javascript:',
+            )
+          ) {
+            return;
+          }
+
+          let destination:
+            URL;
+
+          try {
+            destination =
+              new URL(
+                href,
+                window.location.href,
+              );
+          } catch {
+            return;
+          }
+
+          const current =
+            new URL(
+              window.location.href,
+            );
+
+          if (
+            destination.origin ===
+              current.origin &&
+            destination.pathname ===
+              current.pathname &&
+            destination.search ===
+              current.search &&
+            destination.hash ===
+              current.hash
+          ) {
+            return;
+          }
+
+          if (
+            !window.confirm(
+              '작성 중인 식단이 있어요. 저장하지 않고 이동할까요?',
+            )
+          ) {
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            return;
+          }
+
+          clearMealDraftStorage(
+            draftKey,
+          );
+
+          setManualDraftDirty(
+            false,
+          );
+        };
+
+      window.addEventListener(
+        'beforeunload',
+        handleBeforeUnload,
+      );
+
+      document.addEventListener(
+        'click',
+        handleMenuNavigation,
+        true,
+      );
+
+      return () => {
+        window.removeEventListener(
+          'beforeunload',
+          handleBeforeUnload,
+        );
+
+        document.removeEventListener(
+          'click',
+          handleMenuNavigation,
+          true,
+        );
+      };
+    },
+    [
+      draftKey,
+      manualDraftDirty,
+    ],
+  );
+
+  useEffect(
+    () => {
+      setResults(
+        searchFoods(
+          normalizeMealSearchQuery(
+            query,
+          ),
+        ),
+      );
+    },
+    [
+      query,
+    ],
+  );
+
+  useEffect(
+    () => {
+      const trimmed =
+        query.trim();
+
+      const searchQuery =
+        normalizeMealSearchQuery(
+          trimmed,
+        );
+
+      if (
+        searchQuery.length <
+        2
+      ) {
+        setMfdsResults(
+          [],
+        );
+
+        setOffResults(
+          [],
+        );
+
+        setFsResults(
+          [],
+        );
+
+        setExternalLoading(
+          false,
+        );
+
+        return;
+      }
+
+      const hasHangul =
+        /[가-힣]/.test(
+          searchQuery,
+        );
+
+      let cancelled =
+        false;
+
+      setExternalLoading(
+        true,
+      );
+
+      const timer =
+        window.setTimeout(
+          async () => {
+            if (
+              hasHangul
+            ) {
+              setOffResults(
+                [],
+              );
+
+              setFsResults(
+                [],
+              );
+
+              let cachedRows:
+                BrandFoodOverride[] =
+                  [];
+
+              try {
+                const supabase =
+                  createClient();
+
+                const {
+                  data,
+                  error,
+                } =
+                  await supabase.rpc(
+                    'search_brand_foods',
+
+                    {
+                      p_query:
+                        searchQuery,
+
+                      p_limit:
+                        10,
+                    },
+                  );
+
+                if (
+                  cancelled
+                ) {
+                  return;
+                }
+
+                if (
+                  error
+                ) {
+                  console.error(
+                    'Brand food cache lookup failed:',
+                    error.message,
+                  );
+                } else {
+                  cachedRows =
+                    (
+                      data ??
+                      []
+                    ) as
+                      BrandFoodOverride[];
+
+                  if (
+                    cachedRows.length >
+                    0
+                  ) {
+                    setMfdsResults(
+                      cachedRows.map(
+                        brandFoodToCachedMfds,
+                      ),
+                    );
+                  }
+                }
+              } catch (
+                error
+              ) {
+                console.error(
+                  'Brand food cache lookup failed:',
+                  error,
+                );
+              }
+
+              const normalizedQuery =
+                normalizeSearchText(
+                  searchQuery,
+                );
+
+              const exactComplete =
+                cachedRows.find(
+                  (
+                    row,
+                  ) => {
+                    const food =
+                      brandFoodToCachedMfds(
+                        row,
+                      );
+
+                    return (
+                      normalizeSearchText(
+                        row.menu_name,
+                      ) ===
+                        normalizedQuery &&
+                      food
+                        .macroComplete
+                    );
                   },
                 );
 
               if (
-                cancelled
+                exactComplete
               ) {
+                if (
+                  !cancelled
+                ) {
+                  setExternalLoading(
+                    false,
+                  );
+                }
+
                 return;
               }
 
-              if (error) {
-                console.error(
-                  'Brand food cache lookup failed:',
-                  error.message,
-                );
-              } else {
-                cachedRows =
-                  (data ??
-                    []) as
-                    BrandFoodOverride[];
+              try {
+                const mfdsPayload =
+                  (
+                    await fetch(
+                      `/api/mfds/search?q=${encodeURIComponent(
+                        searchQuery,
+                      )}`,
+                    ).then(
+                      readJson,
+                    )
+                  ) as {
+                    foods?:
+                      MfdsFood[];
+                  };
 
                 if (
-                  cachedRows.length >
+                  cancelled
+                ) {
+                  return;
+                }
+
+                const mfdsFoods =
+                  mfdsPayload
+                    .foods ??
+                  [];
+
+                if (
+                  mfdsFoods.length ===
                   0
                 ) {
+                  if (
+                    cachedRows.length ===
+                    0
+                  ) {
+                    setMfdsResults(
+                      [],
+                    );
+                  }
+
+                  setExternalLoading(
+                    false,
+                  );
+
+                  return;
+                }
+
+                const externalIds =
+                  Array.from(
+                    new Set(
+                      mfdsFoods
+                        .map(
+                          (
+                            food,
+                          ) =>
+                            food.id,
+                        )
+                        .filter(
+                          Boolean,
+                        ),
+                    ),
+                  );
+
+                try {
+                  const supabase =
+                    createClient();
+
+                  const {
+                    data:
+                      overrideRows,
+
+                    error:
+                      overrideError,
+                  } =
+                    await supabase
+                      .from(
+                        'brand_foods',
+                      )
+                      .select(`
+                        external_id,
+                        brand_name,
+                        menu_name,
+                        serving_desc,
+                        serving_g,
+                        kcal,
+                        carbs_g,
+                        protein_g,
+                        fat_g,
+                        sugar_g,
+                        saturated_fat_g,
+                        sodium_mg,
+                        source_name,
+                        source_url,
+                        source_checked_at,
+                        source_updated_at,
+                        macro_status,
+                        macro_confidence,
+                        macro_provenance
+                      `)
+                      .eq(
+                        'is_active',
+                        true,
+                      )
+                      .in(
+                        'external_id',
+                        externalIds,
+                      )
+                      .order(
+                        'source_checked_at',
+
+                        {
+                          ascending:
+                            false,
+                        },
+                      );
+
+                  if (
+                    cancelled
+                  ) {
+                    return;
+                  }
+
+                  if (
+                    overrideError
+                  ) {
+                    console.error(
+                      'Brand food supplement lookup failed:',
+                      overrideError.message,
+                    );
+
+                    setMfdsResults(
+                      mfdsFoods.map(
+                        (
+                          food,
+                        ) => ({
+                          ...food,
+
+                          supplement:
+                            null,
+                        }),
+                      ),
+                    );
+                  } else {
+                    setMfdsResults(
+                      mergeMfdsSupplements(
+                        mfdsFoods,
+
+                        (
+                          overrideRows ??
+                          []
+                        ) as
+                          BrandFoodOverride[],
+                      ),
+                    );
+                  }
+                } catch (
+                  error
+                ) {
+                  console.error(
+                    'Brand food supplement lookup failed:',
+                    error,
+                  );
+
                   setMfdsResults(
-                    cachedRows.map(
-                      brandFoodToCachedMfds,
+                    mfdsFoods.map(
+                      (
+                        food,
+                      ) => ({
+                        ...food,
+
+                        supplement:
+                          null,
+                      }),
                     ),
                   );
                 }
-              }
-            } catch (
-              error
-            ) {
-              console.error(
-                'Brand food cache lookup failed:',
-                error,
-              );
-            }
+              } catch (
+                error
+              ) {
+                console.error(
+                  'MFDS search failed:',
+                  error,
+                );
 
-            const normalizedQuery =
-              normalizeSearchText(
-                searchQuery,
-              );
-
-            const exactComplete =
-              cachedRows.find(
-                (row) => {
-                  const food =
-                    brandFoodToCachedMfds(
-                      row,
-                    );
-
-                  return (
-                    normalizeSearchText(
-                      row.menu_name,
-                    ) ===
-                      normalizedQuery &&
-                    food.macroComplete
+                if (
+                  cachedRows.length ===
+                  0
+                ) {
+                  setMfdsResults(
+                    [],
                   );
-                },
-              );
+                }
+              }
 
-            // 데모 핵심:
-            // 싸이버거처럼 완전한 캐시가 있으면
-            // 느린 MFDS 네트워크 호출을 아예 하지 않는다.
-            if (exactComplete) {
               if (
                 !cancelled
               ) {
@@ -3230,512 +5684,679 @@ function AddMealInner() {
               return;
             }
 
-            try {
-              const mfdsPayload =
-                (await fetch(
-                  `/api/mfds/search?q=${encodeURIComponent(
-                    searchQuery,
-                  )}`,
-                ).then(
-                  readJson,
-                )) as {
-                  foods?:
-                    MfdsFood[];
-                };
+            setMfdsResults(
+              [],
+            );
 
-              if (
-                cancelled
-              ) {
-                return;
-              }
-
-              const mfdsFoods =
-                mfdsPayload.foods ??
-                [];
-
-              if (
-                mfdsFoods.length ===
-                0
-              ) {
-                if (
-                  cachedRows.length ===
-                  0
-                ) {
-                  setMfdsResults(
-                    [],
-                  );
-                }
-
-                setExternalLoading(
-                  false,
-                );
-
-                return;
-              }
-
-              const externalIds =
-                Array.from(
-                  new Set(
-                    mfdsFoods
-                      .map(
-                        (
-                          food,
-                        ) =>
-                          food.id,
-                      )
-                      .filter(
-                        Boolean,
-                      ),
-                  ),
-                );
-
-              try {
-                const supabase =
-                  createClient();
-
-                const {
-                  data:
-                    overrideRows,
-                  error:
-                    overrideError,
-                } =
-                  await supabase
-                    .from(
-                      'brand_foods',
-                    )
-                    .select(`
-                      external_id,
-                      brand_name,
-                      menu_name,
-                      serving_desc,
-                      serving_g,
-                      kcal,
-                      carbs_g,
-                      protein_g,
-                      fat_g,
-                      sugar_g,
-                      saturated_fat_g,
-                      sodium_mg,
-                      source_name,
-                      source_url,
-                      source_checked_at,
-                      source_updated_at,
-                      macro_status,
-                      macro_confidence,
-                      macro_provenance
-                    `)
-                    .eq(
-                      'is_active',
-                      true,
-                    )
-                    .in(
-                      'external_id',
-                      externalIds,
-                    )
-                    .order(
-                      'source_checked_at',
-                      {
-                        ascending:
-                          false,
-                      },
-                    );
-
-                if (
-                  cancelled
-                ) {
-                  return;
-                }
-
-                if (
-                  overrideError
-                ) {
-                  console.error(
-                    'Brand food supplement lookup failed:',
-                    overrideError.message,
-                  );
-
-                  setMfdsResults(
-                    mfdsFoods.map(
-                      (
-                        food,
-                      ) => ({
-                        ...food,
-                        supplement:
-                          null,
-                      }),
-                    ),
-                  );
-                } else {
-                  setMfdsResults(
-                    mergeMfdsSupplements(
-                      mfdsFoods,
-                      (overrideRows ??
-                        []) as
-                        BrandFoodOverride[],
-                    ),
-                  );
-                }
-              } catch (
-                error
-              ) {
-                console.error(
-                  'Brand food supplement lookup failed:',
-                  error,
-                );
-
-                setMfdsResults(
-                  mfdsFoods.map(
-                    (
-                      food,
-                    ) => ({
-                      ...food,
-                      supplement:
-                        null,
-                    }),
-                  ),
-                );
-              }
-            } catch (
-              error
-            ) {
-              console.error(
-                'MFDS search failed:',
-                error,
-              );
-
-              // 이미 Supabase 캐시 결과를 보여주고 있다면 유지한다.
-              if (
-                cachedRows.length ===
-                0
-              ) {
-                setMfdsResults(
-                  [],
-                );
-              }
-            }
-
-            if (
-              !cancelled
-            ) {
-              setExternalLoading(
-                false,
-              );
-            }
-
-            return;
-          }
-
-          // ─────────────────────────────────────
-          // 영문/비한글 검색:
-          // 글로벌 DB만 검색한다.
-          // 느린 MFDS는 불필요하게 호출하지 않는다.
-          // ─────────────────────────────────────
-          setMfdsResults([]);
-
-          const offRequest = fetch(
-            `/api/openfoodfacts/search?q=${encodeURIComponent(
-              trimmed,
-            )}`,
-          ).then(
-            readJson,
-          );
-          
-          const fatSecretRequest = fatSecretEnabled
-            ? fetch(
-                `/api/fatsecret/search?q=${encodeURIComponent(
+            const offRequest =
+              fetch(
+                `/api/openfoodfacts/search?q=${encodeURIComponent(
                   trimmed,
                 )}`,
               ).then(
                 readJson,
-              )
-            : Promise.resolve({
-                foods: [] as FatSecretSearchFood[],
-              });
+              );
 
-          const [
-            offResponse,
-            fatSecretResponse,
-          ] = await Promise.allSettled([
-            offRequest,
-            fatSecretRequest,
-          ]);
+            const fatSecretRequest =
+              fatSecretEnabled
+                ? fetch(
+                    `/api/fatsecret/search?q=${encodeURIComponent(
+                      trimmed,
+                    )}`,
+                  ).then(
+                    readJson,
+                  )
+                : Promise.resolve(
+                    {
+                      foods:
+                        [] as
+                          FatSecretSearchFood[],
+                    },
+                  );
 
-          if (
-            cancelled
-          ) {
-            return;
-          }
+            const [
+              offResponse,
+              fatSecretResponse,
+            ] =
+              await Promise.allSettled(
+                [
+                  offRequest,
+                  fatSecretRequest,
+                ],
+              );
 
-          if (
-            offResponse.status ===
-            'fulfilled'
-          ) {
-            const payload =
-              offResponse.value as {
-                foods?:
-                  OpenFoodFactsFood[];
-              };
+            if (
+              cancelled
+            ) {
+              return;
+            }
 
-            setOffResults(
-              payload.foods ??
+            if (
+              offResponse.status ===
+              'fulfilled'
+            ) {
+              const payload =
+                offResponse.value as {
+                  foods?:
+                    OpenFoodFactsFood[];
+                };
+
+              setOffResults(
+                payload.foods ??
+                  [],
+              );
+            } else {
+              setOffResults(
                 [],
-            );
-          } else {
-            setOffResults([]);
-          }
+              );
+            }
 
-          if (
-            fatSecretResponse.status ===
-            'fulfilled'
-          ) {
-            const payload =
-              fatSecretResponse.value as {
-                foods?:
-                  FatSecretSearchFood[];
-              };
+            if (
+              fatSecretResponse.status ===
+              'fulfilled'
+            ) {
+              const payload =
+                fatSecretResponse.value as {
+                  foods?:
+                    FatSecretSearchFood[];
+                };
 
-            setFsResults(
-              payload.foods ??
+              setFsResults(
+                payload.foods ??
+                  [],
+              );
+            } else {
+              setFsResults(
                 [],
+              );
+            }
+
+            setExternalLoading(
+              false,
             );
-          } else {
-            setFsResults([]);
-          }
+          },
 
-          setExternalLoading(
-            false,
-          );
-        },
-        350,
-      );
-
-    return () => {
-      cancelled = true;
-
-      window.clearTimeout(
-        timer,
-      );
-    };
-  }, [query]);
-
-  const handleAddMany = useCallback(
-    async (items: AddItem[]) => {
-      if (!user) return false;
-      if (mealSaveLockRef.current) return false;
-      if (!canStartMealSave(Boolean(user), isSaving, items.length)) return false;
-
-      const validationIssues = validateMealItems(items);
-      if (validationIssues.length > 0) {
-        setSaveError(
-          mealValidationSummary(validationIssues[0], items.length),
+          350,
         );
-        return false;
-      }
 
-      mealSaveLockRef.current = true;
-      setSaveError('');
-      setIsSaving(true);
+      return () => {
+        cancelled =
+          true;
 
-      try {
-        if (isGuest) {
-          items.forEach(item => addMealItem(date, mealType, item));
-          clearMealDraftStorage(draftKey);
-          setManualDraftDirty(false);
-          router.replace(mealsHref);
-          return true;
-        }
-
-        const supabase = createClient();
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-
-        if (authError || !authData.user) {
-          setSaveError('로그인 상태를 확인할 수 없습니다.');
-          return false;
-        }
-
-        const candidateLogId = crypto.randomUUID();
-        const { error: logUpsertError } = await supabase
-          .from('meal_logs')
-          .upsert(
-            {
-              id: candidateLogId,
-              user_id: user.id,
-              date,
-              meal_type: mealType,
-            },
-            {
-              onConflict: 'user_id,date,meal_type',
-              ignoreDuplicates: true,
-            },
-          );
-
-        if (logUpsertError) {
-          console.error('Meal log create failed:', logUpsertError.message);
-          setSaveError('식사 기록을 준비하는 중 문제가 발생했습니다.');
-          return false;
-        }
-
-        const { data: mealLogRow, error: mealLogError } = await supabase
-          .from('meal_logs')
-          .select(`
-            id,
-            user_id,
-            date,
-            meal_type
-          `)
-          .eq('user_id', user.id)
-          .eq('date', date)
-          .eq('meal_type', mealType)
-          .single();
-
-        if (mealLogError || !mealLogRow) {
-          console.error('Meal log lookup failed:', mealLogError?.message);
-          setSaveError('식사 기록을 찾을 수 없습니다.');
-          return false;
-        }
-
-        const { data: insertedItems, error: itemError } = await supabase
-          .from('meal_items')
-          .insert(items.map(item => ({
-              id: crypto.randomUUID(),
-              meal_log_id: mealLogRow.id,
-              food_name: item.food_name,
-              serving: item.serving,
-              kcal: item.kcal,
-              carbs_g: item.carbs_g,
-              protein_g: item.protein_g,
-              fat_g: item.fat_g,
-              nutrition_status: item.nutrition_status ?? 'database',
-              nutrition_confidence: item.nutrition_confidence ?? null,
-              nutrition_source: item.nutrition_source ?? null,
-              nutrition_meta: item.nutrition_meta ?? {},
-            })))
-          .select(`
-            id,
-            meal_log_id,
-            food_name,
-            serving,
-            kcal,
-            carbs_g,
-            protein_g,
-            fat_g
-          `);
-
-        if (itemError || !insertedItems || insertedItems.length !== items.length) {
-          console.error('Meal item insert failed:', itemError?.message);
-          setSaveError('음식 저장에 실패했습니다.');
-          return false;
-        }
-
-        const newItems: MealItem[] = insertedItems.map(insertedItem => ({
-            id: insertedItem.id,
-            meal_log_id: insertedItem.meal_log_id,
-            food_name: insertedItem.food_name,
-            serving: insertedItem.serving ?? '',
-            kcal: Number(insertedItem.kcal),
-            carbs_g: Number(insertedItem.carbs_g),
-            protein_g: Number(insertedItem.protein_g),
-            fat_g: Number(insertedItem.fat_g),
-          }));
-
-        const currentLogs = useStore.getState().mealLogs;
-        const existing = currentLogs.find((log) => log.id === mealLogRow.id);
-        let nextLogs: MealLog[];
-
-        if (existing) {
-          nextLogs = currentLogs.map((log) =>
-            log.id === existing.id
-              ? { ...log, items: [...log.items, ...newItems] }
-              : log,
-          );
-        } else {
-          const newLog: MealLog = {
-            id: mealLogRow.id,
-            user_id: mealLogRow.user_id,
-            date: mealLogRow.date,
-            meal_type: mealLogRow.meal_type as MealType,
-            items: newItems,
-          };
-          nextLogs = [...currentLogs, newLog];
-        }
-
-        setMealLogs(nextLogs);
-        clearMealDraftStorage(draftKey);
-        setManualDraftDirty(false);
-        router.replace(mealsHref);
-        return true;
-      } catch (error) {
-        console.error('Meal save failed:', error);
-        setSaveError('음식을 저장하는 중 문제가 발생했습니다.');
-        return false;
-      } finally {
-        mealSaveLockRef.current = false;
-        setIsSaving(false);
-      }
+        window.clearTimeout(
+          timer,
+        );
+      };
     },
     [
-      user?.id,
-      isGuest,
-      isSaving,
-      date,
-      mealType,
-      mealsHref,
-      draftKey,
-      addMealItem,
-      router,
-      setMealLogs,
+      query,
+      fatSecretEnabled,
     ],
   );
 
-  const handleAdd = useCallback(
-    async (item: AddItem) => handleAddMany([item]),
-    [handleAddMany],
-  );
+  const handleAddMany =
+    useCallback(
+      async (
+        items:
+          AddItem[],
+      ) => {
+        if (!user) {
+          return false;
+        }
 
-  const handleBack = useCallback(() => {
-    if (isSaving) return;
+        if (
+          mealSaveLockRef
+            .current
+        ) {
+          return false;
+        }
 
-    if (
-      manualDraftDirty &&
-      !window.confirm('작성 중인 식단이 있어요. 저장하지 않고 나갈까요?')
-    ) {
-      return;
-    }
+        if (
+          !canStartMealSave(
+            Boolean(
+              user,
+            ),
+            isSaving,
+            items.length,
+          )
+        ) {
+          return false;
+        }
 
-    clearMealDraftStorage(draftKey);
-    setManualDraftDirty(false);
-    router.back();
-  }, [draftKey, isSaving, manualDraftDirty, router]);
+        const validationIssues =
+          validateMealItems(
+            items,
+          );
 
-  if (!user) return null;
+        if (
+          validationIssues.length >
+          0
+        ) {
+          setSaveError(
+            mealValidationSummary(
+              validationIssues[
+                0
+              ],
+              items.length,
+            ),
+          );
+
+          return false;
+        }
+
+        mealSaveLockRef.current =
+          true;
+
+        setSaveError(
+          '',
+        );
+
+        setIsSaving(
+          true,
+        );
+
+        try {
+          if (
+            isGuest
+          ) {
+            items.forEach(
+              (
+                item,
+              ) =>
+                addMealItem(
+                  date,
+                  mealType,
+                  item,
+                ),
+            );
+
+            clearMealDraftStorage(
+              draftKey,
+            );
+
+            setManualDraftDirty(
+              false,
+            );
+
+            router.replace(
+              mealsHref,
+            );
+
+            return true;
+          }
+
+          const supabase =
+            createClient();
+
+          const {
+            data:
+              authData,
+
+            error:
+              authError,
+          } =
+            await supabase
+              .auth
+              .getUser();
+
+          if (
+            authError ||
+            !authData.user
+          ) {
+            setSaveError(
+              '로그인 상태를 확인할 수 없습니다.',
+            );
+
+            return false;
+          }
+
+          const candidateLogId =
+            crypto.randomUUID();
+
+          const {
+            error:
+              logUpsertError,
+          } =
+            await supabase
+              .from(
+                'meal_logs',
+              )
+              .upsert(
+                {
+                  id:
+                    candidateLogId,
+
+                  user_id:
+                    user.id,
+
+                  date,
+
+                  meal_type:
+                    mealType,
+                },
+
+                {
+                  onConflict:
+                    'user_id,date,meal_type',
+
+                  ignoreDuplicates:
+                    true,
+                },
+              );
+
+          if (
+            logUpsertError
+          ) {
+            console.error(
+              'Meal log create failed:',
+              logUpsertError.message,
+            );
+
+            setSaveError(
+              '식사 기록을 준비하는 중 문제가 발생했습니다.',
+            );
+
+            return false;
+          }
+
+          const {
+            data:
+              mealLogRow,
+
+            error:
+              mealLogError,
+          } =
+            await supabase
+              .from(
+                'meal_logs',
+              )
+              .select(`
+                id,
+                user_id,
+                date,
+                meal_type
+              `)
+              .eq(
+                'user_id',
+                user.id,
+              )
+              .eq(
+                'date',
+                date,
+              )
+              .eq(
+                'meal_type',
+                mealType,
+              )
+              .single();
+
+          if (
+            mealLogError ||
+            !mealLogRow
+          ) {
+            console.error(
+              'Meal log lookup failed:',
+              mealLogError?.message,
+            );
+
+            setSaveError(
+              '식사 기록을 찾을 수 없습니다.',
+            );
+
+            return false;
+          }
+
+          const {
+            data:
+              insertedItems,
+
+            error:
+              itemError,
+          } =
+            await supabase
+              .from(
+                'meal_items',
+              )
+              .insert(
+                items.map(
+                  (
+                    item,
+                  ) => ({
+                    id:
+                      crypto.randomUUID(),
+
+                    meal_log_id:
+                      mealLogRow.id,
+
+                    food_name:
+                      item.food_name,
+
+                    serving:
+                      item.serving,
+
+                    kcal:
+                      item.kcal,
+
+                    carbs_g:
+                      item.carbs_g,
+
+                    protein_g:
+                      item.protein_g,
+
+                    fat_g:
+                      item.fat_g,
+
+                    nutrition_status:
+                      item
+                        .nutrition_status ??
+                      'database',
+
+                    nutrition_confidence:
+                      item
+                        .nutrition_confidence ??
+                      null,
+
+                    nutrition_source:
+                      item
+                        .nutrition_source ??
+                      null,
+
+                    nutrition_meta:
+                      item
+                        .nutrition_meta ??
+                      {},
+                  }),
+                ),
+              )
+              .select(`
+                id,
+                meal_log_id,
+                food_name,
+                serving,
+                kcal,
+                carbs_g,
+                protein_g,
+                fat_g
+              `);
+
+          if (
+            itemError ||
+            !insertedItems ||
+            insertedItems.length !==
+              items.length
+          ) {
+            console.error(
+              'Meal item insert failed:',
+              itemError?.message,
+            );
+
+            setSaveError(
+              '음식 저장에 실패했습니다.',
+            );
+
+            return false;
+          }
+
+          const newItems:
+            MealItem[] =
+            insertedItems.map(
+              (
+                insertedItem,
+              ) => ({
+                id:
+                  insertedItem.id,
+
+                meal_log_id:
+                  insertedItem
+                    .meal_log_id,
+
+                food_name:
+                  insertedItem
+                    .food_name,
+
+                serving:
+                  insertedItem
+                    .serving ??
+                  '',
+
+                kcal:
+                  Number(
+                    insertedItem
+                      .kcal,
+                  ),
+
+                carbs_g:
+                  Number(
+                    insertedItem
+                      .carbs_g,
+                  ),
+
+                protein_g:
+                  Number(
+                    insertedItem
+                      .protein_g,
+                  ),
+
+                fat_g:
+                  Number(
+                    insertedItem
+                      .fat_g,
+                  ),
+              }),
+            );
+
+          const currentLogs =
+            useStore
+              .getState()
+              .mealLogs;
+
+          const existing =
+            currentLogs.find(
+              (
+                log,
+              ) =>
+                log.id ===
+                mealLogRow.id,
+            );
+
+          let nextLogs:
+            MealLog[];
+
+          if (
+            existing
+          ) {
+            nextLogs =
+              currentLogs.map(
+                (
+                  log,
+                ) =>
+                  log.id ===
+                  existing.id
+                    ? {
+                        ...log,
+
+                        items: [
+                          ...log.items,
+                          ...newItems,
+                        ],
+                      }
+                    : log,
+              );
+          } else {
+            const newLog:
+              MealLog = {
+                id:
+                  mealLogRow.id,
+
+                user_id:
+                  mealLogRow
+                    .user_id,
+
+                date:
+                  mealLogRow
+                    .date,
+
+                meal_type:
+                  mealLogRow
+                    .meal_type as
+                    MealType,
+
+                items:
+                  newItems,
+              };
+
+            nextLogs = [
+              ...currentLogs,
+              newLog,
+            ];
+          }
+
+          setMealLogs(
+            nextLogs,
+          );
+
+          clearMealDraftStorage(
+            draftKey,
+          );
+
+          setManualDraftDirty(
+            false,
+          );
+
+          router.replace(
+            mealsHref,
+          );
+
+          return true;
+        } catch (
+          error
+        ) {
+          console.error(
+            'Meal save failed:',
+            error,
+          );
+
+          setSaveError(
+            '음식을 저장하는 중 문제가 발생했습니다.',
+          );
+
+          return false;
+        } finally {
+          mealSaveLockRef.current =
+            false;
+
+          setIsSaving(
+            false,
+          );
+        }
+      },
+
+      [
+        user?.id,
+        isGuest,
+        isSaving,
+        date,
+        mealType,
+        mealsHref,
+        draftKey,
+        addMealItem,
+        router,
+        setMealLogs,
+      ],
+    );
+
+  const handleAdd =
+    useCallback(
+      async (
+        item:
+          AddItem,
+      ) =>
+        handleAddMany(
+          [
+            item,
+          ],
+        ),
+
+      [
+        handleAddMany,
+      ],
+    );
+
+  const handleBack =
+    useCallback(
+      () => {
+        if (
+          isSaving
+        ) {
+          return;
+        }
+
+        if (
+          manualDraftDirty &&
+          !window.confirm(
+            '작성 중인 식단이 있어요. 저장하지 않고 나갈까요?',
+          )
+        ) {
+          return;
+        }
+
+        clearMealDraftStorage(
+          draftKey,
+        );
+
+        setManualDraftDirty(
+          false,
+        );
+
+        router.back();
+      },
+
+      [
+        draftKey,
+        isSaving,
+        manualDraftDirty,
+        router,
+      ],
+    );
+
+  if (!user) {
+    return null;
+  }
 
   const hasQuery =
-    query.trim().length >= 2;
-  
+    query
+      .trim()
+      .length >=
+    2;
+
   const isKoreanQuery =
     /[가-힣]/.test(
       query.trim(),
     );
-  
+
   const isSetQuery =
     /\s*(세트\s*메뉴|세트)\s*$/i.test(
       query.trim(),
     );
-  
+
   const setBaseQuery =
     isSetQuery
       ? normalizeMealSearchQuery(
           query,
-      )
-    : '';
+        )
+      : '';
 
   const noResults =
     hasQuery &&
-    results.length === 0 &&
+    results.length ===
+      0 &&
     !externalLoading &&
-    mfdsResults.length === 0 &&
-    offResults.length === 0 &&
-    fsResults.length === 0;
+    mfdsResults.length ===
+      0 &&
+    offResults.length ===
+      0 &&
+    fsResults.length ===
+      0;
 
   return (
     <div className="fittrack-apple min-h-screen pb-8">
@@ -3743,42 +6364,86 @@ function AddMealInner() {
         <div className="flex items-center gap-3 px-4 pt-10 pb-4">
           <button
             type="button"
-            onClick={handleBack}
-            disabled={isSaving}
+            onClick={
+              handleBack
+            }
+            disabled={
+              isSaving
+            }
             aria-label="음식 기록 화면에서 뒤로가기"
             className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
           >
-            <ChevronLeft size={22} />
+            <ChevronLeft
+              size={
+                22
+              }
+            />
           </button>
+
           <div className="min-w-0 flex-1">
-            <p className="apple-page-kicker">{mealType}</p>
-            <h1 className="text-xl font-bold">음식 기록</h1>
+            <p className="apple-page-kicker">
+              {
+                mealType
+              }
+            </p>
+
+            <h1 className="text-xl font-bold">
+              음식 기록
+            </h1>
           </div>
-          <span className="text-xs text-zinc-600">{date}</span>
+
+          <span className="text-xs text-zinc-600">
+            {
+              date
+            }
+          </span>
         </div>
       </header>
 
       <main className="px-5 pt-5">
         <section className="mb-6">
-          <PhotoMealScanner onAddMany={(items) => { void handleAddMany(items); }} />
+          <PhotoMealScanner
+            onAddMany={(
+              items,
+            ) => {
+              void handleAddMany(
+                items,
+              );
+            }}
+          />
         </section>
 
         <section>
           <div className="grid grid-cols-2 rounded-xl bg-zinc-100 p-1">
             <button
               type="button"
-              onClick={() => setTab('search')}
+              onClick={() =>
+                setTab(
+                  'search',
+                )
+              }
               className={`rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                tab === 'search' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                tab ===
+                'search'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500'
               }`}
             >
               음식 검색
             </button>
+
             <button
               type="button"
-              onClick={() => setTab('manual')}
+              onClick={() =>
+                setTab(
+                  'manual',
+                )
+              }
               className={`rounded-lg py-2.5 text-sm font-medium transition-colors ${
-                tab === 'manual' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500'
+                tab ===
+                'manual'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500'
               }`}
             >
               직접 입력
@@ -3791,33 +6456,62 @@ function AddMealInner() {
             role="alert"
             className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm text-red-400"
           >
-            {saveError}
+            {
+              saveError
+            }
           </div>
         )}
 
-        {tab === 'search' ? (
+        {tab ===
+        'search' ? (
           <section className="mt-5">
             <div className="apple-sticky-canvas sticky top-[89px] z-20 -mx-1 px-1 pb-3 backdrop-blur-xl">
               <div className="relative">
-                <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
+                <Search
+                  size={
+                    17
+                  }
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600"
+                />
+
                 <input
                   type="text"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  value={
+                    query
+                  }
+                  onChange={(
+                    event,
+                  ) =>
+                    setQuery(
+                      event
+                        .target
+                        .value,
+                    )
+                  }
                   className="w-full rounded-2xl border border-zinc-800 bg-zinc-900 py-3.5 pl-10 pr-10 text-sm text-white placeholder-zinc-600 transition-colors focus:border-blue-500 focus:outline-none"
                   placeholder="음식 이름 또는 브랜드 검색"
                   autoFocus
                 />
+
                 {query && (
                   <button
                     type="button"
-                    onClick={() => setQuery('')}
+                    onClick={() =>
+                      setQuery(
+                        '',
+                      )
+                    }
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600"
                   >
-                    <X size={16} />
+                    <X
+                      size={
+                        16
+                      }
+                    />
                   </button>
                 )}
               </div>
+
               <p className="mt-2 px-1 text-[10px] text-zinc-700">
                 {isKoreanQuery
                   ? '한글 검색은 식약처 기준 데이터에 검증된 탄·단·지 보완값을 결합합니다.'
@@ -3851,96 +6545,208 @@ function AddMealInner() {
                     }
                   />
                 )}
+
               {hasQuery && (
                 <FoodSourceCard
                   title="국내 브랜드 · 식약처 + 검증 보완"
-                  icon={Database}
-                  loading={externalLoading && mfdsResults.length === 0}
+                  icon={
+                    Database
+                  }
+                  loading={
+                    externalLoading &&
+                    mfdsResults.length ===
+                      0
+                  }
                 >
-                  {externalLoading && mfdsResults.length === 0 ? (
+                  {externalLoading &&
+                  mfdsResults.length ===
+                    0 ? (
                     <SearchLoading />
-                  ) : mfdsResults.length > 0 ? (
-                    mfdsResults.map((food, index) => (
-                      <MfdsFoodRow
-                        key={`mfds-${food.id}`}
-                        food={food}
-                        disabled={isSaving}
-                        autoEstimate={index < 3}
-                        onAdd={(item) => void handleAdd(item)}
-                      />
-                    ))
+                  ) : mfdsResults.length >
+                    0 ? (
+                    mfdsResults.map(
+                      (
+                        food,
+                        index,
+                      ) => (
+                        <MfdsFoodRow
+                          key={`mfds-${food.id}`}
+                          food={
+                            food
+                          }
+                          disabled={
+                            isSaving
+                          }
+                          autoEstimate={
+                            index <
+                            3
+                          }
+                          onAdd={(
+                            item,
+                          ) =>
+                            void handleAdd(
+                              item,
+                            )
+                          }
+                        />
+                      ),
+                    )
                   ) : (
-                    <EmptySource label="식약처 브랜드 메뉴 검색 결과 없음" />
-                  )}
-                </FoodSourceCard>
-              )}
-
-              {results.length > 0 && (
-                <FoodSourceCard title="기본 음식 DB" icon={Database}>
-                  {results.map((food) => (
-                    <FoodRow
-                      key={food.id}
-                      food={food}
-                      disabled={isSaving}
-                      onAdd={(item) => void handleAdd(item)}
+                    <EmptySource
+                      label="식약처 브랜드 메뉴 검색 결과 없음"
                     />
-                  ))}
-                </FoodSourceCard>
-              )}
-
-              {fatSecretEnabled && hasQuery && !isKoreanQuery && (
-                <FoodSourceCard
-                  title="FatSecret · 글로벌"
-                  loading={externalLoading && fsResults.length === 0}
-                >
-                  {externalLoading && fsResults.length === 0 ? (
-                    <SearchLoading />
-                  ) : fsResults.length > 0 ? (
-                    fsResults.map((food) => (
-                      <FatSecretFoodRow
-                        key={`fs-${food.id}`}
-                        food={food}
-                        disabled={isSaving}
-                        onAdd={(item) => void handleAdd(item)}
-                      />
-                    ))
-                  ) : (
-                    <EmptySource />
                   )}
                 </FoodSourceCard>
               )}
 
-              {hasQuery && !isKoreanQuery && (
+              {results.length >
+                0 && (
                 <FoodSourceCard
-                  title="OpenFoodFacts"
-                  loading={externalLoading && offResults.length === 0}
+                  title="기본 음식 DB"
+                  icon={
+                    Database
+                  }
                 >
-                  {externalLoading && offResults.length === 0 ? (
-                    <SearchLoading />
-                  ) : offResults.length > 0 ? (
-                    offResults.map((food) => (
-                      <OpenFoodFactsRow
-                        key={`off-${food.id}`}
-                        food={food}
-                        disabled={isSaving}
-                        onAdd={(item) => void handleAdd(item)}
+                  {results.map(
+                    (
+                      food,
+                    ) => (
+                      <FoodRow
+                        key={
+                          food.id
+                        }
+                        food={
+                          food
+                        }
+                        disabled={
+                          isSaving
+                        }
+                        onAdd={(
+                          item,
+                        ) =>
+                          void handleAdd(
+                            item,
+                          )
+                        }
                       />
-                    ))
-                  ) : (
-                    <EmptySource />
+                    ),
                   )}
                 </FoodSourceCard>
               )}
+
+              {fatSecretEnabled &&
+                hasQuery &&
+                !isKoreanQuery && (
+                  <FoodSourceCard
+                    title="FatSecret · 글로벌"
+                    loading={
+                      externalLoading &&
+                      fsResults.length ===
+                        0
+                    }
+                  >
+                    {externalLoading &&
+                    fsResults.length ===
+                      0 ? (
+                      <SearchLoading />
+                    ) : fsResults.length >
+                      0 ? (
+                      fsResults.map(
+                        (
+                          food,
+                        ) => (
+                          <FatSecretFoodRow
+                            key={`fs-${food.id}`}
+                            food={
+                              food
+                            }
+                            disabled={
+                              isSaving
+                            }
+                            onAdd={(
+                              item,
+                            ) =>
+                              void handleAdd(
+                                item,
+                              )
+                            }
+                          />
+                        ),
+                      )
+                    ) : (
+                      <EmptySource />
+                    )}
+                  </FoodSourceCard>
+                )}
+
+              {hasQuery &&
+                !isKoreanQuery && (
+                  <FoodSourceCard
+                    title="OpenFoodFacts"
+                    loading={
+                      externalLoading &&
+                      offResults.length ===
+                        0
+                    }
+                  >
+                    {externalLoading &&
+                    offResults.length ===
+                      0 ? (
+                      <SearchLoading />
+                    ) : offResults.length >
+                      0 ? (
+                      offResults.map(
+                        (
+                          food,
+                        ) => (
+                          <OpenFoodFactsRow
+                            key={`off-${food.id}`}
+                            food={
+                              food
+                            }
+                            disabled={
+                              isSaving
+                            }
+                            onAdd={(
+                              item,
+                            ) =>
+                              void handleAdd(
+                                item,
+                              )
+                            }
+                          />
+                        ),
+                      )
+                    ) : (
+                      <EmptySource />
+                    )}
+                  </FoodSourceCard>
+                )}
 
               {noResults && (
                 <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 px-5 py-8 text-center">
-                  <Search size={22} className="mx-auto text-zinc-700" />
+                  <Search
+                    size={
+                      22
+                    }
+                    className="mx-auto text-zinc-700"
+                  />
+
                   <p className="mt-3 text-sm text-zinc-500">
-                    &ldquo;{query}&rdquo; 검색 결과가 없어요.
+                    &ldquo;
+                    {
+                      query
+                    }
+                    &rdquo; 검색 결과가 없어요.
                   </p>
+
                   <button
                     type="button"
-                    onClick={() => setTab('manual')}
+                    onClick={() =>
+                      setTab(
+                        'manual',
+                      )
+                    }
                     className="mt-3 text-xs font-semibold text-blue-400"
                   >
                     직접 입력하기
@@ -3952,16 +6758,28 @@ function AddMealInner() {
         ) : (
           <section className="mt-6 rounded-3xl border border-zinc-800/80 bg-zinc-900/60 p-5">
             <div className="mb-5">
-              <h2 className="text-sm font-semibold">영양 정보 직접 입력</h2>
+              <h2 className="text-sm font-semibold">
+                영양 정보 직접 입력
+              </h2>
+
               <p className="mt-1 text-xs leading-relaxed text-zinc-600">
                 검색 DB에 없는 음식이나 직접 조리한 음식을 기록할 수 있어요.
               </p>
             </div>
+
             <ManualForm
-              disabled={isSaving}
-              draftKey={draftKey}
-              onDraftChange={setManualDraftDirty}
-              onAdd={handleAdd}
+              disabled={
+                isSaving
+              }
+              draftKey={
+                draftKey
+              }
+              onDraftChange={
+                setManualDraftDirty
+              }
+              onAdd={
+                handleAdd
+              }
             />
           </section>
         )}
@@ -3971,7 +6789,10 @@ function AddMealInner() {
         <div className="fixed inset-x-0 bottom-5 z-50 mx-auto w-[calc(100%-40px)] max-w-sm rounded-2xl border border-blue-500/20 bg-zinc-900/95 px-4 py-3 shadow-2xl backdrop-blur-xl">
           <div className="flex items-center justify-center gap-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-blue-400" />
-            <span className="text-xs font-medium text-zinc-300">식단을 저장하고 있어요</span>
+
+            <span className="text-xs font-medium text-zinc-300">
+              식단을 저장하고 있어요
+            </span>
           </div>
         </div>
       )}
@@ -3979,12 +6800,15 @@ function AddMealInner() {
   );
 }
 
+
 export default function AddMealPage() {
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <p className="text-sm text-zinc-600">로딩 중...</p>
+          <p className="text-sm text-zinc-600">
+            로딩 중...
+          </p>
         </div>
       }
     >

@@ -8,36 +8,21 @@ export const runtime = 'nodejs';
 const MFDS_API =
   'https://apis.data.go.kr/1471000/FoodNtrCpntDbInfo02/getFoodNtrCpntDbInq02';
 
-const MEMORY_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
-const UPSTREAM_REVALIDATE_SECONDS = 6 * 60 * 60;
+const MEMORY_CACHE_TTL_MS =
+  6 * 60 * 60 * 1000;
 
-type MfdsPayload = {
-  foods: MfdsFood[];
-  meta: {
-    rawCount: number;
-    brandCount: number;
-    incompleteMacroCount: number;
-    cache: 'miss' | 'memory';
-  };
+const UPSTREAM_REVALIDATE_SECONDS =
+  6 * 60 * 60;
+
+type NutritionValues = {
+  kcal: number | null;
+  carbs_g: number | null;
+  protein_g: number | null;
+  fat_g: number | null;
+  sugar_g: number | null;
+  sodium_mg: number | null;
+  saturated_fat_g: number | null;
 };
-
-type CacheEntry = {
-  expiresAt: number;
-  payload: MfdsPayload;
-};
-
-const globalForMfds = globalThis as typeof globalThis & {
-  __fittrackMfdsSearchCache?: Map<string, CacheEntry>;
-};
-
-const memoryCache =
-  globalForMfds.__fittrackMfdsSearchCache ??
-  new Map<string, CacheEntry>();
-
-globalForMfds.__fittrackMfdsSearchCache = memoryCache;
-
-type UnknownRecord =
-  Record<string, unknown>;
 
 type MfdsFood = {
   id: string;
@@ -46,41 +31,101 @@ type MfdsFood = {
   brand: string;
   foodGroup: string;
   foodOrigin: string;
-  servingG: number | null;
-  servingDescription: string;
-  per100g: {
-    kcal: number | null;
-    carbs_g: number | null;
-    protein_g: number | null;
-    fat_g: number | null;
-    sugar_g: number | null;
-    sodium_mg: number | null;
-    saturated_fat_g: number | null;
-  };
-  total: {
-    kcal: number | null;
-    carbs_g: number | null;
-    protein_g: number | null;
-    fat_g: number | null;
-    sugar_g: number | null;
-    sodium_mg: number | null;
-    saturated_fat_g: number | null;
-  } | null;
-  macroComplete: boolean;
-  source: 'MFDS';
-  researchDate: string | null;
-  updatedDate: string | null;
+
+  servingG:
+    number | null;
+
+  servingDescription:
+    string;
+
+  per100g:
+    NutritionValues;
+
+  total:
+    NutritionValues;
+
+  macroComplete:
+    boolean;
+
+  source:
+    'MFDS';
+
+  researchDate:
+    string | null;
+
+  updatedDate:
+    string | null;
 };
+
+type MfdsPayload = {
+  foods:
+    MfdsFood[];
+
+  meta: {
+    rawCount:
+      number;
+
+    brandCount:
+      number;
+
+    incompleteMacroCount:
+      number;
+
+    cache:
+      | 'miss'
+      | 'memory';
+  };
+};
+
+type CacheEntry = {
+  expiresAt:
+    number;
+
+  payload:
+    MfdsPayload;
+};
+
+type UnknownRecord =
+  Record<
+    string,
+    unknown
+  >;
+
+const globalForMfds =
+  globalThis as
+    typeof globalThis & {
+      __fittrackMfdsSearchCache?:
+        Map<
+          string,
+          CacheEntry
+        >;
+    };
+
+const memoryCache =
+  globalForMfds
+    .__fittrackMfdsSearchCache ??
+  new Map<
+    string,
+    CacheEntry
+  >();
+
+globalForMfds
+  .__fittrackMfdsSearchCache =
+  memoryCache;
 
 function asRecord(
   value: unknown,
 ): UnknownRecord | null {
   if (
     value &&
-    typeof value === 'object' &&
-    !Array.isArray(value)
+    typeof value ===
+      'object' &&
+    !Array.isArray(
+      value,
+    )
   ) {
-    return value as UnknownRecord;
+    return value as
+      UnknownRecord;
   }
 
   return null;
@@ -109,22 +154,55 @@ function parseNumber(
   }
 
   const text =
-    String(value)
-      .replace(/,/g, '')
+    String(
+      value,
+    )
+      .replace(
+        /,/g,
+        '',
+      )
       .trim();
 
-  if (!text) {
+  if (
+    !text ||
+    text === '-' ||
+    text === 'N/A'
+  ) {
     return null;
   }
 
   const parsed =
-    Number(text);
+    Number(
+      text,
+    );
 
   return Number.isFinite(
     parsed,
   )
     ? parsed
     : null;
+}
+
+function firstNumber(
+  ...values: unknown[]
+): number | null {
+  for (
+    const value
+    of values
+  ) {
+    const parsed =
+      parseNumber(
+        value,
+      );
+
+    if (
+      parsed !== null
+    ) {
+      return parsed;
+    }
+  }
+
+  return null;
 }
 
 function roundOne(
@@ -141,12 +219,15 @@ function scaleNullable(
   value: number | null,
   multiplier: number,
 ) {
-  if (value === null) {
+  if (
+    value === null
+  ) {
     return null;
   }
 
   return roundOne(
-    value * multiplier,
+    value *
+      multiplier,
   );
 }
 
@@ -161,38 +242,132 @@ function parseWeightG(
   }
 
   const text =
-    String(value)
-      .replace(/,/g, '')
+    String(
+      value,
+    )
+      .replace(
+        /,/g,
+        '',
+      )
       .trim();
 
   if (!text) {
     return null;
   }
 
-  const match =
+  const gramMatch =
     text.match(
       /([\d.]+)\s*g\b/i,
     );
 
-  if (!match) {
-    return null;
+  if (
+    gramMatch
+  ) {
+    const parsed =
+      Number(
+        gramMatch[1],
+      );
+
+    return Number.isFinite(
+      parsed,
+    )
+      ? parsed
+      : null;
   }
 
-  const parsed =
-    Number(match[1]);
+  const kilogramMatch =
+    text.match(
+      /([\d.]+)\s*kg\b/i,
+    );
 
-  return Number.isFinite(
-    parsed,
-  )
-    ? parsed
-    : null;
+  if (
+    kilogramMatch
+  ) {
+    const parsed =
+      Number(
+        kilogramMatch[1],
+      );
+
+    return Number.isFinite(
+      parsed,
+    )
+      ? parsed * 1000
+      : null;
+  }
+
+  return null;
+}
+
+function rawServingText(
+  item:
+    UnknownRecord,
+) {
+  const candidates = [
+    item.Z10500,
+    item.NUTRI_AMOUNT_SERVING,
+    item.SERVING_SIZE,
+  ];
+
+  for (
+    const candidate
+    of candidates
+  ) {
+    if (
+      candidate ===
+        null ||
+      candidate ===
+        undefined
+    ) {
+      continue;
+    }
+
+    const text =
+      String(
+        candidate,
+      ).trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return '';
+}
+
+function isVolumeServing(
+  value: string,
+) {
+  const normalized =
+    value
+      .replace(
+        /,/g,
+        '',
+      )
+      .trim();
+
+  return (
+    /[\d.]+\s*(?:ml|㎖)\b/i.test(
+      normalized,
+    ) ||
+    /[\d.]+\s*l\b/i.test(
+      normalized,
+    ) ||
+    /밀리리터/i.test(
+      normalized,
+    ) ||
+    /리터/i.test(
+      normalized,
+    )
+  );
 }
 
 function extractItems(
   json: unknown,
 ): UnknownRecord[] {
   const root =
-    asRecord(json);
+    asRecord(
+      json,
+    );
 
   if (!root) {
     return [];
@@ -216,9 +391,11 @@ function extractItems(
   const candidates = [
     responseBody?.items,
     responseBody?.item,
+
     rootBody?.items,
     rootBody?.item,
     rootBody?.row,
+
     root.items,
     root.item,
     root.row,
@@ -234,12 +411,16 @@ function extractItems(
       )
     ) {
       return candidate
-        .map(asRecord)
+        .map(
+          asRecord,
+        )
         .filter(
           (
             item,
-          ): item is UnknownRecord =>
-            item !== null,
+          ): item is
+            UnknownRecord =>
+            item !==
+            null,
         );
     }
 
@@ -248,34 +429,42 @@ function extractItems(
         candidate,
       );
 
-    if (record) {
-      const nested =
-        record.item ??
-        record.row;
+    if (!record) {
+      continue;
+    }
 
-      if (
-        Array.isArray(
-          nested,
+    const nested =
+      record.item ??
+      record.row;
+
+    if (
+      Array.isArray(
+        nested,
+      )
+    ) {
+      return nested
+        .map(
+          asRecord,
         )
-      ) {
-        return nested
-          .map(asRecord)
-          .filter(
-            (
-              item,
-            ): item is UnknownRecord =>
-              item !== null,
-          );
-      }
-
-      const one =
-        asRecord(
-          nested,
+        .filter(
+          (
+            item,
+          ): item is
+            UnknownRecord =>
+            item !==
+            null,
         );
+    }
 
-      if (one) {
-        return [one];
-      }
+    const one =
+      asRecord(
+        nested,
+      );
+
+    if (one) {
+      return [
+        one,
+      ];
     }
   }
 
@@ -286,7 +475,9 @@ function extractItems(
     )
   ) {
     const record =
-      asRecord(value);
+      asRecord(
+        value,
+      );
 
     if (!record) {
       continue;
@@ -301,7 +492,9 @@ function extractItems(
       ]
     ) {
       const nested =
-        record[key];
+        record[
+          key
+        ];
 
       if (
         Array.isArray(
@@ -309,12 +502,16 @@ function extractItems(
         )
       ) {
         return nested
-          .map(asRecord)
+          .map(
+            asRecord,
+          )
           .filter(
             (
               item,
-            ): item is UnknownRecord =>
-              item !== null,
+            ): item is
+              UnknownRecord =>
+              item !==
+              null,
           );
       }
     }
@@ -328,7 +525,10 @@ function cleanFoodName(
 ) {
   let value =
     raw
-      .replace(/_/g, ' ')
+      .replace(
+        /_/g,
+        ' ',
+      )
       .replace(
         /\s+/g,
         ' ',
@@ -358,7 +558,8 @@ function dateScore(
 ) {
   const text =
     String(
-      value ?? '',
+      value ??
+      '',
     ).trim();
 
   if (!text) {
@@ -366,7 +567,9 @@ function dateScore(
   }
 
   const timestamp =
-    Date.parse(text);
+    Date.parse(
+      text,
+    );
 
   return Number.isFinite(
     timestamp,
@@ -376,7 +579,8 @@ function dateScore(
 }
 
 function normalizeItem(
-  item: UnknownRecord,
+  item:
+    UnknownRecord,
 ): MfdsFood | null {
   const rawName =
     String(
@@ -404,104 +608,156 @@ function normalizeItem(
     return null;
   }
 
-  const servingG =
-    parseWeightG(
-      item.Z10500,
-    ) ??
-    parseWeightG(
-      item.NUTRI_AMOUNT_SERVING,
+  const originalServing =
+    rawServingText(
+      item,
     );
 
-  const per100g = {
+  const volumeServing =
+    isVolumeServing(
+      originalServing,
+    );
+
+  /*
+   * mL 제품은 g 중량으로 강제로 변환하지 않는다.
+   */
+  const servingG =
+    volumeServing
+      ? null
+      : (
+          parseWeightG(
+            item.Z10500,
+          ) ??
+          parseWeightG(
+            item.NUTRI_AMOUNT_SERVING,
+          ) ??
+          parseWeightG(
+            item.SERVING_SIZE,
+          )
+        );
+
+  const per100g:
+    NutritionValues = {
     kcal:
-      parseNumber(
+      firstNumber(
         item.AMT_NUM1,
-      ),
-
-    protein_g:
-      parseNumber(
-        item.AMT_NUM3,
-      ),
-
-    fat_g:
-      parseNumber(
-        item.AMT_NUM4,
+        item.NUTR_CONT1,
       ),
 
     carbs_g:
-      parseNumber(
+      firstNumber(
         item.AMT_NUM6,
+        item.NUTR_CONT2,
+      ),
+
+    protein_g:
+      firstNumber(
+        item.AMT_NUM3,
+        item.NUTR_CONT3,
+      ),
+
+    fat_g:
+      firstNumber(
+        item.AMT_NUM4,
+        item.NUTR_CONT4,
       ),
 
     sugar_g:
-      parseNumber(
+      firstNumber(
         item.AMT_NUM7,
+        item.NUTR_CONT5,
       ),
 
     sodium_mg:
-      parseNumber(
+      firstNumber(
         item.AMT_NUM13,
+        item.NUTR_CONT6,
       ),
 
     saturated_fat_g:
-      parseNumber(
+      firstNumber(
         item.AMT_NUM24,
+        item.NUTR_CONT8,
       ),
   };
 
+  /*
+   * g 식품은 실제 제공 중량으로 환산한다.
+   *
+   * mL 음료는 현재 MFDS 100 기준 영양정보를
+   * 화면상 100mL 기준 baseline으로 사용한다.
+   */
   const multiplier =
-    servingG !== null
-      ? servingG / 100
-      : null;
+    servingG !==
+      null &&
+    servingG > 0
+      ? servingG /
+        100
+      : 1;
 
-  const total =
-    multiplier !== null
-      ? {
-          kcal:
-            per100g.kcal === null
-              ? null
-              : Math.round(
-                  per100g.kcal *
-                    multiplier,
-                ),
-
-          carbs_g:
-            scaleNullable(
-              per100g.carbs_g,
+  const total:
+    NutritionValues = {
+    kcal:
+      per100g.kcal ===
+        null
+        ? null
+        : roundOne(
+            per100g.kcal *
               multiplier,
-            ),
+          ),
 
-          protein_g:
-            scaleNullable(
-              per100g.protein_g,
-              multiplier,
-            ),
+    carbs_g:
+      scaleNullable(
+        per100g.carbs_g,
+        multiplier,
+      ),
 
-          fat_g:
-            scaleNullable(
-              per100g.fat_g,
-              multiplier,
-            ),
+    protein_g:
+      scaleNullable(
+        per100g.protein_g,
+        multiplier,
+      ),
 
-          sugar_g:
-            scaleNullable(
-              per100g.sugar_g,
-              multiplier,
-            ),
+    fat_g:
+      scaleNullable(
+        per100g.fat_g,
+        multiplier,
+      ),
 
-          sodium_mg:
-            scaleNullable(
-              per100g.sodium_mg,
-              multiplier,
-            ),
+    sugar_g:
+      scaleNullable(
+        per100g.sugar_g,
+        multiplier,
+      ),
 
-          saturated_fat_g:
-            scaleNullable(
-              per100g.saturated_fat_g,
-              multiplier,
-            ),
-        }
-      : null;
+    sodium_mg:
+      scaleNullable(
+        per100g.sodium_mg,
+        multiplier,
+      ),
+
+    saturated_fat_g:
+      scaleNullable(
+        per100g
+          .saturated_fat_g,
+        multiplier,
+      ),
+  };
+
+  const servingDescription =
+    volumeServing
+      ? (
+          originalServing
+            ? `100mL 기준 · 원본 ${originalServing}`
+            : '100mL 기준'
+        )
+      : servingG !==
+          null
+        ? `1개 (${roundOne(
+            servingG,
+          )}g)`
+        : originalServing ||
+          '100g 기준';
 
   return {
     id,
@@ -529,31 +785,25 @@ function normalizeItem(
 
     servingG,
 
-    servingDescription:
-      servingG !== null
-        ? `1개 (${roundOne(
-            servingG,
-          )}g)`
-        : String(
-            item.Z10500 ??
-              item.NUTRI_AMOUNT_SERVING ??
-              item.SERVING_SIZE ??
-              '1회',
-          ).trim(),
+    servingDescription,
 
     per100g,
 
     total,
 
     macroComplete:
-      per100g.carbs_g !==
+      per100g
+        .carbs_g !==
         null &&
-      per100g.protein_g !==
+      per100g
+        .protein_g !==
         null &&
-      per100g.fat_g !==
+      per100g
+        .fat_g !==
         null,
 
-    source: 'MFDS',
+    source:
+      'MFDS',
 
     researchDate:
       item.RESEARCH_YMD
@@ -572,7 +822,8 @@ function normalizeItem(
 }
 
 function dedupeLatest(
-  foods: MfdsFood[],
+  foods:
+    MfdsFood[],
 ) {
   const map =
     new Map<
@@ -586,10 +837,14 @@ function dedupeLatest(
   ) {
     const key =
       `${food.brand}|${food.name}`
-        .toLowerCase();
+        .toLocaleLowerCase(
+          'ko-KR',
+        );
 
     const previous =
-      map.get(key);
+      map.get(
+        key,
+      );
 
     if (!previous) {
       map.set(
@@ -605,6 +860,7 @@ function dedupeLatest(
         dateScore(
           previous.updatedDate,
         ),
+
         dateScore(
           previous.researchDate,
         ),
@@ -615,6 +871,7 @@ function dedupeLatest(
         dateScore(
           food.updatedDate,
         ),
+
         dateScore(
           food.researchDate,
         ),
@@ -637,17 +894,21 @@ function dedupeLatest(
 }
 
 export async function GET(
-  req: NextRequest,
+  req:
+    NextRequest,
 ) {
   const query =
     req.nextUrl
       .searchParams
-      .get('q')
+      .get(
+        'q',
+      )
       ?.trim() ??
     '';
 
   if (
-    query.length < 1
+    query.length <
+    1
   ) {
     return NextResponse.json(
       {
@@ -657,9 +918,10 @@ export async function GET(
   }
 
   const cacheKey =
-    query.toLocaleLowerCase(
-      'ko-KR',
-    );
+    query
+      .toLocaleLowerCase(
+        'ko-KR',
+      );
 
   const cached =
     memoryCache.get(
@@ -676,8 +938,12 @@ export async function GET(
         ...cached.payload,
 
         meta: {
-          ...cached.payload.meta,
-          cache: 'memory',
+          ...cached
+            .payload
+            .meta,
+
+          cache:
+            'memory',
         },
       },
       {
@@ -700,14 +966,17 @@ export async function GET(
       .MFDS_SERVICE_KEY
       ?.trim();
 
-  if (!rawServiceKey) {
+  if (
+    !rawServiceKey
+  ) {
     return NextResponse.json(
       {
         error:
           'MFDS_SERVICE_KEY missing',
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }
@@ -719,13 +988,14 @@ export async function GET(
           rawServiceKey,
         ),
 
-      pageNo: '1',
+      pageNo:
+        '1',
 
-      // 검색 UI에서 충분한 후보 수만 가져온다.
-      // 기존 50건보다 응답 크기를 줄인다.
-      numOfRows: '30',
+      numOfRows:
+        '30',
 
-      type: 'json',
+      type:
+        'json',
 
       FOOD_NM_KR:
         query,
@@ -736,7 +1006,6 @@ export async function GET(
       await fetch(
         `${MFDS_API}?${params.toString()}`,
         {
-          // Next/Vercel 데이터 캐시도 함께 사용한다.
           next: {
             revalidate:
               UPSTREAM_REVALIDATE_SECONDS,
@@ -752,7 +1021,9 @@ export async function GET(
     const responseText =
       await response.text();
 
-    if (!response.ok) {
+    if (
+      !response.ok
+    ) {
       console.error(
         '[mfds/search] HTTP error',
         response.status,
@@ -771,7 +1042,8 @@ export async function GET(
             ),
         },
         {
-          status: 502,
+          status:
+            502,
         },
       );
     }
@@ -796,7 +1068,8 @@ export async function GET(
             'MFDS returned invalid JSON',
         },
         {
-          status: 502,
+          status:
+            502,
         },
       );
     }
@@ -806,21 +1079,23 @@ export async function GET(
         json,
       );
 
-    const brandFoods =
+    const normalized =
       rawItems
         .map(
           normalizeItem,
         )
         .filter(
           (
-            item,
-          ): item is MfdsFood =>
-            item !== null,
+            food,
+          ): food is
+            MfdsFood =>
+            food !==
+            null,
         );
 
     const foods =
       dedupeLatest(
-        brandFoods,
+        normalized,
       ).sort(
         (
           a,
@@ -844,20 +1119,41 @@ export async function GET(
           }
 
           const startsA =
-            a.name.startsWith(
-              query,
-            );
+            a.name
+              .startsWith(
+                query,
+              );
 
           const startsB =
-            b.name.startsWith(
-              query,
-            );
+            b.name
+              .startsWith(
+                query,
+              );
 
           if (
             startsA !==
             startsB
           ) {
             return startsA
+              ? -1
+              : 1;
+          }
+
+          const kcalA =
+            a.per100g
+              .kcal !==
+            null;
+
+          const kcalB =
+            b.per100g
+              .kcal !==
+            null;
+
+          if (
+            kcalA !==
+            kcalB
+          ) {
+            return kcalA
               ? -1
               : 1;
           }
@@ -886,8 +1182,11 @@ export async function GET(
 
           incompleteMacroCount:
             foods.filter(
-              (food) =>
-                !food.macroComplete,
+              (
+                food,
+              ) =>
+                !food
+                  .macroComplete,
             ).length,
 
           cache:
@@ -929,7 +1228,8 @@ export async function GET(
           'MFDS request failed',
       },
       {
-        status: 500,
+        status:
+          500,
       },
     );
   }
