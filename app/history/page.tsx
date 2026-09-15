@@ -30,7 +30,9 @@ import {
 import {
   calcTotalVolume,
   formatDuration,
-  isoToDateKey,
+  isDateOnlyKey,
+  localDateKey,
+  workoutDateKey,
 } from '@/lib/utils';
 
 import type {
@@ -331,7 +333,8 @@ export default function HistoryPage() {
         log,
       ) => {
         const key =
-          isoToDateKey(
+          workoutDateKey(
+            log.date,
             log.started_at,
           );
 
@@ -349,21 +352,23 @@ export default function HistoryPage() {
   // Current displayed month
   // ─────────────────────────────────────────────
 
+  const monthPrefix =
+    `${year}-${String(
+      month + 1,
+    ).padStart(
+      2,
+      '0',
+    )}-`;
+
   const monthLogs =
     myLogs.filter(
-      (log) => {
-        const date =
-          new Date(
-            log.started_at,
-          );
-
-        return (
-          date.getFullYear() ===
-            year &&
-          date.getMonth() ===
-            month
-        );
-      },
+      (log) =>
+        workoutDateKey(
+          log.date,
+          log.started_at,
+        ).startsWith(
+          monthPrefix,
+        ),
     );
 
   const monthSets =
@@ -719,9 +724,7 @@ export default function HistoryPage() {
                   );
 
                 const todayKey =
-                  new Date().toLocaleDateString(
-                    'en-CA',
-                  );
+                  localDateKey();
 
                 const isToday =
                   dateKey ===
@@ -898,7 +901,8 @@ export default function HistoryPage() {
                         log={log}
                         onClick={() =>
                           setSelectedDate(
-                            isoToDateKey(
+                            workoutDateKey(
+                              log.date,
                               log.started_at,
                             ),
                           )
@@ -1013,7 +1017,10 @@ function CompactLogCard({
 
           <p className="mt-1 text-xs text-zinc-600">
             {formatLogDate(
-              log.started_at,
+              workoutDateKey(
+                log.date,
+                log.started_at,
+              ),
             )}
           </p>
         </div>
@@ -1249,8 +1256,23 @@ function getWorkoutDuration(
 function formatLogDate(
   value: string,
 ) {
-  const date =
-    new Date(value);
+  if (
+    !isDateOnlyKey(
+      value,
+    )
+  ) {
+    return value;
+  }
+
+  const [year, month, day] =
+    value.split('-').map(Number);
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+    12,
+  );
 
   return new Intl.DateTimeFormat(
     'ko-KR',

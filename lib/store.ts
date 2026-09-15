@@ -6,7 +6,8 @@ import {
   ActiveWorkout, SignupData, MealLog, MealItem, MealType, NutritionSummary,
   InbodyRecord, RecordType,
 } from './types';
-import { generateId } from './utils';
+import { generateId, localDateKey } from './utils';
+import { normalizeMealNutrition, sanitizeMealLogs } from './mealSave';
 
 function normalizeRoutineItem(
   item: RoutineItem,
@@ -892,7 +893,7 @@ export const useStore = create<Store>()(
         const storedUser = get().users.find((u) => u.id === user.id);
       
         const finishedAt = new Date().toISOString();
-        const workoutDate = new Date().toLocaleDateString('en-CA');
+        const workoutDate = localDateKey();
       
         // 비회원은 기존 localStorage 방식 유지
         if (storedUser?.is_guest) {
@@ -1016,19 +1017,24 @@ export const useStore = create<Store>()(
 
       setMealLogs: (logs) =>
         set({
-          mealLogs: logs,
+          mealLogs: sanitizeMealLogs(logs),
         }),
 
       addMealItem: (date, mealType, item) => {
         const user = get().currentUser();
         if (!user) return;
 
+        const nutrition = normalizeMealNutrition(item);
+        if (!nutrition) return;
+
+        const safeItem = { ...item, ...nutrition };
+
         const existing = get().mealLogs.find(
           (l) => l.user_id === user.id && l.date === date && l.meal_type === mealType,
         );
 
         if (existing) {
-          const newItem: MealItem = { ...item, id: generateId(), meal_log_id: existing.id };
+          const newItem: MealItem = { ...safeItem, id: generateId(), meal_log_id: existing.id };
           set((s) => ({
             mealLogs: s.mealLogs.map((l) =>
               l.id === existing.id ? { ...l, items: [...l.items, newItem] } : l,
@@ -1036,7 +1042,7 @@ export const useStore = create<Store>()(
           }));
         } else {
           const logId = generateId();
-          const newItem: MealItem = { ...item, id: generateId(), meal_log_id: logId };
+          const newItem: MealItem = { ...safeItem, id: generateId(), meal_log_id: logId };
           const newLog: MealLog = {
             id: logId,
             user_id: user.id,
@@ -1056,7 +1062,18 @@ export const useStore = create<Store>()(
               : {
                   ...log,
                   items: log.items.map((item) =>
-                    item.id === itemId ? { ...item, ...updates } : item,
+                    item.id !== itemId
+                      ? item
+                      : (() => {
+                          const nextItem = { ...item, ...updates };
+                          const nutrition = normalizeMealNutrition(nextItem);
+
+                          // Permit an already-corrupt historical row to be
+                          // corrected over several edits, while rejecting a
+                          // new invalid value for a previously valid row.
+                          if (nutrition) return { ...nextItem, ...nutrition };
+                          return normalizeMealNutrition(item) === null ? nextItem : item;
+                        })(),
                   ),
                 },
           ),
@@ -1080,7 +1097,9 @@ export const useStore = create<Store>()(
       getMealsByDate: (date) => {
         const user = get().currentUser();
         if (!user) return [];
-        return get().mealLogs.filter((l) => l.user_id === user.id && l.date === date);
+        return sanitizeMealLogs(
+          get().mealLogs.filter((l) => l.user_id === user.id && l.date === date),
+        );
       },
 
       getDailyNutrition: (date) => {
@@ -1088,10 +1107,13 @@ export const useStore = create<Store>()(
         return meals.reduce<NutritionSummary>(
           (acc, log) => {
             log.items.forEach((item) => {
-              acc.kcal += item.kcal;
-              acc.carbs_g += item.carbs_g;
-              acc.protein_g += item.protein_g;
-              acc.fat_g += item.fat_g;
+              const nutrition = normalizeMealNutrition(item);
+              if (!nutrition) return;
+
+              acc.kcal += nutrition.kcal;
+              acc.carbs_g += nutrition.carbs_g;
+              acc.protein_g += nutrition.protein_g;
+              acc.fat_g += nutrition.fat_g;
             });
             return acc;
           },
@@ -1299,6 +1321,17 @@ export const useStore = create<Store>()(
         inbodyRecords: s.inbodyRecords,
         favoriteExerciseIds: s.favoriteExerciseIds,
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<Store>;
+
+        return {
+          ...currentState,
+          ...persisted,
+          mealLogs: sanitizeMealLogs(
+            persisted.mealLogs ?? currentState.mealLogs,
+          ),
+        };
+      },
     },
   ),
 );

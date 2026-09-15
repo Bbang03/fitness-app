@@ -30,6 +30,8 @@ import {
   useStore,
 } from '@/lib/store';
 
+import { normalizeMealNutrition } from '@/lib/mealSave';
+
 
 type PredictionMetricKey =
   | 'weight_kg'
@@ -1103,6 +1105,17 @@ export default function InsightsPage() {
         const log
         of recentMeals
       ) {
+        const validNutrition = log.items
+          .map(normalizeMealNutrition)
+          .filter(
+            (nutrition): nutrition is NonNullable<typeof nutrition> =>
+              Boolean(nutrition),
+          );
+
+        if (validNutrition.length === 0) {
+          continue;
+        }
+
         const existing =
           byDate.get(
             log.date,
@@ -1111,15 +1124,12 @@ export default function InsightsPage() {
             protein: 0,
           };
 
-        for (
-          const item
-          of log.items
-        ) {
+        for (const nutrition of validNutrition) {
           existing.kcal +=
-            item.kcal;
+            nutrition.kcal;
 
           existing.protein +=
-            item.protein_g;
+            nutrition.protein_g;
         }
 
         byDate.set(

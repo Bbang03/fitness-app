@@ -50,6 +50,8 @@ import {
   type CalendarNutritionGoals,
 } from '@/lib/calendarSummary';
 
+import { normalizeMealNutrition } from '@/lib/mealSave';
+
 import {
   useStore,
 } from '@/lib/store';
@@ -885,6 +887,17 @@ export default function DashboardPage() {
           const log
           of recent
         ) {
+          const validNutrition = log.items
+            .map(normalizeMealNutrition)
+            .filter(
+              (nutrition): nutrition is NonNullable<typeof nutrition> =>
+                Boolean(nutrition),
+            );
+
+          if (validNutrition.length === 0) {
+            continue;
+          }
+
           const summary =
             byDate.get(
               log.date,
@@ -893,15 +906,12 @@ export default function DashboardPage() {
               protein: 0,
             };
 
-          for (
-            const item
-            of log.items
-          ) {
+          for (const nutrition of validNutrition) {
             summary.kcal +=
-              item.kcal;
+              nutrition.kcal;
 
             summary.protein +=
-              item.protein_g;
+              nutrition.protein_g;
           }
 
           byDate.set(

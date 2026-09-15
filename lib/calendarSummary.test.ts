@@ -127,6 +127,38 @@ test('does not classify an empty meal row as recorded or below target', () => {
   assert.equal(result.has('2026-09-10'), false);
 });
 
+test('excludes invalid historical nutrition from calendar totals while keeping valid items', () => {
+  const validMeal = meal('2026-09-10', 1_500, 50);
+  const invalidMeal: MealLog = {
+    ...meal('2026-09-10', 200, 8),
+    id: 'meal-invalid',
+    items: [
+      {
+        ...validMeal.items[0],
+        id: 'item-invalid',
+        meal_log_id: 'meal-invalid',
+        kcal: -10,
+      },
+    ],
+  };
+
+  const result = buildCalendarDaySummaries(
+    [],
+    [validMeal, invalidMeal],
+    goals,
+    { today: '2026-09-12' },
+  );
+
+  assert.equal(result.get('2026-09-10')?.mealCount, 1);
+  assert.equal(result.get('2026-09-10')?.nutrition.kcal, 1_500);
+  assert.equal(
+    buildCalendarDaySummaries([], [invalidMeal], goals, { today: '2026-09-12' }).has(
+      '2026-09-10',
+    ),
+    false,
+  );
+});
+
 test('reports unavailable goals without inventing a deficit', () => {
   const result = buildCalendarDaySummaries(
     [],

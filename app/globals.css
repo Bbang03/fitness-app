@@ -266,6 +266,7 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 .chagok-app [class*='text-purple-'], .chagok-app [class*='text-violet-'] { color: var(--color-chart-purple) !important; }
 .chagok-app [class*='rounded-3xl'], .chagok-app [class*='rounded-2xl'] { border-radius: var(--radius-card); }
 .chagok-app button, .chagok-app input:not([type='checkbox']):not([type='file']), .chagok-app select { min-height: 44px; }
+.chagok-app :is(button, a)[aria-label='음식 수정'], .chagok-app :is(button, a)[aria-label='음식 삭제'] { width: 44px; min-width: 44px; min-height: 44px; }
 .chagok-app button { transition-property: transform, opacity; }
 .chagok-app button:active:not(:disabled) { transform: translateY(1px); }
 .chagok-app button:disabled { cursor: not-allowed; }

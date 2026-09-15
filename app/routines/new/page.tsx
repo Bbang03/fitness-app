@@ -25,6 +25,12 @@ import {
 
 import { useStore } from '@/lib/store';
 
+import {
+  isTargetValueValid,
+  targetLimit,
+  targetLimitMessage,
+} from '@/lib/routineValidation';
+
 import type {
   RecordType,
   RoutineItem,
@@ -683,15 +689,32 @@ export default function NewRoutinePage() {
         return;
       }
 
+      const normalizedItems = items.map(
+        normalizeDraftItem,
+      );
+
+      const invalidTarget = normalizedItems.find(
+        (item) =>
+          !isTargetValueValid(
+            item.target_reps,
+            item.record_type,
+          ),
+      );
+
+      if (invalidTarget) {
+        setError(
+          targetLimitMessage(
+            invalidTarget.record_type,
+          ),
+        );
+
+        return;
+      }
+
       setError('');
       setIsSaving(true);
 
       try {
-        const normalizedItems =
-          items.map(
-            normalizeDraftItem,
-          );
-
         const id =
           await addRoutine(
             name.trim(),
@@ -746,10 +769,7 @@ export default function NewRoutinePage() {
           <div className="flex items-center gap-3 px-4 pb-4 pt-10">
             <button
               type="button"
-              onClick={() => {
-                clearRoutineDraft();
-                router.back();
-              }}
+              onClick={() => router.back()}
               disabled={
                 isSaving
               }
@@ -1129,6 +1149,16 @@ export default function NewRoutinePage() {
                         step={1}
                         fastStep={5}
                         min={1}
+                        max={targetLimit(
+                          detailItem.record_type,
+                        )}
+                        onLimitExceeded={() =>
+                          setError(
+                            targetLimitMessage(
+                              detailItem.record_type,
+                            ),
+                          )
+                        }
                         onChange={(
                           value,
                         ) =>
@@ -1201,6 +1231,16 @@ export default function NewRoutinePage() {
                         step={1}
                         fastStep={5}
                         min={1}
+                        max={targetLimit(
+                          detailItem.record_type,
+                        )}
+                        onLimitExceeded={() =>
+                          setError(
+                            targetLimitMessage(
+                              detailItem.record_type,
+                            ),
+                          )
+                        }
                         onChange={(
                           value,
                         ) =>
@@ -1273,6 +1313,16 @@ export default function NewRoutinePage() {
                         step={15}
                         fastStep={30}
                         min={1}
+                        max={targetLimit(
+                          detailItem.record_type,
+                        )}
+                        onLimitExceeded={() =>
+                          setError(
+                            targetLimitMessage(
+                              detailItem.record_type,
+                            ),
+                          )
+                        }
                         onChange={(
                           value,
                         ) =>
@@ -1359,8 +1409,10 @@ function NumberControl({
   step,
   fastStep,
   min,
+  max,
   decimal = false,
   formatValue,
+  onLimitExceeded,
   onChange,
 }: {
   label: string;
@@ -1369,10 +1421,12 @@ function NumberControl({
   step: number;
   fastStep?: number;
   min: number;
+  max?: number;
   decimal?: boolean;
   formatValue?: (
     value: number,
   ) => string;
+  onLimitExceeded?: () => void;
   onChange: (
     value: number,
   ) => void;
@@ -1404,7 +1458,12 @@ function NumberControl({
     const clamped =
       Math.max(
         min,
-        nextValue,
+        max === undefined
+          ? nextValue
+          : Math.min(
+              max,
+              nextValue,
+            ),
       );
 
     return decimal
@@ -1424,14 +1483,23 @@ function NumberControl({
         nextValue,
       )
     ) {
-      return;
+      return null;
     }
 
-    onChange(
-      normalizeNumber(
-        nextValue,
-      ),
+    const normalized = normalizeNumber(
+      nextValue,
     );
+
+    onChange(normalized);
+
+    if (
+      max !== undefined &&
+      nextValue > max
+    ) {
+      onLimitExceeded?.();
+    }
+
+    return normalized;
   };
 
   const formatQuickValue = (
@@ -1492,9 +1560,21 @@ function NumberControl({
         parsed,
       )
     ) {
-      commitValue(
+      const committed = commitValue(
         parsed,
       );
+
+      if (
+        committed !== null &&
+        max !== undefined &&
+        parsed > max
+      ) {
+        setKeypadValue(
+          formatQuickValue(
+            committed,
+          ),
+        );
+      }
     }
   };
 
@@ -1549,19 +1629,18 @@ function NumberControl({
   const adjust = (
     amount: number,
   ) => {
-    const next =
-      normalizeNumber(
-        value + amount,
-      );
-
-    onChange(next);
+    const next = commitValue(
+      value + amount,
+    );
 
     if (keypadOpen) {
-      setKeypadValue(
-        formatQuickValue(
-          next,
-        ),
-      );
+      if (next !== null) {
+        setKeypadValue(
+          formatQuickValue(
+            next,
+          ),
+        );
+      }
     }
   };
 

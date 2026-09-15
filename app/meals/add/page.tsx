@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ComponentType,
   type ReactNode,
@@ -36,6 +37,16 @@ import type {
   MealLog,
   MealType,
 } from '@/lib/types';
+import {
+  canStartMealSave,
+  MEAL_NUTRITION_LIMITS,
+  mealDraftStorageKey,
+  type MealNutritionField,
+  mealValidationSummary,
+  mealSaveDestination,
+  validateMealItem,
+  validateMealItems,
+} from '@/lib/mealSave';
 
 interface OpenFoodFactsFood {
   id: string;
@@ -932,140 +943,419 @@ function PortionAmountControls({
 }
 
 function ManualNumber({
+  id,
+  field,
   label,
   unit,
   value,
   disabled,
   onChange,
+  error,
+  required = false,
 }: {
+  id: string;
+  field: MealNutritionField;
   label: string;
   unit: string;
   value: string;
   disabled: boolean;
   onChange: (value: string) => void;
+  error?: string;
+  required?: boolean;
 }) {
+  const errorId = `${id}-error`;
+
   return (
     <div>
-      <label className="mb-1.5 block text-xs text-zinc-500">
+      <label htmlFor={id} className="mb-1.5 block text-xs text-zinc-500">
         {label} <span className="text-zinc-700">({unit})</span>
       </label>
       <input
+        id={id}
         type="number"
         value={value}
         disabled={disabled}
+        required={required}
+        min="0"
+        max={MEAL_NUTRITION_LIMITS[field]}
+        step="0.1"
         inputMode="decimal"
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3 text-sm text-white transition-colors focus:border-blue-500 focus:outline-none disabled:opacity-50"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? errorId : undefined}
+        className={`w-full rounded-xl border bg-zinc-950/60 px-3 py-3 text-sm text-white transition-colors focus:border-blue-500 focus:outline-none disabled:opacity-50 ${
+          error ? 'border-red-500/70' : 'border-zinc-800'
+        }`}
         placeholder="0"
       />
+      {error && (
+        <p id={errorId} role="alert" className="mt-1 text-[11px] text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
+}
+
+const MANUAL_INPUT_IDS = {
+  food_name: 'manual-food-name',
+  grams: 'manual-serving-size',
+  serving: 'manual-serving-note',
+  kcal: 'manual-kcal',
+  carbs_g: 'manual-carbs',
+  protein_g: 'manual-protein',
+  fat_g: 'manual-fat',
+} as const;
+
+type ManualField = keyof typeof MANUAL_INPUT_IDS;
+type ManualErrors = Partial<Record<ManualField, string>>;
+
+const MANUAL_SERVING_MIN_G = 0.1;
+const MANUAL_SERVING_MAX_G = 10_000;
+
+type ManualFormValues = {
+  name: string;
+  serving: string;
+  grams: string;
+  kcal: string;
+  carbs: string;
+  protein: string;
+  fat: string;
+};
+
+const DEFAULT_MANUAL_FORM: ManualFormValues = {
+  name: '',
+  serving: '',
+  grams: '100',
+  kcal: '',
+  carbs: '',
+  protein: '',
+  fat: '',
+};
+
+const MANUAL_FORM_FIELDS: readonly (keyof ManualFormValues)[] = [
+  'name',
+  'serving',
+  'grams',
+  'kcal',
+  'carbs',
+  'protein',
+  'fat',
+];
+
+function hasManualDraft(form: ManualFormValues) {
+  return MANUAL_FORM_FIELDS.some(
+    (field) => form[field] !== DEFAULT_MANUAL_FORM[field],
+  );
+}
+
+function readManualDraft(key: string): ManualFormValues {
+  const draft: ManualFormValues = { ...DEFAULT_MANUAL_FORM };
+
+  if (typeof window === 'undefined') return draft;
+
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return draft;
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return draft;
+
+    for (const field of MANUAL_FORM_FIELDS) {
+      const value = (parsed as Record<string, unknown>)[field];
+      if (typeof value === 'string') {
+        draft[field] = value;
+      }
+    }
+  } catch {
+    // Session storage can be unavailable in privacy mode. The form remains usable.
+  }
+
+  return draft;
+}
+
+function clearMealDraftStorage(key: string) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Ignore storage errors; navigation and saving should still work.
+  }
 }
 
 function ManualForm({
   onAdd,
   disabled,
+  draftKey,
+  onDraftChange,
 }: {
-  onAdd: (item: AddItem) => void;
+  onAdd: (item: AddItem) => boolean | Promise<boolean>;
   disabled: boolean;
+  draftKey: string;
+  onDraftChange?: (hasDraft: boolean) => void;
 }) {
-  const [form, setForm] = useState({
-    name: '',
-    serving: '',
-    grams: '100',
-    kcal: '',
-    carbs: '',
-    protein: '',
-    fat: '',
+  const [form, setForm] = useState<ManualFormValues>({
+    ...DEFAULT_MANUAL_FORM,
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState<ManualErrors>({});
+  const [hydratedKey, setHydratedKey] = useState<string | null>(null);
+  const submitLockRef = useRef(false);
+
+  useEffect(() => {
+    setForm(readManualDraft(draftKey));
+    setErrors({});
+    setHydratedKey(draftKey);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (hydratedKey !== draftKey) return;
+
+    const hasDraft = hasManualDraft(form);
+    onDraftChange?.(hasDraft);
+
+    if (typeof window === 'undefined') return;
+
+    try {
+      if (hasDraft) {
+        window.sessionStorage.setItem(draftKey, JSON.stringify(form));
+      } else {
+        window.sessionStorage.removeItem(draftKey);
+      }
+    } catch {
+      // Session storage can be unavailable in privacy mode. The form remains usable.
+    }
+  }, [draftKey, form, hydratedKey, onDraftChange]);
 
   const update =
     (field: keyof typeof form) =>
     (value: string) => {
       setForm((previous) => ({ ...previous, [field]: value }));
-      setError('');
+      setErrors((previous) => {
+        const errorField = field === 'name' ? 'food_name' : field;
+        if (!previous[errorField as ManualField]) return previous;
+        const next = { ...previous };
+        delete next[errorField as ManualField];
+        return next;
+      });
     };
 
-  const handleAdd = () => {
-    if (!form.name.trim() || !form.kcal) {
-      setError('음식 이름과 칼로리를 입력해주세요.');
+  const handleAdd = async () => {
+    if (disabled || hydratedKey !== draftKey || submitLockRef.current) return;
+
+    const nextErrors: ManualErrors = {};
+    const gramsText = form.grams.trim();
+    const grams = gramsText === '' ? 100 : Number(gramsText);
+
+    if (!Number.isFinite(grams)) {
+      nextErrors.grams = '섭취량은 유한한 숫자로 입력해주세요.';
+    } else if (grams < MANUAL_SERVING_MIN_G) {
+      nextErrors.grams = '섭취량은 0보다 큰 값으로 입력해주세요.';
+    } else if (grams > MANUAL_SERVING_MAX_G) {
+      nextErrors.grams = '섭취량은 10,000g 이하로 입력해주세요.';
+    }
+
+    const servingNote = form.serving.trim();
+    const serving = servingNote
+      ? `${servingNote}${/\d+(?:\.\d+)?\s*g\b/i.test(servingNote) ? '' : ` (${grams}g)`}`
+      : `${grams}g`;
+    const nutritionErrors = validateMealItem(
+      {
+        food_name: form.name,
+        serving,
+        kcal: form.kcal,
+        carbs_g: form.carbs,
+        protein_g: form.protein,
+        fat_g: form.fat,
+      },
+      { allowBlankOptionalMacros: true },
+    );
+    Object.assign(nextErrors, nutritionErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      const firstInvalid = (
+        Object.keys(MANUAL_INPUT_IDS) as ManualField[]
+      ).find((field) => nextErrors[field]);
+      if (firstInvalid) {
+        document.getElementById(MANUAL_INPUT_IDS[firstInvalid])?.focus();
+      }
       return;
     }
 
-    const grams = Math.max(1, Number(form.grams) || 100);
-    const serving = form.serving.trim();
+    submitLockRef.current = true;
 
-    onAdd({
-      food_name: form.name.trim(),
-      serving: serving
-        ? `${serving}${/\d+(?:\.\d+)?\s*g\b/i.test(serving) ? '' : ` (${grams}g)`}`
-        : `${grams}g`,
-      kcal: Number(form.kcal) || 0,
-      carbs_g: Number(form.carbs) || 0,
-      protein_g: Number(form.protein) || 0,
-      fat_g: Number(form.fat) || 0,
-    });
+    try {
+      const saved = await onAdd({
+        food_name: form.name.trim(),
+        serving,
+        kcal: Number(form.kcal),
+        carbs_g: form.carbs.trim() ? Number(form.carbs) : 0,
+        protein_g: form.protein.trim() ? Number(form.protein) : 0,
+        fat_g: form.fat.trim() ? Number(form.fat) : 0,
+      });
+
+      if (saved) {
+        clearMealDraftStorage(draftKey);
+      }
+    } finally {
+      submitLockRef.current = false;
+    }
   };
 
   const inputClass =
     'w-full rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-3 text-sm text-white placeholder-zinc-700 transition-colors focus:border-blue-500 focus:outline-none disabled:opacity-50';
+  const textInputClass = (field: ManualField) =>
+    `${inputClass} ${errors[field] ? 'border-red-500/70' : ''}`;
 
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-zinc-500">음식 이름 *</label>
+        <label
+          htmlFor={MANUAL_INPUT_IDS.food_name}
+          className="mb-1.5 block text-xs font-medium text-zinc-500"
+        >
+          음식 이름 *
+        </label>
         <input
+          id={MANUAL_INPUT_IDS.food_name}
           type="text"
           value={form.name}
           disabled={disabled}
+          required
           onChange={(event) => update('name')(event.target.value)}
-          className={inputClass}
+          aria-invalid={Boolean(errors.food_name)}
+          aria-describedby={
+            errors.food_name ? `${MANUAL_INPUT_IDS.food_name}-error` : undefined
+          }
+          className={textInputClass('food_name')}
           placeholder="예: 닭가슴살 샐러드"
         />
+        {errors.food_name && (
+          <p
+            id={`${MANUAL_INPUT_IDS.food_name}-error`}
+            role="alert"
+            className="mt-1 text-[11px] text-red-400"
+          >
+            {errors.food_name}
+          </p>
+        )}
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-zinc-500">섭취량 (g)</label>
+        <label
+          htmlFor={MANUAL_INPUT_IDS.grams}
+          className="mb-1.5 block text-xs font-medium text-zinc-500"
+        >
+          섭취량 (g)
+        </label>
         <input
+          id={MANUAL_INPUT_IDS.grams}
           type="number"
-          min="1"
+          min={MANUAL_SERVING_MIN_G}
+          max={MANUAL_SERVING_MAX_G}
+          step="0.1"
           inputMode="decimal"
           value={form.grams}
           disabled={disabled}
           onChange={(event) => update('grams')(event.target.value)}
-          className={inputClass}
+          aria-invalid={Boolean(errors.grams)}
+          aria-describedby={
+            errors.grams ? `${MANUAL_INPUT_IDS.grams}-error` : undefined
+          }
+          className={textInputClass('grams')}
           placeholder="예: 200"
         />
+        {errors.grams && (
+          <p
+            id={`${MANUAL_INPUT_IDS.grams}-error`}
+            role="alert"
+            className="mt-1 text-[11px] text-red-400"
+          >
+            {errors.grams}
+          </p>
+        )}
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-zinc-500">제공량 메모 (선택)</label>
+        <label
+          htmlFor={MANUAL_INPUT_IDS.serving}
+          className="mb-1.5 block text-xs font-medium text-zinc-500"
+        >
+          제공량 메모 (선택)
+        </label>
         <input
+          id={MANUAL_INPUT_IDS.serving}
           type="text"
           value={form.serving}
           disabled={disabled}
           onChange={(event) => update('serving')(event.target.value)}
-          className={inputClass}
+          aria-invalid={Boolean(errors.serving)}
+          aria-describedby={
+            errors.serving ? `${MANUAL_INPUT_IDS.serving}-error` : undefined
+          }
+          className={textInputClass('serving')}
           placeholder="예: 닭가슴살 1팩"
         />
+        {errors.serving && (
+          <p
+            id={`${MANUAL_INPUT_IDS.serving}-error`}
+            role="alert"
+            className="mt-1 text-[11px] text-red-400"
+          >
+            {errors.serving}
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <ManualNumber label="칼로리" unit="kcal" value={form.kcal} disabled={disabled} onChange={update('kcal')} />
-        <ManualNumber label="탄수화물" unit="g" value={form.carbs} disabled={disabled} onChange={update('carbs')} />
-        <ManualNumber label="단백질" unit="g" value={form.protein} disabled={disabled} onChange={update('protein')} />
-        <ManualNumber label="지방" unit="g" value={form.fat} disabled={disabled} onChange={update('fat')} />
+        <ManualNumber
+          id={MANUAL_INPUT_IDS.kcal}
+          field="kcal"
+          label="칼로리"
+          unit="kcal"
+          value={form.kcal}
+          disabled={disabled}
+          required
+          onChange={update('kcal')}
+          error={errors.kcal}
+        />
+        <ManualNumber
+          id={MANUAL_INPUT_IDS.carbs_g}
+          field="carbs_g"
+          label="탄수화물"
+          unit="g"
+          value={form.carbs}
+          disabled={disabled}
+          onChange={update('carbs')}
+          error={errors.carbs_g}
+        />
+        <ManualNumber
+          id={MANUAL_INPUT_IDS.protein_g}
+          field="protein_g"
+          label="단백질"
+          unit="g"
+          value={form.protein}
+          disabled={disabled}
+          onChange={update('protein')}
+          error={errors.protein_g}
+        />
+        <ManualNumber
+          id={MANUAL_INPUT_IDS.fat_g}
+          field="fat_g"
+          label="지방"
+          unit="g"
+          value={form.fat}
+          disabled={disabled}
+          onChange={update('fat')}
+          error={errors.fat_g}
+        />
       </div>
-
-      {error && (
-        <p className="rounded-xl bg-red-500/10 px-3 py-2 text-xs text-red-400">{error}</p>
-      )}
 
       <button
         type="button"
         onClick={handleAdd}
-        disabled={disabled}
+        disabled={disabled || hydratedKey !== draftKey}
         className="w-full rounded-2xl bg-blue-600 py-4 text-sm font-bold text-white transition-colors hover:bg-blue-500 disabled:bg-zinc-800 disabled:text-zinc-600"
       >
         {disabled ? '저장 중...' : '식사에 추가'}
@@ -1973,6 +2263,9 @@ function AddMealInner() {
     ? (requestedMealType as MealType)
     : '아침';
 
+  const mealsHref = mealSaveDestination(date);
+  const draftKey = mealDraftStorageKey(date, mealType, user?.id ?? 'anonymous');
+
   const [tab, setTab] = useState<'search' | 'manual'>('search');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>(() => searchFoods(''));
@@ -1982,10 +2275,86 @@ function AddMealInner() {
   const [externalLoading, setExternalLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [manualDraftDirty, setManualDraftDirty] = useState(false);
+  const mealSaveLockRef = useRef(false);
 
   useEffect(() => {
     if (!user) router.replace('/login');
   }, [user?.id, router]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      setManualDraftDirty(Boolean(window.sessionStorage.getItem(draftKey)));
+    } catch {
+      setManualDraftDirty(false);
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!manualDraftDirty) return;
+
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    const handleMenuNavigation = (event: MouseEvent) => {
+      if (
+        !manualDraftDirty ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const link = target.closest('a[href]');
+      const href = link?.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+
+      let destination: URL;
+      try {
+        destination = new URL(href, window.location.href);
+      } catch {
+        return;
+      }
+
+      const current = new URL(window.location.href);
+      if (
+        destination.origin === current.origin &&
+        destination.pathname === current.pathname &&
+        destination.search === current.search &&
+        destination.hash === current.hash
+      ) {
+        return;
+      }
+
+      if (!window.confirm('작성 중인 식단이 있어요. 저장하지 않고 이동할까요?')) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
+      clearMealDraftStorage(draftKey);
+      setManualDraftDirty(false);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleMenuNavigation, true);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleMenuNavigation, true);
+    };
+  }, [draftKey, manualDraftDirty]);
 
   useEffect(() => {
     setResults(searchFoods(query));
@@ -2419,16 +2788,29 @@ function AddMealInner() {
 
   const handleAddMany = useCallback(
     async (items: AddItem[]) => {
-      if (!user || isSaving || items.length === 0) return;
+      if (!user) return false;
+      if (mealSaveLockRef.current) return false;
+      if (!canStartMealSave(Boolean(user), isSaving, items.length)) return false;
 
+      const validationIssues = validateMealItems(items);
+      if (validationIssues.length > 0) {
+        setSaveError(
+          mealValidationSummary(validationIssues[0], items.length),
+        );
+        return false;
+      }
+
+      mealSaveLockRef.current = true;
       setSaveError('');
       setIsSaving(true);
 
       try {
         if (isGuest) {
           items.forEach(item => addMealItem(date, mealType, item));
-          router.back();
-          return;
+          clearMealDraftStorage(draftKey);
+          setManualDraftDirty(false);
+          router.replace(mealsHref);
+          return true;
         }
 
         const supabase = createClient();
@@ -2436,7 +2818,7 @@ function AddMealInner() {
 
         if (authError || !authData.user) {
           setSaveError('로그인 상태를 확인할 수 없습니다.');
-          return;
+          return false;
         }
 
         const candidateLogId = crypto.randomUUID();
@@ -2458,7 +2840,7 @@ function AddMealInner() {
         if (logUpsertError) {
           console.error('Meal log create failed:', logUpsertError.message);
           setSaveError('식사 기록을 준비하는 중 문제가 발생했습니다.');
-          return;
+          return false;
         }
 
         const { data: mealLogRow, error: mealLogError } = await supabase
@@ -2477,7 +2859,7 @@ function AddMealInner() {
         if (mealLogError || !mealLogRow) {
           console.error('Meal log lookup failed:', mealLogError?.message);
           setSaveError('식사 기록을 찾을 수 없습니다.');
-          return;
+          return false;
         }
 
         const { data: insertedItems, error: itemError } = await supabase
@@ -2510,7 +2892,7 @@ function AddMealInner() {
         if (itemError || !insertedItems || insertedItems.length !== items.length) {
           console.error('Meal item insert failed:', itemError?.message);
           setSaveError('음식 저장에 실패했습니다.');
-          return;
+          return false;
         }
 
         const newItems: MealItem[] = insertedItems.map(insertedItem => ({
@@ -2546,11 +2928,16 @@ function AddMealInner() {
         }
 
         setMealLogs(nextLogs);
-        router.back();
+        clearMealDraftStorage(draftKey);
+        setManualDraftDirty(false);
+        router.replace(mealsHref);
+        return true;
       } catch (error) {
         console.error('Meal save failed:', error);
         setSaveError('음식을 저장하는 중 문제가 발생했습니다.');
+        return false;
       } finally {
+        mealSaveLockRef.current = false;
         setIsSaving(false);
       }
     },
@@ -2560,6 +2947,8 @@ function AddMealInner() {
       isSaving,
       date,
       mealType,
+      mealsHref,
+      draftKey,
       addMealItem,
       router,
       setMealLogs,
@@ -2570,6 +2959,21 @@ function AddMealInner() {
     async (item: AddItem) => handleAddMany([item]),
     [handleAddMany],
   );
+
+  const handleBack = useCallback(() => {
+    if (isSaving) return;
+
+    if (
+      manualDraftDirty &&
+      !window.confirm('작성 중인 식단이 있어요. 저장하지 않고 나갈까요?')
+    ) {
+      return;
+    }
+
+    clearMealDraftStorage(draftKey);
+    setManualDraftDirty(false);
+    router.back();
+  }, [draftKey, isSaving, manualDraftDirty, router]);
 
   if (!user) return null;
 
@@ -2590,8 +2994,9 @@ function AddMealInner() {
         <div className="flex items-center gap-3 px-4 pt-10 pb-4">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={handleBack}
             disabled={isSaving}
+            aria-label="음식 기록 화면에서 뒤로가기"
             className="flex h-11 w-11 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
           >
             <ChevronLeft size={22} />
@@ -2606,7 +3011,7 @@ function AddMealInner() {
 
       <main className="px-5 pt-5">
         <section className="mb-6">
-          <PhotoMealScanner onAddMany={handleAddMany} />
+          <PhotoMealScanner onAddMany={(items) => { void handleAddMany(items); }} />
         </section>
 
         <section>
@@ -2633,7 +3038,10 @@ function AddMealInner() {
         </section>
 
         {saveError && (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm text-red-400">
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm text-red-400"
+          >
             {saveError}
           </div>
         )}
@@ -2776,7 +3184,12 @@ function AddMealInner() {
                 검색 DB에 없는 음식이나 직접 조리한 음식을 기록할 수 있어요.
               </p>
             </div>
-            <ManualForm disabled={isSaving} onAdd={(item) => void handleAdd(item)} />
+            <ManualForm
+              disabled={isSaving}
+              draftKey={draftKey}
+              onDraftChange={setManualDraftDirty}
+              onAdd={handleAdd}
+            />
           </section>
         )}
       </main>

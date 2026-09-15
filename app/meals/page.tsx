@@ -35,10 +35,22 @@ import {
   createClient,
 } from '@/lib/supabase/client';
 
+import {
+  addDaysToDateKey,
+  dateKeyFromSearch,
+  isDateOnlyKey,
+  localDateKey,
+} from '@/lib/utils';
+
 import type {
   MealLog,
   MealType,
 } from '@/lib/types';
+import {
+  mealValidationSummary,
+  normalizeMealNutrition,
+  validateMealItems,
+} from '@/lib/mealSave';
 
 
 const MEAL_TYPES: MealType[] = [
@@ -67,9 +79,7 @@ function roundNutrition(value: number, digits = 1) {
 
 
 function todayKey() {
-  return new Date().toLocaleDateString(
-    'en-CA',
-  );
+  return localDateKey();
 }
 
 
@@ -77,18 +87,9 @@ function offsetDate(
   base: string,
   days: number,
 ) {
-  const date =
-    new Date(
-      `${base}T00:00:00`,
-    );
-
-  date.setDate(
-    date.getDate() +
-      days,
-  );
-
-  return date.toLocaleDateString(
-    'en-CA',
+  return addDaysToDateKey(
+    base,
+    days,
   );
 }
 
@@ -174,9 +175,66 @@ export default function MealsPage() {
     date,
     setDate,
   ] =
-    useState(
-      todayKey(),
+    useState<
+      string | null
+    >(null);
+
+  useEffect(() => {
+    const syncDateFromUrl = () => {
+      setDate(
+        dateKeyFromSearch(
+          window.location.search,
+          todayKey(),
+        ),
+      );
+    };
+
+    syncDateFromUrl();
+    window.addEventListener(
+      'popstate',
+      syncDateFromUrl,
     );
+
+    return () => {
+      window.removeEventListener(
+        'popstate',
+        syncDateFromUrl,
+      );
+    };
+  }, []);
+
+  const updateDate = (
+    nextDate: string,
+  ) => {
+    if (
+      !isDateOnlyKey(
+        nextDate,
+      )
+    ) {
+      return;
+    }
+
+    setDate(
+      nextDate,
+    );
+
+    const params =
+      new URLSearchParams(
+        window.location.search,
+      );
+
+    params.set(
+      'date',
+      nextDate,
+    );
+
+    router.replace(
+      `/meals?${params.toString()}`,
+      {
+        scroll: false,
+      },
+    );
+  };
 
   const [
     isLoading,
@@ -483,7 +541,7 @@ export default function MealsPage() {
     setMealLogs,
   ]);
 
-  if (!user) {
+  if (!user || !date) {
     return null;
   }
 
@@ -620,6 +678,12 @@ export default function MealsPage() {
       protein_g: roundNutrition(editingItem.protein_g),
       fat_g: roundNutrition(editingItem.fat_g),
     };
+
+    const validationIssue = validateMealItems([updates])[0];
+    if (validationIssue) {
+      setActionError(mealValidationSummary(validationIssue, 1));
+      return;
+    }
 
     setActionError('');
     setSavingItemId(editingItem.itemId);
@@ -799,12 +863,11 @@ export default function MealsPage() {
           <button
             type="button"
             onClick={() =>
-              setDate(
-                (current) =>
-                  offsetDate(
-                    current,
-                    -1,
-                  ),
+              updateDate(
+                offsetDate(
+                  date,
+                  -1,
+                ),
               )
             }
             className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white"
@@ -826,7 +889,7 @@ export default function MealsPage() {
               <button
                 type="button"
                 onClick={() =>
-                  setDate(
+                  updateDate(
                     todayKey(),
                   )
                 }
@@ -843,12 +906,11 @@ export default function MealsPage() {
               isToday
             }
             onClick={() =>
-              setDate(
-                (current) =>
-                  offsetDate(
-                    current,
-                    1,
-                  ),
+              updateDate(
+                offsetDate(
+                  date,
+                  1,
+                ),
               )
             }
             className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-white disabled:opacity-20"
@@ -1099,9 +1161,10 @@ export default function MealsPage() {
                   (
                     sum,
                     item,
-                  ) =>
-                    sum +
-                    item.kcal,
+                  ) => {
+                    const nutrition = normalizeMealNutrition(item);
+                    return nutrition ? sum + nutrition.kcal : sum;
+                  },
                   0,
                 ) ?? 0;
 
@@ -1110,9 +1173,10 @@ export default function MealsPage() {
                   (
                     sum,
                     item,
-                  ) =>
-                    sum +
-                    item.protein_g,
+                  ) => {
+                    const nutrition = normalizeMealNutrition(item);
+                    return nutrition ? sum + nutrition.protein_g : sum;
+                  },
                   0,
                 ) ?? 0;
 

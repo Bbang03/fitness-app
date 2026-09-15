@@ -3,6 +3,7 @@ import type {
   NutritionSummary,
   WorkoutLog,
 } from './types';
+import { normalizeMealNutrition } from './mealSave';
 
 export type NutritionCalendarStatus =
   | 'future'
@@ -205,6 +206,19 @@ export function buildCalendarDaySummaries(
       continue;
     }
 
+    const validNutrition = meal.items
+      .map(normalizeMealNutrition)
+      .filter(
+        (nutrition): nutrition is NonNullable<typeof nutrition> =>
+          Boolean(nutrition),
+      );
+
+    // Keep malformed historical rows visible to the caller, but do not let
+    // them make a day look recorded or contribute to its totals.
+    if (validNutrition.length === 0) {
+      continue;
+    }
+
     const summary = summaryFor(summaries, meal.date, today);
     summary.hasRecordedNutrition = true;
 
@@ -215,11 +229,11 @@ export function buildCalendarDaySummaries(
       summary.mealCount += 1;
     }
 
-    for (const item of meal.items) {
-      summary.nutrition.kcal += Number.isFinite(item.kcal) ? item.kcal : 0;
-      summary.nutrition.carbs_g += Number.isFinite(item.carbs_g) ? item.carbs_g : 0;
-      summary.nutrition.protein_g += Number.isFinite(item.protein_g) ? item.protein_g : 0;
-      summary.nutrition.fat_g += Number.isFinite(item.fat_g) ? item.fat_g : 0;
+    for (const nutrition of validNutrition) {
+      summary.nutrition.kcal += nutrition.kcal;
+      summary.nutrition.carbs_g += nutrition.carbs_g;
+      summary.nutrition.protein_g += nutrition.protein_g;
+      summary.nutrition.fat_g += nutrition.fat_g;
     }
   }
 
