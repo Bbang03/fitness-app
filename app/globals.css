@@ -61,7 +61,7 @@ body {
   color: var(--color-ink);
   font-family: var(--font-display);
   font-style: normal;
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
 }
 
 .fittrack-apple [class*='bg-zinc-950'] {
@@ -415,4 +415,40 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 }
 @media (prefers-reduced-motion:reduce) {
   .activity-calendar *,.calendar-day-detail * { scroll-behavior:auto;transition-duration:0.01ms !important; }
+}
+
+/* ChaGOK global typography */
+.chagok-app {
+  font-family: var(--font-body);
+}
+
+.chagok-app button,
+.chagok-app input,
+.chagok-app textarea,
+.chagok-app select {
+  font-family: var(--font-body);
+}
+
+/* ─────────────────────────────
+   ChaGOK theme switching
+   ───────────────────────────── */
+
+html[data-theme='basic'],
+html[data-theme='basic'] body.chagok-app {
+  color-scheme: light;
+}
+
+html[data-theme='dark'],
+html[data-theme='dark'] body.chagok-app {
+  color-scheme: dark;
+}
+
+html,
+body,
+.fittrack-apple,
+.chagok-app {
+  transition:
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out);
 }

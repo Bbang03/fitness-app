@@ -1,33 +1,72 @@
-/* Hallmark · macrostructure: Workbench · tone: warm utilitarian · anchor hue: olive
- * audience: everyday fitness users · use: log and review daily activity · design-system: design.md
- * Hallmark · pre-emit critique: P4 H4 E3 S4 R4 V3
+/* ChaGOK
+ * Basic + Dark theme tokens
+ * typography: Galmuri11
  */
-:root {
+
+:root,
+html[data-theme='basic'] {
+  color-scheme: light;
+
+  /* ─────────────────────────────
+     Basic · Cream & Olive
+     ───────────────────────────── */
+
   --color-canvas: oklch(96% 0.014 85);
   --color-surface: oklch(98.7% 0.008 85);
   --color-surface-muted: oklch(92% 0.022 85);
+
   --color-ink: oklch(28% 0.022 60);
   --color-ink-secondary: oklch(46% 0.025 65);
   --color-ink-tertiary: oklch(49% 0.023 65);
+
   --color-rule: oklch(82% 0.025 80);
+
   --color-accent: oklch(39% 0.06 145);
   --color-accent-ink: oklch(98.7% 0.008 85);
   --color-accent-pressed: oklch(32% 0.05 145);
   --color-accent-soft: oklch(91% 0.035 130);
+
   --color-olive: oklch(59% 0.055 115);
   --color-brown: oklch(58% 0.085 60);
+
   --color-chart-cyan: oklch(44% 0.08 205);
   --color-chart-purple: oklch(46% 0.10 310);
+
   --color-positive: oklch(58% 0.14 156);
   --color-positive-soft: oklch(95% 0.025 156);
+
   --color-warning: oklch(68% 0.15 72);
   --color-warning-soft: oklch(96% 0.035 72);
+
   --color-negative: oklch(47% 0.15 23);
   --color-negative-soft: oklch(95% 0.03 23);
+
   --color-focus: oklch(48% 0.13 65);
 
-  --font-display: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
-  --font-body: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  /* Typography */
+
+  --font-display:
+    Galmuri11,
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    sans-serif;
+
+  --font-body:
+    Galmuri11,
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    sans-serif;
+
+  --font-chart:
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    sans-serif;
+
+  /* Spacing */
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -38,19 +77,66 @@
   --space-8: 2rem;
   --space-10: 2.5rem;
 
+  /* Type scale */
+
   --text-caption: 0.75rem;
   --text-body: 0.9375rem;
   --text-title: 1.75rem;
   --text-display: 2.5rem;
+
+  /* Shape */
 
   --radius-control: 0.5rem;
   --radius-card: 0.75rem;
   --radius-pill: 999px;
   --rule-hairline: 1px;
 
+  /* Motion */
+
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
   --dur-fast: 120ms;
   --dur-base: 180ms;
+}
+
+/* ─────────────────────────────
+   Dark · Black & Green
+   ───────────────────────────── */
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-canvas: #0d110e;
+  --color-surface: #151a16;
+  --color-surface-muted: #202721;
+
+  --color-ink: #f3f6f1;
+  --color-ink-secondary: #b4bdb1;
+  --color-ink-tertiary: #899287;
+
+  --color-rule: #2d352e;
+
+  --color-accent: #71c55b;
+  --color-accent-ink: #0b100c;
+  --color-accent-pressed: #59aa47;
+  --color-accent-soft: #1f3822;
+
+  --color-olive: #8eaa63;
+  --color-brown: #a78962;
+
+  --color-chart-cyan: #65bfc2;
+  --color-chart-purple: #9b86d9;
+
+  --color-positive: #71c55b;
+  --color-positive-soft: #19331d;
+
+  --color-warning: #e0c255;
+  --color-warning-soft: #342e17;
+
+  --color-negative: #df6a6a;
+  --color-negative-soft: #391d1d;
+
+  --color-focus: #9be564;
 }

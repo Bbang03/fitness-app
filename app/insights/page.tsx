@@ -2262,8 +2262,8 @@ function PredictionTrendChart({
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         style={{
-          maxHeight:
-            H,
+          maxHeight: H,
+          fontFamily: 'var(--font-chart)',
         }}
         aria-label={`${metric.label} 실제 측정 기록과 미래 예측 분포 그래프`}
       >
