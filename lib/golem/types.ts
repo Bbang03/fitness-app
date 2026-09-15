@@ -14,6 +14,7 @@ export interface GolemAvatarProps extends GolemCombination {
   size?: number;
   className?: string;
   debug?: boolean;
+  animated?: boolean;
 }
 
 export interface GolemAssetSources {

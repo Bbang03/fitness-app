@@ -323,6 +323,10 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 .guardian-card__next progress { margin:0; }
 .guardian-golem-frame { display:flex;align-items:center;justify-content:center;height:12rem; }
 .guardian-golem-frame + figcaption { margin-top:0; }
+.golem-avatar__breathing-layer { --golem-breath-y:-2.5px;--golem-breath-scale:1.008;transform-origin:50% 72%;will-change:transform;animation:golem-breathe 4.8s ease-in-out infinite; }
+.golem-avatar__breathing-layer--head { --golem-breath-y:-1.5px;--golem-breath-scale:1.004; }
+@keyframes golem-breathe { 0%,100% { transform:translate3d(0,0,0) scale(1); } 50% { transform:translate3d(0,var(--golem-breath-y),0) scale(var(--golem-breath-scale)); } }
+@media (prefers-reduced-motion:reduce) { .golem-avatar__breathing-layer { animation:none;transform:none; } }
 .stone-guardian { display:block;width:100%;height:10rem;object-fit:contain;object-position:center;border-radius:var(--radius-card); }
 .stone-guardian__shadow { fill:var(--color-surface-muted); }
 .stone-guardian__stone { fill:var(--color-olive);stroke:var(--color-ink);stroke-width:2.5;stroke-linejoin:bevel; }
