@@ -253,7 +253,8 @@ const KST_OFFSET_MS =
 
 const SERVICE_ROLLOVER_HOUR_KST =
   3;
-
+const PREDICTION_HORIZON_DAYS =
+  30;
 
 function dateKeyFromUtcParts(
   value: Date,
@@ -374,6 +375,61 @@ function formatMeasurementDate(
     : value;
 }
 
+
+function dateKeyDaysAfterMeasurement(
+  value: string,
+  days: number,
+): string | null {
+  const normalized =
+    formatMeasurementDate(
+      value,
+    );
+
+  const [
+    year,
+    month,
+    day,
+  ] = normalized
+    .split('-')
+    .map(Number);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day)
+  ) {
+    return null;
+  }
+
+  const date =
+    new Date(
+      Date.UTC(
+        year,
+        month - 1,
+        day,
+      ),
+    );
+
+  if (
+    date.getUTCFullYear() !==
+      year ||
+    date.getUTCMonth() !==
+      month - 1 ||
+    date.getUTCDate() !==
+      day
+  ) {
+    return null;
+  }
+
+  date.setUTCDate(
+    date.getUTCDate() +
+      days,
+  );
+
+  return dateKeyFromUtcParts(
+    date,
+  );
+}
 
 function signed(
   value: number,
@@ -673,6 +729,22 @@ export default function InsightsPage() {
       'weight_kg',
     );
 
+  const predictionTargetDate =
+    latest
+      ? dateKeyDaysAfterMeasurement(
+          latest.measured_at,
+          PREDICTION_HORIZON_DAYS,
+        )
+      : null;
+  
+  const predictionExpired =
+    Boolean(
+      latest &&
+        predictionTargetDate &&
+        predictionTargetDate <=
+          predictionServiceDate,
+    );
+
   useEffect(() => {
     if (!user) {
       router.replace(
@@ -726,16 +798,21 @@ export default function InsightsPage() {
   useEffect(() => {
     if (
       !user ||
-      !latest
+      !latest ||
+      predictionExpired
     ) {
       setPrediction(
         null,
       );
-
+    
+      setPredictionLoading(
+        false,
+      );
+    
       setPredictionError(
         '',
       );
-
+    
       return;
     }
 
@@ -1030,6 +1107,7 @@ export default function InsightsPage() {
     latest?.id,
     predictionServiceDate,
     predictionRetryKey,
+    predictionExpired,
   ]);
 
   const userWorkoutLogs =
@@ -1316,63 +1394,113 @@ export default function InsightsPage() {
                 </div>
 
                 <span className="flex-shrink-0 rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold text-blue-300">
-                  한 달 후
+                  {predictionExpired
+                    ? '측정 필요'
+                    : '한 달 후'}
                 </span>
               </div>
 
-              {predictionLoading ? (
-                <div className="mt-5 flex min-h-56 items-center justify-center gap-2 rounded-2xl border border-zinc-800/80 bg-zinc-950/35 text-sm text-zinc-500">
-                  <RefreshCw
-                    size={16}
-                    className="animate-spin"
-                  />
-
-                  AI 예측을 불러오는 중...
-                </div>
-              ) : predictionError ? (
-                <div className="mt-5 rounded-2xl border border-red-900/40 bg-red-950/20 p-4">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle
-                      size={15}
-                      className="mt-0.5 flex-shrink-0 text-red-400"
+              {predictionExpired ? (
+                <div className="mt-5 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-zinc-800/80 bg-zinc-950/35 p-5 text-center">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500/15">
+                    <Activity
+                      size={21}
+                      className="text-blue-400"
                     />
-
-                    <p className="text-xs leading-relaxed text-red-300">
-                      {predictionError}
-                    </p>
                   </div>
-
+              
+                  <h3 className="mt-4 text-base font-bold text-zinc-200">
+                    체성분 기록을 최신화해주세요
+                  </h3>
+              
+                  <p className="mt-2 max-w-[280px] text-xs leading-relaxed text-zinc-500">
+                    마지막 체성분 측정을
+                    기준으로 한 한 달 후
+                    예측 시점이 지났어요.
+                    현재 체성분을 다시
+                    측정하면 새로운 AI
+                    예측을 확인할 수 있어요.
+                  </p>
+              
+                  <p className="mt-3 text-[10px] text-zinc-600">
+                    마지막 측정{' '}
+                    {formatMeasurementDate(
+                      latest.measured_at,
+                    )}
+                    {predictionTargetDate && (
+                      <>
+                        {' · '}
+                        예측 시점{' '}
+                        {predictionTargetDate}
+                      </>
+                    )}
+                  </p>
+              
                   <button
                     type="button"
                     onClick={() =>
-                      setPredictionRetryKey(
-                        (
-                          previousKey,
-                        ) =>
-                          previousKey +
-                          1,
+                      router.push(
+                        '/inbody/new',
                       )
                     }
-                    className="mt-4 w-full rounded-xl border border-zinc-700 px-3 py-2.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-zinc-800"
+                    className="mt-5 rounded-xl bg-blue-600 px-5 py-3 text-xs font-semibold text-white transition-colors hover:bg-blue-500"
                   >
-                    다시 시도
+                    + 체성분 기록하기
                   </button>
                 </div>
-              ) : prediction ? (
-                <>
-                  <div className="mt-5 flex flex-wrap gap-1.5">
-                    {PREDICTION_METRICS.map(
-                      (
-                        metric,
-                      ) => {
-                        const active =
-                          selectedPredictionMetric ===
-                          metric.key;
-
-                        return (
-                          <button
-                            key={
-                              metric.key
+              ) : predictionLoading ? (
+                              <div className="mt-5 flex min-h-56 items-center justify-center gap-2 rounded-2xl border border-zinc-800/80 bg-zinc-950/35 text-sm text-zinc-500">
+                                <RefreshCw
+                                  size={16}
+                                  className="animate-spin"
+                                />
+              
+                                AI 예측을 불러오는 중...
+                              </div>
+                            ) : predictionError ? (
+                              <div className="mt-5 rounded-2xl border border-red-900/40 bg-red-950/20 p-4">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle
+                                    size={15}
+                                    className="mt-0.5 flex-shrink-0 text-red-400"
+                                  />
+              
+                                  <p className="text-xs leading-relaxed text-red-300">
+                                    {predictionError}
+                                  </p>
+                                </div>
+                                                        
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPredictionRetryKey(
+                                      (
+                                        previousKey,
+                                      ) =>
+                                        previousKey +
+                                        1,
+                                    )
+                                  }
+                                  className="mt-4 w-full rounded-xl border border-zinc-700 px-3 py-2.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-zinc-800"
+                                >
+                                  다시 시도
+                                </button>
+                              </div>
+                            ) : prediction ? (
+                              <>
+                                <div className="mt-5 flex flex-wrap gap-1.5">
+                                  {PREDICTION_METRICS.map(
+                                    (
+                                      metric,
+                                    ) => {
+                                      const active =
+                                        selectedPredictionMetric ===
+                                        metric.key;
+              
+                                      return (
+                                        <button
+                                          key={
+                                            metric.key
                             }
                             type="button"
                             onClick={() =>
