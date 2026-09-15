@@ -107,7 +107,11 @@ export default function ActivityCalendar({
   };
 
   return (
-    <section className="activity-calendar" aria-label="나의 활동 달력">
+    <section className="activity-calendar" aria-labelledby="activity-calendar-title">
+      <div className="activity-calendar__heading">
+        <h2 id="activity-calendar-title">나의 활동 달력</h2>
+      </div>
+
       <div className="activity-calendar__card">
         <div className="activity-calendar__monthbar">
           <button
