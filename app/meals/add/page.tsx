@@ -167,21 +167,26 @@ interface FatSecretFoodDetail {
 
 interface AiMacroEstimate {
   method: string;
+
   confidenceScore: number;
+
   validation: {
-    carbMaePer100g: number;
-    fatMaePer100g: number;
+    carbMaePer100g: number | null;
+    fatMaePer100g: number | null;
     evaluated: number;
     strategy: string;
   };
+
   per100g: {
     carbs_g: number;
     fat_g: number;
   };
+
   total: {
     carbs_g: number;
     fat_g: number;
   } | null;
+
   neighbors: Array<{
     brand: string;
     name: string;
@@ -189,6 +194,16 @@ interface AiMacroEstimate {
     carbs: number;
     fat: number;
   }>;
+
+  meta?: {
+    source?: string;
+    cached?: boolean;
+    cachedToDatabase?: boolean;
+    model?: string | null;
+    reasoning?: string;
+    energyGapRatio?: number | null;
+    officialMissing?: string[];
+  };
 }
 
 type AddItem = {
@@ -254,7 +269,8 @@ function isTrustedMacroStatus(
 ) {
   return (
     status === 'verified_supplement' ||
-    status === 'manual_verified'
+    status === 'manual_verified' ||
+    status === 'ai_estimated'
   );
 }
 
@@ -803,6 +819,30 @@ function brandFoodToCachedMfds(
           }
         : null,
   };
+}
+
+function normalizeMealSearchQuery(
+  value: string,
+) {
+  const trimmed =
+    value.trim();
+
+  if (!trimmed) {
+    return '';
+  }
+
+  const withoutModifiers =
+    trimmed
+      .replace(
+        /\s*(세트\s*메뉴|세트|단품)\s*$/i,
+        '',
+      )
+      .trim();
+
+  return (
+    withoutModifiers ||
+    trimmed
+  );
 }
 
 function normalizeSearchText(
@@ -1364,6 +1404,96 @@ function ManualForm({
   );
 }
 
+function SetSearchCard({
+  baseQuery,
+  onSearchBurger,
+  onSearchSide,
+  onSearchDrink,
+}: {
+  baseQuery: string;
+  onSearchBurger: () => void;
+  onSearchSide: () => void;
+  onSearchDrink: () => void;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[var(--color-accent)]/40 bg-[var(--color-surface)]">
+      <div className="border-b border-[var(--color-rule)] px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold text-[var(--color-accent)]">
+              세트 메뉴
+            </p>
+
+            <h3 className="mt-1 text-base font-bold text-[var(--color-ink)]">
+              {baseQuery} 세트
+            </h3>
+          </div>
+
+          <span className="rounded-full bg-[var(--color-accent-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-accent)]">
+            구성 선택
+          </span>
+        </div>
+
+        <p className="mt-2 text-xs leading-relaxed text-[var(--color-ink-tertiary)]">
+          세트는 버거·사이드·음료 구성에 따라
+          영양정보가 달라요. 각 항목을 실제로
+          먹은 구성대로 추가해주세요.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 p-3">
+        <button
+          type="button"
+          onClick={
+            onSearchBurger
+          }
+          className="rounded-xl border border-[var(--color-rule)] bg-[var(--color-surface-muted)] px-2 py-3 text-center transition-colors hover:border-[var(--color-accent)]"
+        >
+          <span className="block text-xs font-bold text-[var(--color-ink)]">
+            버거
+          </span>
+
+          <span className="mt-1 block truncate text-[9px] text-[var(--color-ink-tertiary)]">
+            {baseQuery}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            onSearchSide
+          }
+          className="rounded-xl border border-[var(--color-rule)] bg-[var(--color-surface-muted)] px-2 py-3 text-center transition-colors hover:border-[var(--color-accent)]"
+        >
+          <span className="block text-xs font-bold text-[var(--color-ink)]">
+            사이드
+          </span>
+
+          <span className="mt-1 block text-[9px] text-[var(--color-ink-tertiary)]">
+            감자튀김 찾기
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            onSearchDrink
+          }
+          className="rounded-xl border border-[var(--color-rule)] bg-[var(--color-surface-muted)] px-2 py-3 text-center transition-colors hover:border-[var(--color-accent)]"
+        >
+          <span className="block text-xs font-bold text-[var(--color-ink)]">
+            음료
+          </span>
+
+          <span className="mt-1 block text-[9px] text-[var(--color-ink-tertiary)]">
+            콜라 찾기
+          </span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function FoodRow({
   food,
   onAdd,
@@ -1443,214 +1573,574 @@ function MfdsFoodRow({
   food,
   onAdd,
   disabled,
+  autoEstimate,
 }: {
   food: MfdsFood;
   onAdd: (item: AddItem) => void;
   disabled: boolean;
+  autoEstimate: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const defaultServingG = food.servingG && food.servingG > 0 ? food.servingG : 100;
-  const initialGrams = getInitialPortionGrams({
-    name: `${food.brand} ${food.name}`,
-    servingDescription: food.servingDescription,
-    defaultGrams: defaultServingG,
-  });
-  const [grams, setGrams] = useState(String(initialGrams));
-  const [manual, setManual] = useState({
-    kcal: '',
-    carbs: '',
-    protein: '',
-    fat: '',
-  });
-  const [aiEstimate, setAiEstimate] =
-    useState<AiMacroEstimate | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState('');
+  const [expanded, setExpanded] =
+    useState(false);
 
-  const amount = Math.max(1, Math.min(Number(grams) || initialGrams, 10000));
-  const multiplier = amount / defaultServingG;
-  const base = food.total;
+  const defaultServingG =
+    food.servingG &&
+    food.servingG > 0
+      ? food.servingG
+      : 100;
 
-  const manualNumber = (value: string) => {
-    if (!value.trim()) return null;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  const initialGrams =
+    getInitialPortionGrams({
+      name:
+        `${food.brand} ${food.name}`,
+      servingDescription:
+        food.servingDescription,
+      defaultGrams:
+        defaultServingG,
+    });
+
+  const [grams, setGrams] =
+    useState(
+      String(
+        initialGrams,
+      ),
+    );
+
+  const [manual, setManual] =
+    useState({
+      kcal: '',
+      carbs: '',
+      protein: '',
+      fat: '',
+    });
+
+  const [
+    aiEstimate,
+    setAiEstimate,
+  ] =
+    useState<
+      AiMacroEstimate | null
+    >(null);
+
+  const [
+    aiLoading,
+    setAiLoading,
+  ] =
+    useState(false);
+
+  const [
+    aiError,
+    setAiError,
+  ] =
+    useState('');
+
+  const autoAttemptedRef =
+    useRef(false);
+
+  const amount =
+    Math.max(
+      1,
+      Math.min(
+        Number(
+          grams,
+        ) ||
+          initialGrams,
+        10000,
+      ),
+    );
+
+  const multiplier =
+    amount /
+    defaultServingG;
+
+  const base =
+    food.total;
+
+  const manualNumber = (
+    value: string,
+  ) => {
+    if (
+      !value.trim()
+    ) {
+      return null;
+    }
+
+    const parsed =
+      Number(
+        value,
+      );
+
+    return (
+      Number.isFinite(
+        parsed,
+      ) &&
+      parsed >= 0
+    )
+      ? parsed
+      : null;
   };
 
   const baseNutrition = {
     kcal:
       base?.kcal ??
-      manualNumber(manual.kcal),
+      manualNumber(
+        manual.kcal,
+      ),
+
     carbs_g:
       base?.carbs_g ??
-      manualNumber(manual.carbs) ??
-      aiEstimate?.total?.carbs_g ??
+      manualNumber(
+        manual.carbs,
+      ) ??
+      aiEstimate
+        ?.total
+        ?.carbs_g ??
       null,
+
     protein_g:
       base?.protein_g ??
-      manualNumber(manual.protein),
+      manualNumber(
+        manual.protein,
+      ),
+
     fat_g:
       base?.fat_g ??
-      manualNumber(manual.fat) ??
-      aiEstimate?.total?.fat_g ??
+      manualNumber(
+        manual.fat,
+      ) ??
+      aiEstimate
+        ?.total
+        ?.fat_g ??
       null,
   };
 
   const nutrition = {
     kcal:
-      baseNutrition.kcal === null
+      baseNutrition.kcal ===
+      null
         ? null
-        : Math.round(baseNutrition.kcal * multiplier),
+        : Math.round(
+            baseNutrition.kcal *
+              multiplier,
+          ),
+
     carbs_g:
-      baseNutrition.carbs_g === null
+      baseNutrition.carbs_g ===
+      null
         ? null
-        : roundOne(baseNutrition.carbs_g * multiplier),
+        : roundOne(
+            baseNutrition.carbs_g *
+              multiplier,
+          ),
+
     protein_g:
-      baseNutrition.protein_g === null
+      baseNutrition.protein_g ===
+      null
         ? null
-        : roundOne(baseNutrition.protein_g * multiplier),
+        : roundOne(
+            baseNutrition.protein_g *
+              multiplier,
+          ),
+
     fat_g:
-      baseNutrition.fat_g === null
+      baseNutrition.fat_g ===
+      null
         ? null
-        : roundOne(baseNutrition.fat_g * multiplier),
+        : roundOne(
+            baseNutrition.fat_g *
+              multiplier,
+          ),
   };
 
   const missing = [
-    { key: 'kcal', label: '칼로리', unit: 'kcal', missing: base?.kcal === null || base?.kcal === undefined },
-    { key: 'carbs', label: '탄수화물', unit: 'g', missing: base?.carbs_g === null || base?.carbs_g === undefined },
-    { key: 'protein', label: '단백질', unit: 'g', missing: base?.protein_g === null || base?.protein_g === undefined },
-    { key: 'fat', label: '지방', unit: 'g', missing: base?.fat_g === null || base?.fat_g === undefined },
-  ].filter((item) => item.missing) as Array<{
-    key: keyof typeof manual;
-    label: string;
-    unit: string;
-    missing: boolean;
+    {
+      key:
+        'kcal',
+      label:
+        '칼로리',
+      unit:
+        'kcal',
+      missing:
+        base?.kcal ===
+          null ||
+        base?.kcal ===
+          undefined,
+    },
+
+    {
+      key:
+        'carbs',
+      label:
+        '탄수화물',
+      unit:
+        'g',
+      missing:
+        base?.carbs_g ===
+          null ||
+        base?.carbs_g ===
+          undefined,
+    },
+
+    {
+      key:
+        'protein',
+      label:
+        '단백질',
+      unit:
+        'g',
+      missing:
+        base?.protein_g ===
+          null ||
+        base?.protein_g ===
+          undefined,
+    },
+
+    {
+      key:
+        'fat',
+      label:
+        '지방',
+      unit:
+        'g',
+      missing:
+        base?.fat_g ===
+          null ||
+        base?.fat_g ===
+          undefined,
+    },
+  ].filter(
+    (
+      item,
+    ) =>
+      item.missing,
+  ) as Array<{
+    key:
+      keyof typeof manual;
+    label:
+      string;
+    unit:
+      string;
+    missing:
+      boolean;
   }>;
 
+  /*
+   * 음식 종류 제한 없음.
+   *
+   * kcal + protein 공식값이 있고
+   * carbs 또는 fat이 누락됐으면
+   * 어떤 음식이든 자동 보정 대상.
+   */
   const canEstimateWithAi =
-    /^(버거|햄버거)_/.test(food.rawName) &&
-    base?.kcal !== null &&
-    base?.kcal !== undefined &&
-    base?.protein_g !== null &&
-    base?.protein_g !== undefined &&
+    base?.kcal !==
+      null &&
+    base?.kcal !==
+      undefined &&
+    base?.protein_g !==
+      null &&
+    base?.protein_g !==
+      undefined &&
     (
-      base?.carbs_g === null ||
-      base?.carbs_g === undefined ||
-      base?.fat_g === null ||
-      base?.fat_g === undefined
+      base?.carbs_g ===
+        null ||
+      base?.carbs_g ===
+        undefined ||
+      base?.fat_g ===
+        null ||
+      base?.fat_g ===
+        undefined
     );
 
-  const runAiEstimate = async () => {
-    if (!canEstimateWithAi || aiLoading) return;
-
-    setAiError('');
-    setAiLoading(true);
-
-    try {
-      const response = await fetch(
-        '/api/macro-estimate',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-          },
-          body: JSON.stringify({
-            id: food.id,
-            rawName: food.rawName,
-            name: food.name,
-            brand: food.brand,
-            servingG: food.servingG,
-            kcalPer100g:
-              food.per100g.kcal,
-            proteinPer100g:
-              food.per100g.protein_g,
-            carbsPer100g:
-              food.per100g.carbs_g,
-            fatPer100g:
-              food.per100g.fat_g,
-            sugarPer100g:
-              food.per100g.sugar_g,
-            sodiumPer100g:
-              food.per100g.sodium_mg,
-            saturatedFatPer100g:
-              food.per100g
-                .saturated_fat_g,
-          }),
-        },
-      );
-
-      const payload =
-        await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          payload?.message ??
-            'AI 추정에 실패했습니다.',
-        );
+  const runAiEstimate =
+    async () => {
+      if (
+        !canEstimateWithAi ||
+        aiLoading ||
+        aiEstimate
+      ) {
+        return;
       }
 
-      setAiEstimate(
-        payload as AiMacroEstimate,
-      );
-    } catch (error) {
       setAiError(
-        error instanceof Error
-          ? error.message
-          : 'AI 추정에 실패했습니다.',
+        '',
       );
-    } finally {
-      setAiLoading(false);
-    }
-  };
+
+      setAiLoading(
+        true,
+      );
+
+      try {
+        const response =
+          await fetch(
+            '/api/macro-estimate',
+            {
+              method:
+                'POST',
+
+              headers: {
+                'Content-Type':
+                  'application/json',
+              },
+
+              body:
+                JSON.stringify({
+                  id:
+                    food.id,
+
+                  rawName:
+                    food.rawName,
+
+                  name:
+                    food.name,
+
+                  brand:
+                    food.brand,
+
+                  foodGroup:
+                    food.foodGroup,
+
+                  servingG:
+                    food.servingG,
+
+                  servingDescription:
+                    food.servingDescription,
+
+                  kcalPer100g:
+                    food
+                      .per100g
+                      .kcal,
+
+                  proteinPer100g:
+                    food
+                      .per100g
+                      .protein_g,
+
+                  carbsPer100g:
+                    food
+                      .per100g
+                      .carbs_g,
+
+                  fatPer100g:
+                    food
+                      .per100g
+                      .fat_g,
+
+                  sugarPer100g:
+                    food
+                      .per100g
+                      .sugar_g,
+
+                  sodiumPer100g:
+                    food
+                      .per100g
+                      .sodium_mg,
+
+                  saturatedFatPer100g:
+                    food
+                      .per100g
+                      .saturated_fat_g,
+                }),
+            },
+          );
+
+        const payload =
+          await response.json();
+
+        if (
+          !response.ok
+        ) {
+          throw new Error(
+            payload?.message ??
+              'AI 영양정보 보정에 실패했습니다.',
+          );
+        }
+
+        setAiEstimate(
+          payload as
+            AiMacroEstimate,
+        );
+      } catch (
+        error
+      ) {
+        setAiError(
+          error instanceof
+          Error
+            ? error.message
+            : 'AI 영양정보 보정에 실패했습니다.',
+        );
+      } finally {
+        setAiLoading(
+          false,
+        );
+      }
+    };
+
+  /*
+   * 검색 결과 상위 3개는
+   * 사용자가 펼치기 전에 미리 보정.
+   *
+   * DB 캐시가 있다면 서버에서
+   * Gemini 호출 없이 즉시 반환됨.
+   */
+  useEffect(
+    () => {
+      if (
+        !autoEstimate ||
+        autoAttemptedRef
+          .current ||
+        !canEstimateWithAi ||
+        aiEstimate ||
+        aiLoading
+      ) {
+        return;
+      }
+
+      autoAttemptedRef.current =
+        true;
+
+      void runAiEstimate();
+    },
+    [
+      autoEstimate,
+      canEstimateWithAi,
+      aiEstimate,
+      aiLoading,
+    ],
+  );
 
   const canAdd =
-    nutrition.kcal !== null &&
-    nutrition.carbs_g !== null &&
-    nutrition.protein_g !== null &&
-    nutrition.fat_g !== null;
+    nutrition.kcal !==
+      null &&
+    nutrition.carbs_g !==
+      null &&
+    nutrition.protein_g !==
+      null &&
+    nutrition.fat_g !==
+      null;
 
-  const kcalText = base?.kcal === null || base?.kcal === undefined
-    ? '영양정보 일부 제공'
-    : `${Math.round(base.kcal)} kcal`;
+  const kcalText =
+    base?.kcal ===
+      null ||
+    base?.kcal ===
+      undefined
+      ? '영양정보 일부 제공'
+      : `${Math.round(
+          base.kcal,
+        )} kcal`;
 
   const extraNutrition = [
-    base?.sugar_g !== null && base?.sugar_g !== undefined
-      ? `당류 ${roundOne(base.sugar_g)}g`
+    base?.sugar_g !==
+      null &&
+    base?.sugar_g !==
+      undefined
+      ? `당류 ${roundOne(
+          base.sugar_g,
+        )}g`
       : null,
-    base?.sodium_mg !== null && base?.sodium_mg !== undefined
-      ? `나트륨 ${roundOne(base.sodium_mg)}mg`
+
+    base?.sodium_mg !==
+      null &&
+    base?.sodium_mg !==
+      undefined
+      ? `나트륨 ${roundOne(
+          base.sodium_mg,
+        )}mg`
       : null,
-    base?.saturated_fat_g !== null && base?.saturated_fat_g !== undefined
-      ? `포화지방 ${roundOne(base.saturated_fat_g)}g`
+
+    base
+      ?.saturated_fat_g !==
+      null &&
+    base
+      ?.saturated_fat_g !==
+      undefined
+      ? `포화지방 ${roundOne(
+          base
+            .saturated_fat_g,
+        )}g`
       : null,
   ]
-    .filter(Boolean)
-    .join(' · ');
+    .filter(
+      Boolean,
+    )
+    .join(
+      ' · ',
+    );
+
+  const isAiSupplement =
+    food.supplement
+      ?.status ===
+    'ai_estimated';
+
+  const hasAiCorrection =
+    Boolean(
+      aiEstimate ||
+      isAiSupplement,
+    );
+
+  const toggleExpanded =
+    () => {
+      const next =
+        !expanded;
+
+      setExpanded(
+        next,
+      );
+
+      /*
+       * 상위 3개가 아니더라도
+       * 사용자가 메뉴를 펼치면
+       * 자동으로 보정한다.
+       */
+      if (
+        next &&
+        canEstimateWithAi &&
+        !aiEstimate &&
+        !aiLoading
+      ) {
+        void runAiEstimate();
+      }
+    };
 
   return (
     <article className="border-b border-zinc-800/50 last:border-0">
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={
+          toggleExpanded
+        }
         className="flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-zinc-800/30"
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold">{food.name}</p>
+            <p className="truncate text-sm font-semibold">
+              {
+                food.name
+              }
+            </p>
+
             <span
               className={`rounded-md px-1.5 py-0.5 text-[9px] font-semibold ${
-                food.source === 'CACHE'
-                  ? 'bg-blue-500/10 text-blue-300'
-                  : 'bg-emerald-500/10 text-emerald-400'
+                hasAiCorrection
+                  ? 'bg-violet-500/10 text-violet-300'
+                  : food.source ===
+                      'CACHE'
+                    ? 'bg-blue-500/10 text-blue-300'
+                    : 'bg-emerald-500/10 text-emerald-400'
               }`}
             >
-              {aiEstimate
-                ? 'AI 추정'
-                : food.source === 'CACHE'
-                  ? food.supplement?.status === 'verified_supplement'
+              {hasAiCorrection
+                ? 'AI 보정'
+                : food.source ===
+                    'CACHE'
+                  ? food
+                      .supplement
+                      ?.status ===
+                    'verified_supplement'
                     ? '검증 보완'
-                    : food.supplement?.status === 'manual_verified'
+                    : food
+                          .supplement
+                          ?.status ===
+                        'manual_verified'
                       ? '검증 완료'
                       : '빠른 캐시'
                   : food.supplement
@@ -1658,24 +2148,46 @@ function MfdsFoodRow({
                     : '식약처'}
             </span>
           </div>
+
           <p className="mt-1 truncate text-xs text-zinc-500">
-            {food.brand} · {food.servingDescription}
+            {food.brand}
+            {' · '}
+            {
+              food.servingDescription
+            }
           </p>
         </div>
 
         <div className="text-right">
-          <p className="text-xs font-semibold text-zinc-300">{kcalText}</p>
+          <p className="text-xs font-semibold text-zinc-300">
+            {
+              kcalText
+            }
+          </p>
+
           <p className="mt-1 text-[10px] text-zinc-600">
-            {base?.protein_g === null || base?.protein_g === undefined
+            {base
+              ?.protein_g ===
+                null ||
+            base
+              ?.protein_g ===
+                undefined
               ? '단백질 정보 없음'
-              : `단 ${roundOne(base.protein_g)}g`}
+              : `단 ${roundOne(
+                  base
+                    .protein_g,
+                )}g`}
           </p>
         </div>
 
         <Plus
-          size={16}
+          size={
+            16
+          }
           className={`flex-shrink-0 text-emerald-400 transition-transform ${
-            expanded ? 'rotate-45' : ''
+            expanded
+              ? 'rotate-45'
+              : ''
           }`}
         />
       </button>
@@ -1684,234 +2196,443 @@ function MfdsFoodRow({
         <div className="border-t border-zinc-800/40 bg-zinc-950/30 px-4 py-4">
           <PortionAmountControls
             name={`${food.brand} ${food.name}`}
-            servingDescription={food.servingDescription}
-            defaultGrams={defaultServingG}
-            grams={grams}
-            disabled={disabled}
-            onChange={setGrams}
+            servingDescription={
+              food.servingDescription
+            }
+            defaultGrams={
+              defaultServingG
+            }
+            grams={
+              grams
+            }
+            disabled={
+              disabled
+            }
+            onChange={
+              setGrams
+            }
           />
 
-          <NutritionGrid {...nutrition} />
+          <NutritionGrid
+            {...nutrition}
+          />
 
-          {missing.length > 0 && (
+          {aiLoading && (
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-violet-500/15 bg-violet-500/[0.05] px-3 py-2.5 text-[10px] text-violet-300">
+              <Sparkles
+                size={
+                  12
+                }
+              />
+
+              <span>
+                누락된 영양정보를 CHAGOK AI가 자동 보정하고 있어요.
+              </span>
+            </div>
+          )}
+
+          {!aiLoading &&
+            hasAiCorrection && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-violet-500/15 bg-violet-500/[0.05] px-3 py-2.5">
+                <Sparkles
+                  size={
+                    12
+                  }
+                  className="mt-0.5 flex-shrink-0 text-violet-300"
+                />
+
+                <div className="min-w-0">
+                  <p className="text-[10px] leading-relaxed text-zinc-400">
+                    식약처 원본 영양정보가 일부 부족해 CHAGOK AI 보정값이 포함되었습니다.
+                  </p>
+
+                  {aiEstimate
+                    ?.meta
+                    ?.cached && (
+                    <p className="mt-1 text-[9px] text-zinc-600">
+                      이전 검증된 보정값을 재사용했습니다.
+                    </p>
+                  )}
+
+                  {aiEstimate
+                    ?.meta
+                    ?.reasoning && (
+                    <p className="mt-1 text-[9px] leading-relaxed text-zinc-600">
+                      {
+                        aiEstimate
+                          .meta
+                          .reasoning
+                      }
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+          {aiError && (
             <div className="mt-4 rounded-2xl border border-amber-500/15 bg-amber-500/[0.06] p-3.5">
               <p className="text-xs font-semibold text-amber-300">
-                식약처 원본에 일부 탄단지 정보가 없어요
+                자동 보정이 어려워 직접 입력이 필요해요
               </p>
+
               <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-                없는 값을 0g으로 저장하지 않습니다. 버거류는 CHAGOK AI로 추정하거나 직접 입력할 수 있어요.
+                {
+                  aiError
+                }
               </p>
-
-              {canEstimateWithAi && (
-                <button
-                  type="button"
-                  disabled={disabled || aiLoading}
-                  onClick={() => void runAiEstimate()}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/20 bg-violet-500/[0.08] py-2.5 text-xs font-semibold text-violet-300 transition-colors hover:bg-violet-500/[0.12] disabled:opacity-50"
-                >
-                  <Sparkles size={14} />
-                  {aiLoading
-                    ? '유사 버거 분석 중...'
-                    : aiEstimate
-                      ? 'AI 탄·지 다시 추정'
-                      : 'AI로 탄·지 추정'}
-                </button>
-              )}
-
-              {aiError && (
-                <p className="mt-2 text-[10px] text-red-400">
-                  {aiError}
-                </p>
-              )}
 
               <div className="mt-3 grid grid-cols-2 gap-2.5">
-                {missing.map((field) => (
-                  <div key={field.key}>
-                    <label className="mb-1 block text-[10px] text-zinc-500">
-                      {field.label} ({field.unit})
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      inputMode="decimal"
-                      value={manual[field.key]}
-                      disabled={disabled}
-                      onChange={(event) =>
-                        setManual((previous) => ({
-                          ...previous,
-                          [field.key]: event.target.value,
-                        }))
+                {missing.map(
+                  (
+                    field,
+                  ) => (
+                    <div
+                      key={
+                        field.key
                       }
-                      className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
-                      placeholder="0"
-                    />
-                  </div>
-                ))}
+                    >
+                      <label className="mb-1 block text-[10px] text-zinc-500">
+                        {
+                          field.label
+                        }{' '}
+                        (
+                        {
+                          field.unit
+                        }
+                        )
+                      </label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="decimal"
+                        value={
+                          manual[
+                            field
+                              .key
+                          ]
+                        }
+                        disabled={
+                          disabled
+                        }
+                        onChange={(
+                          event,
+                        ) =>
+                          setManual(
+                            (
+                              previous,
+                            ) => ({
+                              ...previous,
+                              [field
+                                .key]:
+                                event
+                                  .target
+                                  .value,
+                            }),
+                          )
+                        }
+                        className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                  ),
+                )}
               </div>
             </div>
           )}
 
-          {aiEstimate && (
-            <div className="mt-4 rounded-2xl border border-violet-500/15 bg-violet-500/[0.06] p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold text-violet-300">
-                  CHAGOK AI 탄단지 추정
+          {!canEstimateWithAi &&
+            missing.length >
+              0 && (
+              <div className="mt-4 rounded-2xl border border-amber-500/15 bg-amber-500/[0.06] p-3.5">
+                <p className="text-xs font-semibold text-amber-300">
+                  일부 영양정보를 직접 입력해주세요
                 </p>
-                <span className="rounded-md bg-violet-500/10 px-2 py-1 text-[9px] font-semibold text-violet-300">
-                  AI 추정
-                </span>
-              </div>
 
-              <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-                식약처의 완전한 버거 영양정보를 기반으로 유사 버거 9개를 찾고,
-                열량 제약식으로 탄수화물과 지방을 추정합니다. 공식 영양값이 아닙니다.
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-zinc-400">
-                {base?.carbs_g === null || base?.carbs_g === undefined ? (
-                  <span>탄수 {roundOne(aiEstimate.total?.carbs_g ?? aiEstimate.per100g.carbs_g)}g</span>
-                ) : null}
-                {base?.fat_g === null || base?.fat_g === undefined ? (
-                  <span>지방 {roundOne(aiEstimate.total?.fat_g ?? aiEstimate.per100g.fat_g)}g</span>
-                ) : null}
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-zinc-600">
-                <span>
-                  AI 신뢰 점수 {Math.round(aiEstimate.confidenceScore * 100)}%
-                </span>
-                <span>
-                  교차 브랜드 MAE 탄수 {aiEstimate.validation.carbMaePer100g}g / 지방 {aiEstimate.validation.fatMaePer100g}g (100g 기준)
-                </span>
-              </div>
-
-              {aiEstimate.neighbors.length > 0 && (
-                <p className="mt-2 text-[9px] leading-relaxed text-zinc-600">
-                  유사 메뉴: {aiEstimate.neighbors
-                    .slice(0, 3)
-                    .map((neighbor) => `${neighbor.brand} ${neighbor.name}`)
-                    .join(' · ')}
+                <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
+                  자동 보정을 위해 필요한 열량 또는 단백질 공식값이 부족합니다.
                 </p>
-              )}
-            </div>
-          )}
 
-          {food.supplement && (
-            <div className="mt-4 rounded-2xl border border-blue-500/15 bg-blue-500/[0.06] p-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold text-blue-300">
-                  검증된 영양정보 보완
-                </p>
-                <span className="rounded-md bg-blue-500/10 px-2 py-1 text-[9px] font-semibold text-blue-300">
-                  {food.supplement.status === 'manual_verified'
-                    ? '수동 검증'
-                    : '자동 검증'}
-                </span>
+                <div className="mt-3 grid grid-cols-2 gap-2.5">
+                  {missing.map(
+                    (
+                      field,
+                    ) => (
+                      <div
+                        key={
+                          field.key
+                        }
+                      >
+                        <label className="mb-1 block text-[10px] text-zinc-500">
+                          {
+                            field.label
+                          }{' '}
+                          (
+                          {
+                            field.unit
+                          }
+                          )
+                        </label>
+
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="decimal"
+                          value={
+                            manual[
+                              field
+                                .key
+                            ]
+                          }
+                          disabled={
+                            disabled
+                          }
+                          onChange={(
+                            event,
+                          ) =>
+                            setManual(
+                              (
+                                previous,
+                              ) => ({
+                                ...previous,
+                                [field
+                                  .key]:
+                                  event
+                                    .target
+                                    .value,
+                              }),
+                            )
+                          }
+                          className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+                    ),
+                  )}
+                </div>
               </div>
+            )}
 
-              <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
-                브랜드·메뉴·중량 일치와 열량 검산을 통과한 값만, 식약처에서 비어 있던 항목에 보완했어요.
-              </p>
+          {food.supplement &&
+            !isAiSupplement && (
+              <div className="mt-4 rounded-2xl border border-blue-500/15 bg-blue-500/[0.06] p-3.5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-semibold text-blue-300">
+                    검증된 영양정보 보완
+                  </p>
 
-              <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-zinc-400">
-                {food.supplement.carbs_g !== null && (
-                  <span>탄수 {roundOne(food.supplement.carbs_g)}g</span>
-                )}
-                {food.supplement.protein_g !== null && (
-                  <span>단백 {roundOne(food.supplement.protein_g)}g</span>
-                )}
-                {food.supplement.fat_g !== null && (
-                  <span>지방 {roundOne(food.supplement.fat_g)}g</span>
-                )}
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-zinc-600">
-                <span>
-                  보완 출처: {food.supplement.sourceName}
-                </span>
-
-                {food.supplement.confidence !== null && (
-                  <span>
-                    신뢰도 {Math.round(food.supplement.confidence * 100)}%
+                  <span className="rounded-md bg-blue-500/10 px-2 py-1 text-[9px] font-semibold text-blue-300">
+                    {food
+                      .supplement
+                      .status ===
+                    'manual_verified'
+                      ? '수동 검증'
+                      : '자동 검증'}
                   </span>
-                )}
+                </div>
 
-                {food.supplement.energyGapRatio !== null && (
-                  <span>
-                    열량 검산 오차 {roundOne(food.supplement.energyGapRatio * 100)}%
-                  </span>
-                )}
+                <p className="mt-1.5 text-[10px] leading-relaxed text-zinc-500">
+                  브랜드·메뉴·중량 일치와 열량 검산을 통과한 값만 식약처에서 비어 있던 항목에 보완했어요.
+                </p>
+
+                <div className="mt-2 flex flex-wrap gap-2 text-[10px] text-zinc-400">
+                  {food
+                    .supplement
+                    .carbs_g !==
+                    null && (
+                    <span>
+                      탄수{' '}
+                      {roundOne(
+                        food
+                          .supplement!
+                          .carbs_g!,
+                      )}
+                      g
+                    </span>
+                  )}
+
+                  {food
+                    .supplement
+                    .protein_g !==
+                    null && (
+                    <span>
+                      단백{' '}
+                      {roundOne(
+                        food
+                          .supplement!
+                          .protein_g!,
+                      )}
+                      g
+                    </span>
+                  )}
+
+                  {food
+                    .supplement
+                    .fat_g !==
+                    null && (
+                    <span>
+                      지방{' '}
+                      {roundOne(
+                        food
+                          .supplement!
+                          .fat_g!,
+                      )}
+                      g
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           <div className="mt-3 rounded-xl bg-zinc-900/70 px-3 py-2.5 text-[10px] leading-relaxed text-zinc-600">
             <p>
               기준 출처:{' '}
-              {food.source === 'CACHE'
-                ? food.supplement?.sourceName ?? 'ChaGok 검증 캐시'
+              {food.source ===
+              'CACHE'
+                ? food
+                    .supplement
+                    ?.sourceName ??
+                  'ChaGok 검증 캐시'
                 : `식품의약품안전처 · ${food.foodOrigin}`}
             </p>
-            {extraNutrition && <p className="mt-1">{extraNutrition}</p>}
-            {food.researchDate && <p className="mt-1">조사일: {food.researchDate}</p>}
-            {food.updatedDate && <p className="mt-1">업데이트: {food.updatedDate}</p>}
+
+            {extraNutrition && (
+              <p className="mt-1">
+                {
+                  extraNutrition
+                }
+              </p>
+            )}
+
+            {food.researchDate && (
+              <p className="mt-1">
+                조사일:{' '}
+                {
+                  food.researchDate
+                }
+              </p>
+            )}
+
+            {food.updatedDate && (
+              <p className="mt-1">
+                업데이트:{' '}
+                {
+                  food.updatedDate
+                }
+              </p>
+            )}
           </div>
 
           <button
             type="button"
-            disabled={disabled || !canAdd}
+            disabled={
+              disabled ||
+              !canAdd
+            }
             onClick={() => {
-              if (!canAdd) return;
+              if (
+                !canAdd
+              ) {
+                return;
+              }
 
               const manualUsed =
                 missing.some(
-                  (field) =>
+                  (
+                    field,
+                  ) =>
                     manual[
                       field.key
-                    ].trim().length >
+                    ].trim()
+                      .length >
                     0,
                 );
 
               const nutritionStatus =
                 manualUsed
                   ? 'manual'
-                  : aiEstimate
+                  : hasAiCorrection
                     ? 'ai_estimated'
                     : food.supplement
-                      ? food.supplement.status
+                      ? food
+                          .supplement
+                          .status
                       : 'official';
 
               onAdd({
-                food_name: `${food.brand} · ${food.name}`,
-                serving: `${Math.round(amount)}g (${food.servingDescription})`,
-                kcal: nutrition.kcal!,
-                carbs_g: nutrition.carbs_g!,
-                protein_g: nutrition.protein_g!,
-                fat_g: nutrition.fat_g!,
+                food_name:
+                  food.name,
+
+                serving:
+                  `${Math.round(
+                    amount,
+                  )}g (${food.servingDescription})`,
+
+                kcal:
+                  nutrition.kcal!,
+
+                carbs_g:
+                  nutrition.carbs_g!,
+
+                protein_g:
+                  nutrition.protein_g!,
+
+                fat_g:
+                  nutrition.fat_g!,
+
                 nutrition_status:
                   nutritionStatus,
+
                 nutrition_confidence:
                   manualUsed
                     ? null
                     : aiEstimate
-                      ? aiEstimate.confidenceScore
-                      : food.supplement?.confidence ?? 1,
+                      ? aiEstimate
+                          .confidenceScore
+                      : food
+                          .supplement
+                          ?.confidence ??
+                        1,
+
                 nutrition_source:
                   manualUsed
                     ? 'user_manual'
-                    : aiEstimate
-                      ? 'MFDS + MFDS + ChaGok burger kNN energy-constrained estimator'
-                      : food.supplement?.sourceName ??
+                    : hasAiCorrection
+                      ? 'MFDS + CHAGOK AI nutrition correction'
+                      : food
+                          .supplement
+                          ?.sourceName ??
                         'MFDS',
+
                 nutrition_meta:
-                  aiEstimate && !manualUsed
+                  hasAiCorrection &&
+                  !manualUsed
                     ? {
                         method:
-                          aiEstimate.method,
-                        validation:
-                          aiEstimate.validation,
-                        neighbors:
-                          aiEstimate.neighbors,
+                          aiEstimate
+                            ?.method ??
+                          'cached_ai_estimate',
+
+                        model:
+                          aiEstimate
+                            ?.meta
+                            ?.model ??
+                          null,
+
+                        cached:
+                          aiEstimate
+                            ?.meta
+                            ?.cached ??
+                          Boolean(
+                            isAiSupplement,
+                          ),
+
+                        reasoning:
+                          aiEstimate
+                            ?.meta
+                            ?.reasoning ??
+                          null,
+
                         mfds_food_id:
                           food.id,
                       }
@@ -1927,7 +2648,9 @@ function MfdsFoodRow({
               ? '저장 중...'
               : canAdd
                 ? '이 메뉴 추가'
-                : '누락 영양정보 입력 후 추가'}
+                : aiLoading
+                  ? '영양정보 보정 중...'
+                  : '누락 영양정보 입력 후 추가'}
           </button>
         </div>
       )}
@@ -2179,9 +2902,7 @@ function FatSecretFoodRow({
                 disabled={disabled}
                 onClick={() =>
                   onAdd({
-                    food_name: detail.brand
-                      ? `${detail.brand} · ${detail.name}`
-                      : detail.name,
+                    food_name: detail.name,
                     serving: `${Math.round(amount)}g (${selectedServing.description})`,
                     ...nutrition,
                   })
@@ -2357,15 +3078,26 @@ function AddMealInner() {
   }, [draftKey, manualDraftDirty]);
 
   useEffect(() => {
-    setResults(searchFoods(query));
+    setResults(
+      searchFoods(
+        normalizeMealSearchQuery(
+          query,
+        ),
+      ),
+    );
   }, [query]);
 
   useEffect(() => {
     const trimmed =
       query.trim();
-
+    
+    const searchQuery =
+      normalizeMealSearchQuery(
+        trimmed,
+      );
+    
     if (
-      trimmed.length < 2
+      searchQuery.length < 2
     ) {
       setMfdsResults([]);
       setOffResults([]);
@@ -2376,7 +3108,7 @@ function AddMealInner() {
 
     const hasHangul =
       /[가-힣]/.test(
-        trimmed,
+        searchQuery,
       );
 
     let cancelled =
@@ -2416,7 +3148,7 @@ function AddMealInner() {
                   'search_brand_foods',
                   {
                     p_query:
-                      trimmed,
+                      searchQuery,
 
                     p_limit:
                       10,
@@ -2462,7 +3194,7 @@ function AddMealInner() {
 
             const normalizedQuery =
               normalizeSearchText(
-                trimmed,
+                searchQuery,
               );
 
             const exactComplete =
@@ -2502,7 +3234,7 @@ function AddMealInner() {
               const mfdsPayload =
                 (await fetch(
                   `/api/mfds/search?q=${encodeURIComponent(
-                    trimmed,
+                    searchQuery,
                   )}`,
                 ).then(
                   readJson,
@@ -2977,8 +3709,25 @@ function AddMealInner() {
 
   if (!user) return null;
 
-  const hasQuery = query.trim().length >= 2;
-  const isKoreanQuery = /[가-힣]/.test(query.trim());
+  const hasQuery =
+    query.trim().length >= 2;
+  
+  const isKoreanQuery =
+    /[가-힣]/.test(
+      query.trim(),
+    );
+  
+  const isSetQuery =
+    /\s*(세트\s*메뉴|세트)\s*$/i.test(
+      query.trim(),
+    );
+  
+  const setBaseQuery =
+    isSetQuery
+      ? normalizeMealSearchQuery(
+          query,
+      )
+    : '';
 
   const noResults =
     hasQuery &&
@@ -3079,6 +3828,29 @@ function AddMealInner() {
             </div>
 
             <div className="space-y-4 pb-8">
+              {isSetQuery &&
+                setBaseQuery && (
+                  <SetSearchCard
+                    baseQuery={
+                      setBaseQuery
+                    }
+                    onSearchBurger={() =>
+                      setQuery(
+                        setBaseQuery,
+                      )
+                    }
+                    onSearchSide={() =>
+                      setQuery(
+                        '감자튀김',
+                      )
+                    }
+                    onSearchDrink={() =>
+                      setQuery(
+                        '콜라',
+                      )
+                    }
+                  />
+                )}
               {hasQuery && (
                 <FoodSourceCard
                   title="국내 브랜드 · 식약처 + 검증 보완"
@@ -3088,11 +3860,12 @@ function AddMealInner() {
                   {externalLoading && mfdsResults.length === 0 ? (
                     <SearchLoading />
                   ) : mfdsResults.length > 0 ? (
-                    mfdsResults.map((food) => (
+                    mfdsResults.map((food, index) => (
                       <MfdsFoodRow
                         key={`mfds-${food.id}`}
                         food={food}
                         disabled={isSaving}
+                        autoEstimate={index < 3}
                         onAdd={(item) => void handleAdd(item)}
                       />
                     ))
