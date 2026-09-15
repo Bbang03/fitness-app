@@ -20,5 +20,6 @@ export function ChagokLogo() {
 export default function ChagokBrand() {
   return <div className="chagok-brandbar">
     <Link href="/dashboard" aria-label="차곡 홈"><ChagokLogo /></Link>
+    <span className="chagok-brandbar__tagline">건강한 하루를 차곡차곡</span>
   </div>;
 }

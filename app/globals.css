@@ -273,6 +273,10 @@ html:has(.chagok-app), body.chagok-app { background: var(--color-canvas); color:
 .chagok-app input, .chagok-app textarea, .chagok-app select { accent-color: var(--color-accent); border-radius: var(--radius-control); }
 .chagok-app input[aria-invalid='true'] { border-color: var(--color-negative); }
 .chagok-app .apple-accent-surface :is(span,p,svg) { color: var(--color-accent-ink) !important; }
+.chagok-brandbar { display:flex;align-items:center;gap:var(--space-3);min-width:0;padding:calc(env(safe-area-inset-top) + var(--space-5)) var(--space-5) 0; }
+.chagok-brandbar > a { display:flex;flex:none;align-items:center; }
+.chagok-brandbar__tagline { min-width:0;color:var(--color-ink-tertiary);font-size:var(--text-caption);font-weight:600;line-height:1;letter-spacing:-.01em;white-space:nowrap; }
+.chagok-brandbar + .apple-page-header { padding-top:var(--space-5); }
 .chagok-wordmark { display:inline-flex;gap:3px;color:var(--color-accent);--pixel-size:3px; }
 .chagok-glyph { display:grid;grid-template-columns:repeat(5,var(--pixel-size));grid-template-rows:repeat(7,var(--pixel-size)); }
 .chagok-pixel { background:currentColor; }
