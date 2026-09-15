@@ -870,7 +870,7 @@ export const useStore = create<Store>()(
             activeWorkout: {
               ...activeWorkout,
               completedSets,
-              phase: 'rest',
+              phase: 'exercise',
               currentSetIndex: setIndex + 1,
               restTimer: { endTimestamp, totalSeconds: exercise.rest_seconds },
             },

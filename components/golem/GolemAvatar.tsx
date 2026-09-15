@@ -65,6 +65,39 @@ interface AssetLayerProps {
   children: ReactNode;
 }
 
+interface BreathingLayerProps {
+  animated: boolean;
+  children: ReactNode;
+  part: 'upper' | 'core' | 'head';
+  zIndex: number;
+}
+
+function BreathingLayer({
+  animated,
+  children,
+  part,
+  zIndex,
+}: BreathingLayerProps) {
+  if (!animated) {
+    return children;
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`golem-avatar__breathing-layer golem-avatar__breathing-layer--${part}`}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
+        zIndex,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function AssetLayer({
   source,
   label,
@@ -367,6 +400,7 @@ export default function GolemAvatar({
   size = 240,
   className,
   debug = false,
+  animated = false,
 }: GolemAvatarProps) {
   const stageHeight = size * AVATAR_STAGE_HEIGHT_RATIO;
   const lowerAssetSource = GOLEM_ASSET_SOURCES.lower[lower];
@@ -431,30 +465,36 @@ export default function GolemAvatar({
           <LowerPlaceholder level={lower} />
         </AssetLayer>
 
-        <AssetLayer
-          label={`상체 Lv${upper}`}
-          source={GOLEM_ASSET_SOURCES.upper[upper]}
-          style={{ position: 'absolute', left: '12%', top: '33%', width: '76%', height: '39%', zIndex: 2 }}
-        >
-          <UpperPlaceholder level={upper} />
-        </AssetLayer>
+        <BreathingLayer animated={animated} part="upper" zIndex={2}>
+          <AssetLayer
+            label={`상체 Lv${upper}`}
+            source={GOLEM_ASSET_SOURCES.upper[upper]}
+            style={{ position: 'absolute', left: '12%', top: '33%', width: '76%', height: '39%', zIndex: 2 }}
+          >
+            <UpperPlaceholder level={upper} />
+          </AssetLayer>
+        </BreathingLayer>
 
-        <AssetLayer
-          label={`코어 Lv${core}`}
-          source={GOLEM_ASSET_SOURCES.core[core]}
-          style={{ position: 'absolute', left: '33%', top: '42%', width: '34%', height: '24%', zIndex: 3 }}
-        >
-          <CorePlaceholder level={core} />
-        </AssetLayer>
+        <BreathingLayer animated={animated} part="core" zIndex={3}>
+          <AssetLayer
+            label={`코어 Lv${core}`}
+            source={GOLEM_ASSET_SOURCES.core[core]}
+            style={{ position: 'absolute', left: '33%', top: '42%', width: '34%', height: '24%', zIndex: 3 }}
+          >
+            <CorePlaceholder level={core} />
+          </AssetLayer>
+        </BreathingLayer>
 
-        <AssetLayer
-          actualStyle={{ transform: `translateY(${HEAD_ASSET_TRANSLATE_Y_AT_300 / ASSET_CANVAS_SIZE_AT_300 * 100}%)` }}
-          label="기본 헤드"
-          source={GOLEM_ASSET_SOURCES.head}
-          style={{ position: 'absolute', left: '26%', top: '3%', width: '48%', height: '36%', zIndex: 4 }}
-        >
-          <HeadPlaceholder />
-        </AssetLayer>
+        <BreathingLayer animated={animated} part="head" zIndex={4}>
+          <AssetLayer
+            actualStyle={{ transform: `translateY(${HEAD_ASSET_TRANSLATE_Y_AT_300 / ASSET_CANVAS_SIZE_AT_300 * 100}%)` }}
+            label="기본 헤드"
+            source={GOLEM_ASSET_SOURCES.head}
+            style={{ position: 'absolute', left: '26%', top: '3%', width: '48%', height: '36%', zIndex: 4 }}
+          >
+            <HeadPlaceholder />
+          </AssetLayer>
+        </BreathingLayer>
       </div>
 
       {debug ? (

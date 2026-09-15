@@ -61,6 +61,10 @@ import {
 import { normalizeMealNutrition } from '@/lib/mealSave';
 
 import {
+  calculateNutritionStreak,
+} from '@/lib/nutritionStreak';
+
+import {
   useStore,
 } from '@/lib/store';
 
@@ -943,6 +947,19 @@ export default function DashboardPage() {
   const calendarToday =
     localDateKey();
 
+  const nutritionStreak =
+    useMemo(
+      () =>
+        calculateNutritionStreak(
+          myMealLogs,
+          calendarToday,
+        ),
+      [
+        myMealLogs,
+        calendarToday,
+      ],
+    );
+
   const calendarInbodyRecords =
     getInbodyRecords();
 
@@ -1376,6 +1393,11 @@ export default function DashboardPage() {
       <main className="apple-page-header">
         <GuardianProgressCard progress={guardianProgress} logs={myLogs} />
 
+        <NutritionStreakCard
+          days={nutritionStreak.days}
+          todayRecorded={nutritionStreak.todayRecorded}
+        />
+
         <DailyCoachCard report={dailyComment} />
 
         <section className="mt-6" aria-label="오늘의 식단과 섭취량">
@@ -1632,6 +1654,78 @@ function NutritionProgress({
         />
       </div>
     </div>
+  );
+}
+
+
+function NutritionStreakCard({
+  days,
+  todayRecorded,
+}: {
+  days: number;
+  todayRecorded: boolean;
+}) {
+  const headline =
+    todayRecorded
+      ? '오늘 기록 완료'
+      : days > 0
+        ? '오늘 기록하면 이어져요'
+        : '오늘부터 시작해요';
+
+  return (
+    <section
+      className="mt-6"
+      aria-label="식단 연속 기록"
+    >
+      <Link
+        href="/meals/add"
+        className="apple-card flex items-center justify-between gap-4 p-4"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-warning-soft)] text-[var(--color-warning)]">
+            <Flame
+              size={22}
+              strokeWidth={2.2}
+              aria-hidden="true"
+            />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-[var(--color-ink-secondary)]">
+              식단 연속 기록
+            </p>
+
+            <div className="mt-1 flex items-baseline gap-1.5">
+              <strong className="text-xl font-bold text-[var(--color-warning)]">
+                {days}일
+              </strong>
+
+              {days > 0 && (
+                <span className="text-[10px] font-semibold text-[var(--color-ink-tertiary)]">
+                  연속
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-[9.5rem] text-right">
+          <p
+            className={`text-xs font-semibold ${
+              todayRecorded
+                ? 'text-[var(--color-accent)]'
+                : 'text-[var(--color-ink-secondary)]'
+            }`}
+          >
+            {headline}
+          </p>
+
+          <p className="mt-1 text-[10px] leading-relaxed text-[var(--color-ink-tertiary)]">
+            하루 1회 이상 식단 기록
+          </p>
+        </div>
+      </Link>
+    </section>
   );
 }
 

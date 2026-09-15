@@ -23,6 +23,7 @@ import {
   Play,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react';
 
 import AppShell from '@/components/AppShell';
@@ -57,6 +58,7 @@ export default function RoutinesPage() {
     setWorkoutLogs,
 
     deleteRoutine,
+    startWorkout,
 
     activeWorkout,
   } = useStore();
@@ -71,6 +73,13 @@ export default function RoutinesPage() {
     setDeletingId,
   ] = useState<
     string | null
+  >(null);
+
+  const [
+    pendingStartRoutine,
+    setPendingStartRoutine,
+  ] = useState<
+    Routine | null
   >(null);
 
   const user =
@@ -555,6 +564,48 @@ export default function RoutinesPage() {
       : null;
 
   // ─────────────────────────────────────────────
+  // Quick start
+  // ─────────────────────────────────────────────
+
+  const handleRequestStart =
+    (
+      routine: Routine,
+    ) => {
+      setPendingStartRoutine(
+        routine,
+      );
+    };
+
+  const handleConfirmStart =
+    () => {
+      if (
+        !pendingStartRoutine
+      ) {
+        return;
+      }
+
+      const routineId =
+        pendingStartRoutine.id;
+
+      /*
+       * startWorkout을 먼저 실행해야
+       * /workout 페이지 진입 시 StartScreen이 아니라
+       * 바로 첫 번째 운동 화면이 렌더링된다.
+       */
+      startWorkout(
+        routineId,
+      );
+
+      setPendingStartRoutine(
+        null,
+      );
+
+      router.push(
+        `/routines/${routineId}/workout`,
+      );
+    };
+
+  // ─────────────────────────────────────────────
   // Delete
   // ─────────────────────────────────────────────
 
@@ -853,8 +904,8 @@ export default function RoutinesPage() {
                     )
                   }
                   onStart={() =>
-                    router.push(
-                      `/routines/${routine.id}/workout`,
+                    handleRequestStart(
+                      routine,
                     )
                   }
                   onDelete={() => {
@@ -870,10 +921,109 @@ export default function RoutinesPage() {
       </section>
 
       <div className="h-4" />
+
+      {/* Routine Start Confirm Modal */}
+      {pendingStartRoutine && (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] backdrop-blur-sm"
+          onClick={() =>
+            setPendingStartRoutine(
+              null,
+            )
+          }
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-2xl"
+            onClick={(
+              event,
+            ) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-500/10">
+                <Play
+                  size={19}
+                  className="text-blue-400"
+                  fill="currentColor"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setPendingStartRoutine(
+                    null,
+                  )
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-xl text-zinc-500 transition-colors active:bg-zinc-900 active:text-white"
+                aria-label="닫기"
+              >
+                <X size={19} />
+              </button>
+            </div>
+
+            <h2 className="mt-4 text-xl font-bold leading-snug text-white">
+              &apos;
+              {
+                pendingStartRoutine.name
+              }
+              &apos; 루틴을 시작하겠습니까?
+            </h2>
+
+            <p className="mt-2 text-sm leading-relaxed text-zinc-500">
+              시작하면 첫 번째 운동으로 바로 이동합니다.
+            </p>
+
+            {activeWorkout && (
+              <div className="mt-4 rounded-2xl border border-orange-500/20 bg-orange-500/10 px-4 py-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle
+                    size={16}
+                    className="mt-0.5 flex-shrink-0 text-orange-400"
+                  />
+
+                  <p className="text-xs leading-relaxed text-orange-300">
+                    현재 진행 중인 운동은 종료되고 새 루틴이 시작됩니다.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setPendingStartRoutine(
+                    null,
+                  )
+                }
+                className="rounded-2xl border border-zinc-800 bg-zinc-900 py-3.5 text-sm font-semibold text-zinc-300 transition-colors active:bg-zinc-800"
+              >
+                취소
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  handleConfirmStart
+                }
+                className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3.5 text-sm font-bold text-white transition-colors active:bg-blue-500"
+              >
+                <Play
+                  size={16}
+                  fill="currentColor"
+                />
+
+                운동 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }
-
 
 function SwipeRoutineCard({
   routine,
@@ -1226,7 +1376,6 @@ function SwipeRoutineCard({
             )}
           </div>
         )}
-
       </div>
     </div>
   );

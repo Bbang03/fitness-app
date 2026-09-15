@@ -83,6 +83,7 @@ export default function GuardianProgressCard({ progress, logs }: { progress: Gua
             lower={golemLevels.lower}
             core={golemLevels.core}
             size={136}
+            animated
           />
         </div>
         <figcaption>
