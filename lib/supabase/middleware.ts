@@ -6,9 +6,20 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabasePublishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+
+  // Preview deployments may intentionally omit Supabase credentials. Session
+  // refresh is optional there, so let the app render its guest/login flow
+  // instead of failing every route in middleware.
+  if (!supabaseUrl || !supabasePublishableKey) {
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl,
+    supabasePublishableKey,
     {
       cookies: {
         getAll() {
