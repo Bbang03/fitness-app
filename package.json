@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
     "test:daily-comment": "node --experimental-strip-types --loader ./scripts/ts-esm-loader.mjs --test lib/dailyComment.test.ts lib/dailyCommentAi.test.ts",
     "demo:daily-comment": "node --experimental-strip-types --loader ./scripts/ts-esm-loader.mjs scripts/daily-comment-demo.ts"
   },
@@ -22,6 +25,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

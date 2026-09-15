@@ -140,6 +140,15 @@ export interface ActiveWorkout {
 
   completedSets: SetLog[];
 
+  /** 완료 전 사용자가 수정한 세트 입력값. 운동별 index를 key로 사용한다. */
+  drafts?: Record<
+    string,
+    Array<{
+      weight: string;
+      reps: string;
+    }>
+  >;
+
   restTimer: {
     endTimestamp: number;
     totalSeconds: number;

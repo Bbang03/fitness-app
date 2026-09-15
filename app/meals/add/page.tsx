@@ -3438,9 +3438,63 @@ function MfdsFoodRow({
           );
         }
 
-        setAiEstimate(
+        const estimate =
           payload as
-            AiMacroEstimate,
+            AiMacroEstimate;
+
+        const validEstimateValue =
+          (
+            value: unknown,
+            maximum: number,
+          ) =>
+            typeof value ===
+              'number' &&
+            Number.isFinite(
+              value,
+            ) &&
+            value >= 0 &&
+            value <= maximum;
+
+        const needsCarbs =
+          base?.carbs_g ===
+            null ||
+          base?.carbs_g ===
+            undefined;
+
+        const needsFat =
+          base?.fat_g ===
+            null ||
+          base?.fat_g ===
+            undefined;
+
+        if (
+          !estimate.total ||
+          (
+            needsCarbs &&
+            !validEstimateValue(
+              estimate.total
+                .carbs_g,
+              MEAL_NUTRITION_LIMITS
+                .carbs_g,
+            )
+          ) ||
+          (
+            needsFat &&
+            !validEstimateValue(
+              estimate.total
+                .fat_g,
+              MEAL_NUTRITION_LIMITS
+                .fat_g,
+            )
+          )
+        ) {
+          throw new Error(
+            'AI 영양정보 응답이 올바르지 않습니다.',
+          );
+        }
+
+        setAiEstimate(
+          estimate,
         );
       } catch (
         error

@@ -242,6 +242,8 @@ function ExerciseScreen({
 
   restTimer,
 
+  initialDrafts,
+
   nextExerciseName,
 
   onLogSet,
@@ -252,6 +254,8 @@ function ExerciseScreen({
 
   onSkipRest,
   onAdjustRest,
+
+  onDraftsChange,
 }: {
   exerciseName: string;
 
@@ -280,6 +284,8 @@ function ExerciseScreen({
     totalSeconds: number;
   } | null;
 
+  initialDrafts?: SetDraft[];
+
   nextExerciseName: string | null;
 
   onLogSet: (
@@ -298,6 +304,11 @@ function ExerciseScreen({
   onAdjustRest: (
     seconds: number,
   ) => void;
+
+  onDraftsChange: (
+    exerciseIndex: number,
+    drafts: SetDraft[],
+  ) => void;
 }) {
   const [
     confirmCancel,
@@ -307,13 +318,26 @@ function ExerciseScreen({
   const [
     drafts,
     setDrafts,
-  ] = useState<SetDraft[]>([]);
+  ] = useState<SetDraft[]>(
+    () => initialDrafts ?? [],
+  );
+
+  const initialDraftsRef =
+    useRef(initialDrafts);
 
   const draftExerciseRef =
     useRef('');
 
   const loggingGuard =
     useRef(false);
+
+  const [
+    completionLocked,
+    setCompletionLocked,
+  ] = useState(false);
+
+  const completionUnlockTimerRef =
+    useRef<number | null>(null);
 
   // ─────────────────────────────────────────────
   // Set Drafts
@@ -371,6 +395,13 @@ function ExerciseScreen({
 
         const routineTarget =
           setTargets[index];
+
+        const persistedDraft =
+          initialDraftsRef.current?.[index];
+
+        if (persistedDraft) {
+          return persistedDraft;
+        }
 
         const hasRoutineTarget =
           Boolean(
@@ -455,6 +486,59 @@ function ExerciseScreen({
     exerciseName,
     currentSet,
   ]);
+
+  useEffect(() => {
+    if (
+      drafts.length !== targetSets
+    ) {
+      return;
+    }
+
+    onDraftsChange(
+      exerciseIndex,
+      drafts,
+    );
+  }, [
+    drafts,
+    exerciseIndex,
+    onDraftsChange,
+    targetSets,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (
+        completionUnlockTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          completionUnlockTimerRef.current,
+        );
+      }
+    },
+    [],
+  );
+
+  const lockCompletionInput =
+    () => {
+      setCompletionLocked(true);
+
+      if (
+        completionUnlockTimerRef.current !==
+        null
+      ) {
+        window.clearTimeout(
+          completionUnlockTimerRef.current,
+        );
+      }
+
+      completionUnlockTimerRef.current =
+        window.setTimeout(() => {
+          loggingGuard.current = false;
+          setCompletionLocked(false);
+          completionUnlockTimerRef.current = null;
+        }, 400);
+    };
 
   const isDraftCompleted = (
     index: number,
@@ -1076,7 +1160,8 @@ const adjustReps = (
   const completeCurrentSet =
     () => {
       if (
-        loggingGuard.current
+        loggingGuard.current ||
+        completionLocked
       ) {
         return;
       }
@@ -1105,6 +1190,8 @@ const adjustReps = (
 
         loggingGuard.current =
           true;
+
+        lockCompletionInput();
 
         setTimerEndsAt(
           null,
@@ -1145,6 +1232,8 @@ const adjustReps = (
         loggingGuard.current =
           true;
 
+        lockCompletionInput();
+
         onLogSet(
           0,
           parsedReps,
@@ -1175,6 +1264,8 @@ const adjustReps = (
 
       loggingGuard.current =
         true;
+
+      lockCompletionInput();
 
       onLogSet(
         parsedWeight,
@@ -1464,6 +1555,9 @@ const adjustReps = (
                     }
                     isFuture={
                       isFuture
+                    }
+                    completionLocked={
+                      completionLocked
                     }
                     targetSeconds={
                       targetReps
@@ -1869,10 +1963,13 @@ const adjustReps = (
             completeCurrentSet
           }
           disabled={
-            recordType ===
-              'time' &&
-            timedElapsedSeconds ===
-              0
+            completionLocked ||
+            (
+              recordType ===
+                'time' &&
+              timedElapsedSeconds ===
+                0
+            )
           }
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-4 text-base font-bold text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-600"
         >
@@ -1958,6 +2055,7 @@ function SetRow({
 
   isCurrent,
   isFuture,
+  completionLocked,
 
   targetSeconds,
   currentRemainingSeconds,
@@ -1989,6 +2087,7 @@ function SetRow({
 
   isCurrent: boolean;
   isFuture: boolean;
+  completionLocked: boolean;
 
   targetSeconds: number;
   currentRemainingSeconds: number;
@@ -2022,6 +2121,7 @@ function SetRow({
   const canComplete =
     isCurrent &&
     !isCompleted &&
+    !completionLocked &&
     (
       recordType !==
         'time' ||
@@ -2421,6 +2521,22 @@ function CompletionScreen({
 
   saveError: string;
 }) {
+  const [
+    saveUnlocked,
+    setSaveUnlocked,
+  ] = useState(false);
+
+  useEffect(() => {
+    const timer =
+      window.setTimeout(() => {
+        setSaveUnlocked(true);
+      }, 400);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, []);
+
   const durationSec =
     elapsedSeconds(
       startedAt,
@@ -2597,7 +2713,10 @@ function CompletionScreen({
 
         <button
           type="button"
-          disabled={isSaving}
+          disabled={
+            isSaving ||
+            !saveUnlocked
+          }
           onClick={() => {
             void onFinish();
           }}
@@ -2928,6 +3047,47 @@ export default function WorkoutPage() {
       [
         logSet,
       ],
+    );
+
+  const handleDraftsChange =
+    useCallback(
+      (
+        exerciseIndex: number,
+        drafts: SetDraft[],
+      ) => {
+        const workout =
+          useStore.getState()
+            .activeWorkout;
+
+        if (!workout) {
+          return;
+        }
+
+        const key =
+          String(exerciseIndex);
+
+        const previous =
+          workout.drafts?.[key];
+
+        if (
+          previous &&
+          JSON.stringify(previous) ===
+            JSON.stringify(drafts)
+        ) {
+          return;
+        }
+
+        useStore.setState({
+          activeWorkout: {
+            ...workout,
+            drafts: {
+              ...workout.drafts,
+              [key]: drafts,
+            },
+          },
+        });
+      },
+      [],
     );
 
   // ─────────────────────────────────────────────
@@ -3305,6 +3465,7 @@ export default function WorkoutPage() {
 
   return (
     <ExerciseScreen
+      key={`${activeWorkout.currentExerciseIndex}-${currentExercise.exercise_name}`}
       exerciseName={
         currentExercise.exercise_name
       }
@@ -3357,6 +3518,13 @@ export default function WorkoutPage() {
       restTimer={
         activeWorkout.restTimer
       }
+      initialDrafts={
+        activeWorkout.drafts?.[
+          String(
+            activeWorkout.currentExerciseIndex,
+          )
+        ]
+      }
       nextExerciseName={
         nextExercise?.exercise_name ??
         null
@@ -3378,6 +3546,9 @@ export default function WorkoutPage() {
       }
       onAdjustRest={
         handleAdjustRest
+      }
+      onDraftsChange={
+        handleDraftsChange
       }
     />
   );
@@ -3573,6 +3744,7 @@ function NumberCell({
         <button
           type="button"
           disabled={disabled}
+          aria-label={`${label} 입력값 ${value || '0'}${unit}`}
           onClick={() => {
             if (!disabled) {
               setKeypadOpen(true);
