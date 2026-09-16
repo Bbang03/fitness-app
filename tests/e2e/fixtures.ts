@@ -99,6 +99,20 @@ type StoreSeed = {
   mealLogs: unknown[];
   inbodyRecords: unknown[];
   favoriteExerciseIds: string[];
+  pendingExercise: {
+    name: string;
+    record_type: 'weight_reps' | 'reps_only' | 'time';
+    targetIndex: number;
+  } | null;
+  routineDraft: {
+    name: string;
+    items: Array<Omit<(typeof workoutRoutine.items)[number], 'id'>>;
+  } | null;
+  editRoutineDraft: {
+    routineId: string;
+    name: string;
+    items: Array<Omit<(typeof workoutRoutine.items)[number], 'id'>>;
+  } | null;
 };
 
 export async function seedGuestState(
@@ -114,6 +128,9 @@ export async function seedGuestState(
     mealLogs: [],
     inbodyRecords: [],
     favoriteExerciseIds: [],
+    pendingExercise: null,
+    routineDraft: null,
+    editRoutineDraft: null,
     ...overrides,
   };
 

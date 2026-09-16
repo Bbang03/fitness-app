@@ -82,6 +82,24 @@ export default function RoutinesPage() {
     Routine | null
   >(null);
 
+  useEffect(() => {
+    if (!pendingStartRoutine) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPendingStartRoutine(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [pendingStartRoutine]);
+
   const user =
     currentUser();
 
@@ -925,6 +943,9 @@ export default function RoutinesPage() {
       {/* Routine Start Confirm Modal */}
       {pendingStartRoutine && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="routine-start-dialog-title"
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/75 px-4 pb-[calc(20px+env(safe-area-inset-bottom))] backdrop-blur-sm"
           onClick={() =>
             setPendingStartRoutine(
@@ -963,7 +984,10 @@ export default function RoutinesPage() {
               </button>
             </div>
 
-            <h2 className="mt-4 text-xl font-bold leading-snug text-white">
+            <h2
+              id="routine-start-dialog-title"
+              className="mt-4 text-xl font-bold leading-snug text-white"
+            >
               &apos;
               {
                 pendingStartRoutine.name
@@ -993,6 +1017,7 @@ export default function RoutinesPage() {
             <div className="mt-6 grid grid-cols-2 gap-2">
               <button
                 type="button"
+                autoFocus
                 onClick={() =>
                   setPendingStartRoutine(
                     null,
