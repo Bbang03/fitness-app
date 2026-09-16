@@ -1324,12 +1324,53 @@ export const useStore = create<Store>()(
       merge: (persistedState, currentState) => {
         const persisted = (persistedState ?? {}) as Partial<Store>;
 
+        const users = Array.isArray(persisted.users)
+          ? persisted.users
+          : currentState.users;
+        const routines = Array.isArray(persisted.routines)
+          ? persisted.routines
+          : currentState.routines;
+        const workoutLogs = Array.isArray(persisted.workoutLogs)
+          ? persisted.workoutLogs
+          : currentState.workoutLogs;
+        const mealLogs = Array.isArray(persisted.mealLogs)
+          ? persisted.mealLogs
+          : currentState.mealLogs;
+        const inbodyRecords = Array.isArray(persisted.inbodyRecords)
+          ? persisted.inbodyRecords
+          : currentState.inbodyRecords;
+        const favoriteExerciseIds = Array.isArray(persisted.favoriteExerciseIds)
+          ? persisted.favoriteExerciseIds
+          : currentState.favoriteExerciseIds;
+        const currentUserId =
+          typeof persisted.currentUserId === 'string' &&
+          users.some((user) => user.id === persisted.currentUserId)
+            ? persisted.currentUserId
+            : null;
+        const activeWorkout =
+          persisted.activeWorkout &&
+          typeof persisted.activeWorkout.routineId === 'string' &&
+          routines.some(
+            (routine) => routine.id === persisted.activeWorkout?.routineId,
+          ) &&
+          Array.isArray(persisted.activeWorkout.exercises) &&
+          Array.isArray(persisted.activeWorkout.completedSets) &&
+          (persisted.activeWorkout.phase === 'exercise' ||
+            persisted.activeWorkout.phase === 'complete')
+            ? persisted.activeWorkout
+            : null;
+
         return {
           ...currentState,
           ...persisted,
-          mealLogs: sanitizeMealLogs(
-            persisted.mealLogs ?? currentState.mealLogs,
-          ),
+          users,
+          currentUserId,
+          routines,
+          workoutLogs,
+          activeWorkout,
+          mealLogs: sanitizeMealLogs(mealLogs),
+          inbodyRecords,
+          favoriteExerciseIds,
         };
       },
     },

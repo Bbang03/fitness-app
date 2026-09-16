@@ -22,7 +22,10 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: /navigation\.spec\.ts/,
+      testIgnore: [
+        /navigation\.spec\.ts/,
+        /webkit\.smoke\.spec\.ts/,
+      ],
       use: { ...devices['Desktop Chrome'] },
     },
     {
@@ -33,6 +36,14 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
         hasTouch: true,
         isMobile: true,
+      },
+    },
+    {
+      name: 'mobile-webkit',
+      testMatch: /webkit\.smoke\.spec\.ts/,
+      use: {
+        ...devices['iPhone 13'],
+        viewport: { width: 390, height: 844 },
       },
     },
   ],

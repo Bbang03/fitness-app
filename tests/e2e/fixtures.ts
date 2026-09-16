@@ -130,6 +130,15 @@ export async function seedGuestState(
 }
 
 export async function mockSupabaseReads(page: Page) {
+  await page.route('**/api/daily-comment**', async (route) => {
+    await route.fulfill({
+      json: {
+        comment: 'E2E에서는 외부 AI를 호출하지 않습니다.',
+        source: 'e2e-fixture',
+      },
+    });
+  });
+
   await page.route('**/auth/v1/user**', async (route) => {
     await route.fulfill({
       status: 401,

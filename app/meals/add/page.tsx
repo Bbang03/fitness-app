@@ -64,6 +64,10 @@ import {
   validateMealItems,
 } from '@/lib/mealSave';
 
+import {
+  dateKeyFromSearch,
+} from '@/lib/utils';
+
 
 interface OpenFoodFactsFood {
   id: string;
@@ -5029,10 +5033,10 @@ function AddMealInner() {
     'true';
 
   const date =
-    searchParams.get(
-      'date',
-    ) ??
-    localTodayKey();
+    dateKeyFromSearch(
+      searchParams.toString(),
+      localTodayKey(),
+    );
 
   const requestedMealType =
     searchParams.get(
@@ -5909,6 +5913,9 @@ function AddMealInner() {
           true,
         );
 
+        let saveSucceeded =
+          false;
+
         try {
           if (
             isGuest
@@ -5935,6 +5942,9 @@ function AddMealInner() {
             router.replace(
               mealsHref,
             );
+
+            saveSucceeded =
+              true;
 
             return true;
           }
@@ -6281,6 +6291,9 @@ function AddMealInner() {
             mealsHref,
           );
 
+          saveSucceeded =
+            true;
+
           return true;
         } catch (
           error
@@ -6296,8 +6309,12 @@ function AddMealInner() {
 
           return false;
         } finally {
-          mealSaveLockRef.current =
-            false;
+          if (
+            !saveSucceeded
+          ) {
+            mealSaveLockRef.current =
+              false;
+          }
 
           setIsSaving(
             false,
