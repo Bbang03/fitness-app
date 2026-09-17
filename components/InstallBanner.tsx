@@ -52,7 +52,7 @@ export default function InstallBanner() {
       />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold">차곡 앱으로 설치</p>
-        <p className="text-xs text-zinc-400 mt-0.5">홈 화면에 추가하면 오프라인에서도 사용 가능</p>
+        <p className="text-xs text-zinc-400 mt-0.5">홈 화면에 추가하고 빠르게 실행하세요</p>
       </div>
       <button
         onClick={handleInstall}

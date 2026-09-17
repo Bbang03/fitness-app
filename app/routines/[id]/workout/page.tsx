@@ -37,7 +37,6 @@ import { useWakeLock } from '@/hooks/useWakeLock';
 
 import {
   calcTotalVolume,
-  elapsedSeconds,
   formatDuration,
   playBeep,
   requestNotificationPermission,
@@ -2500,7 +2499,7 @@ function RestDock({
 
 function CompletionScreen({
   routineName,
-  startedAt,
+  durationSec,
   completedSets,
 
   onFinish,
@@ -2510,7 +2509,7 @@ function CompletionScreen({
 }: {
   routineName: string;
 
-  startedAt: string;
+  durationSec: number;
 
   completedSets: SetLog[];
 
@@ -2536,11 +2535,6 @@ function CompletionScreen({
       window.clearTimeout(timer);
     };
   }, []);
-
-  const durationSec =
-    elapsedSeconds(
-      startedAt,
-    );
 
   const totalVolume =
     calcTotalVolume(
@@ -2778,7 +2772,8 @@ export default function WorkoutPage() {
     routines.find(
       (routineItem) =>
         routineItem.id ===
-        routineId,
+          routineId &&
+        routineItem.user_id === user?.id,
     );
 
   const isWorkoutInProgress =
@@ -2836,35 +2831,42 @@ export default function WorkoutPage() {
   // ─────────────────────────────────────────────
 
   useEffect(() => {
-    if (
-      !activeWorkout?.startedAt
-    ) {
+    if (!activeWorkout) {
       return;
     }
 
-    setElapsedSec(
-      elapsedSeconds(
-        activeWorkout.startedAt,
-      ),
+    const baseSeconds = Math.max(
+      0,
+      Math.floor(activeWorkout.activeElapsedSeconds ?? 0),
     );
+    const segmentStartedAt = Date.now();
 
-    const interval =
-      window.setInterval(() => {
-        setElapsedSec(
-          elapsedSeconds(
-            activeWorkout.startedAt,
-          ),
-        );
-      }, 1000);
+    const commitElapsed = () => {
+      const nextElapsed =
+        baseSeconds +
+        Math.max(0, Math.floor((Date.now() - segmentStartedAt) / 1000));
+
+      setElapsedSec(nextElapsed);
+
+      const current = useStore.getState().activeWorkout;
+      if (current?.workoutLogId === activeWorkout.workoutLogId) {
+        useStore.setState({
+          activeWorkout: {
+            ...current,
+            activeElapsedSeconds: nextElapsed,
+          },
+        });
+      }
+    };
+
+    commitElapsed();
+    const interval = window.setInterval(commitElapsed, 1000);
 
     return () => {
-      window.clearInterval(
-        interval,
-      );
+      window.clearInterval(interval);
+      commitElapsed();
     };
-  }, [
-    activeWorkout?.startedAt,
-  ]);
+  }, [activeWorkout?.workoutLogId]);
 
   useEffect(() => {
     void requestNotificationPermission();
@@ -3339,8 +3341,8 @@ export default function WorkoutPage() {
         routineName={
           activeWorkout.routineName
         }
-        startedAt={
-          activeWorkout.startedAt
+        durationSec={
+          activeWorkout.activeElapsedSeconds ?? elapsedSec
         }
         completedSets={
           activeWorkout.completedSets
@@ -3379,8 +3381,9 @@ export default function WorkoutPage() {
   const completedForCurrentExercise =
     activeWorkout.completedSets.filter(
       (set) =>
-        set.exercise_name ===
-        currentExercise.exercise_name,
+        typeof set.exercise_index === 'number'
+          ? set.exercise_index === activeWorkout.currentExerciseIndex
+          : set.exercise_name === currentExercise.exercise_name,
     );
 
   // 최근 동일 운동 최대 3회

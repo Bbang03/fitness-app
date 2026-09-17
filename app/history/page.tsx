@@ -136,6 +136,43 @@ export default function HistoryPage() {
     setIsLoading,
   ] = useState(true);
 
+  // A history link can carry a date from the dashboard calendar. Read it
+  // after mount so direct navigation and client-side navigation use the same
+  // source of truth, while keeping the calendar date-only.
+  useEffect(() => {
+    const syncDateFromUrl = () => {
+      const requestedDate =
+        new URLSearchParams(
+          window.location.search,
+        ).get('date');
+
+      if (!isDateOnlyKey(requestedDate)) {
+        setSelectedDate(null);
+        return;
+      }
+
+      const [requestedYear, requestedMonth] =
+        requestedDate.split('-').map(Number);
+
+      setYear(requestedYear);
+      setMonth(requestedMonth - 1);
+      setSelectedDate(requestedDate);
+    };
+
+    syncDateFromUrl();
+    window.addEventListener(
+      'popstate',
+      syncDateFromUrl,
+    );
+
+    return () => {
+      window.removeEventListener(
+        'popstate',
+        syncDateFromUrl,
+      );
+    };
+  }, []);
+
   // ─────────────────────────────────────────────
   // Auth
   // ─────────────────────────────────────────────

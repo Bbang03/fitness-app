@@ -423,7 +423,22 @@ export const useStore = create<Store>()(
       },
 
       logout: () => {
-        set({ currentUserId: null, activeWorkout: null });
+        const userId = get().currentUserId;
+
+        if (!userId) {
+          set({ currentUserId: null, activeWorkout: null });
+          return;
+        }
+
+        set((state) => ({
+          currentUserId: null,
+          activeWorkout: null,
+          users: state.users.filter((user) => user.id !== userId),
+          routines: state.routines.filter((routine) => routine.user_id !== userId),
+          workoutLogs: state.workoutLogs.filter((log) => log.user_id !== userId),
+          mealLogs: state.mealLogs.filter((log) => log.user_id !== userId),
+          inbodyRecords: state.inbodyRecords.filter((record) => record.user_id !== userId),
+        }));
       },
 
       currentUser: () => {
@@ -800,7 +815,10 @@ export const useStore = create<Store>()(
       setWorkoutLogs: (logs) => set({ workoutLogs: logs }),
 
       startWorkout: (routineId) => {
-        const routine = get().routines.find((r) => r.id === routineId);
+        const user = get().currentUser();
+        const routine = get().routines.find(
+          (r) => r.id === routineId && r.user_id === user?.id,
+        );
         if (!routine) return;
         const sorted = [
           ...routine.items,
@@ -818,6 +836,7 @@ export const useStore = create<Store>()(
           routineId,
           routineName: routine.name,
           startedAt: new Date().toISOString(),
+          activeElapsedSeconds: 0,
           exercises: sorted,
           phase: 'exercise',
           currentExerciseIndex: 0,
@@ -833,10 +852,19 @@ export const useStore = create<Store>()(
         if (!activeWorkout) return;
 
         const exercise = activeWorkout.exercises[exerciseIndex];
+        if (
+          !exercise ||
+          !Number.isInteger(setIndex) ||
+          setIndex < 0 ||
+          setIndex >= exercise.target_sets
+        ) {
+          return;
+        }
         const newSet: SetLog = {
           id: generateId(),
           workout_log_id: activeWorkout.workoutLogId,
           exercise_name: exercise.exercise_name,
+          exercise_index: exerciseIndex,
           set_number: setIndex + 1,
           weight_kg: weight,
           reps,
@@ -893,6 +921,13 @@ export const useStore = create<Store>()(
         const storedUser = get().users.find((u) => u.id === user.id);
       
         const finishedAt = new Date().toISOString();
+        const activeElapsedSeconds = Math.max(
+          0,
+          Math.floor(activeWorkout.activeElapsedSeconds ?? 0),
+        );
+        const persistedStartedAt = new Date(
+          new Date(finishedAt).getTime() - activeElapsedSeconds * 1000,
+        ).toISOString();
         const workoutDate = localDateKey();
       
         // 비회원은 기존 localStorage 방식 유지
@@ -903,7 +938,7 @@ export const useStore = create<Store>()(
             routine_id: activeWorkout.routineId,
             routine_name: activeWorkout.routineName,
             date: workoutDate,
-            started_at: activeWorkout.startedAt,
+            started_at: persistedStartedAt,
             finished_at: finishedAt,
             sets: activeWorkout.completedSets,
           };
@@ -930,7 +965,7 @@ export const useStore = create<Store>()(
             routine_id: activeWorkout.routineId,
             routine_name: activeWorkout.routineName,
             date: workoutDate,
-            started_at: activeWorkout.startedAt,
+            started_at: persistedStartedAt,
             finished_at: finishedAt,
           });
       
@@ -996,7 +1031,7 @@ export const useStore = create<Store>()(
           routine_id: activeWorkout.routineId,
           routine_name: activeWorkout.routineName,
           date: workoutDate,
-          started_at: activeWorkout.startedAt,
+          started_at: persistedStartedAt,
           finished_at: finishedAt,
           sets: persistedSets,
         };

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { protectApiRoute } from '@/lib/apiSecurity';
 
 import {
   buildDailyCommentAiPrompt,
@@ -58,6 +59,14 @@ function modelText(value: unknown): string | null {
 }
 
 export async function POST(request: Request) {
+  const access = await protectApiRoute(request, {
+    name: 'daily-comment',
+    limit: 10,
+    windowMs: 60_000,
+    dailyLimit: 100,
+  });
+  if (!access.ok) return access.response;
+
   let body: unknown;
 
   try {

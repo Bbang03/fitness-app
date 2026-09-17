@@ -55,6 +55,7 @@ export type ActiveWorkoutFixture = {
   routineId: string;
   routineName: string;
   startedAt: string;
+  activeElapsedSeconds?: number;
   exercises: typeof workoutRoutine.items;
   phase: 'exercise' | 'complete';
   currentExerciseIndex: number;
@@ -63,6 +64,7 @@ export type ActiveWorkoutFixture = {
     id: string;
     workout_log_id: string;
     exercise_name: string;
+    exercise_index?: number;
     set_number: number;
     weight_kg: number;
     reps: number;
@@ -80,6 +82,7 @@ export function makeActiveWorkout(
     routineId: workoutRoutine.id,
     routineName: workoutRoutine.name,
     startedAt: '2026-09-15T00:00:00.000Z',
+    activeElapsedSeconds: 0,
     exercises: workoutRoutine.items,
     phase: 'exercise',
     currentExerciseIndex: 0,

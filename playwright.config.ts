@@ -8,7 +8,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // The dev server and mocked browser state are shared test resources. A
+  // single worker keeps local runs aligned with CI and avoids cross-test
+  // resource contention.
+  workers: 1,
   reporter: [
     ['list'],
     ['html', { open: 'never' }],

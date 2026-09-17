@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { protectApiRoute } from '@/lib/apiSecurity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,6 +9,14 @@ const DEFAULT_OCR_API_URL =
   'https://chagok-ocr-595235641783.asia-northeast3.run.app';
 
 export async function POST(request: NextRequest) {
+  const access = await protectApiRoute(request, {
+    name: 'inbody-ocr',
+    limit: 2,
+    windowMs: 60_000,
+    dailyLimit: 20,
+  });
+  if (!access.ok) return access.response;
+
   try {
     const incomingFormData = await request.formData();
 

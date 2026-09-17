@@ -168,3 +168,52 @@ test('진행 중 운동은 reload와 루틴 목록의 이어서 이동 후에도
   await expect(page).toHaveURL(`/routines/${workoutRoutine.id}/workout`);
   await expect(page.getByRole('button', { name: '2세트 완료' })).toBeVisible();
 });
+
+test('같은 이름의 운동을 두 번 배치해도 각 항목을 독립적으로 완료한다', async ({ page }) => {
+  const duplicateRoutine = {
+    ...workoutRoutine,
+    items: [
+      {
+        ...workoutRoutine.items[1],
+        id: 'duplicate-pushup-1',
+        order: 0,
+      },
+      {
+        ...workoutRoutine.items[1],
+        id: 'duplicate-pushup-2',
+        order: 1,
+      },
+    ],
+  };
+
+  await seedGuestState(page, {
+    routines: [duplicateRoutine],
+    activeWorkout: {
+      ...makeActiveWorkout(),
+      exercises: duplicateRoutine.items,
+    },
+  });
+  await page.goto(`/routines/${workoutRoutine.id}/workout`);
+
+  await page.getByRole('button', { name: '1세트 완료' }).click();
+  await expect(page.getByRole('heading', { name: '푸시업' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '1세트 완료' })).toBeEnabled();
+  await page.getByRole('button', { name: '1세트 완료' }).click();
+  await expect(page.getByRole('heading', { name: '운동 완료!' })).toBeVisible();
+  await expect(page.getByText('2세트', { exact: true })).toBeVisible();
+  await expect(page.getByText('12회', { exact: true })).toHaveCount(2);
+});
+
+test('오래 전에 시작한 운동을 재개해도 비활성 시간을 운동 시간에 포함하지 않는다', async ({ page }) => {
+  await seedGuestState(page, {
+    activeWorkout: makeActiveWorkout({
+      startedAt: '2020-01-01T00:00:00.000Z',
+      activeElapsedSeconds: 12,
+    }),
+  });
+  await page.goto(`/routines/${workoutRoutine.id}/workout`);
+
+  await expect(page.getByText('00:12', { exact: true })).toBeVisible();
+  await page.waitForTimeout(1_100);
+  await expect(page.getByText('00:13', { exact: true })).toBeVisible();
+});

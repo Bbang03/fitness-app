@@ -6,6 +6,7 @@ import {
 import {
   createClient,
 } from '@supabase/supabase-js';
+import { protectApiRoute } from '@/lib/apiSecurity';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -959,6 +960,14 @@ async function saveEstimateToCache({
 export async function POST(
   request: NextRequest,
 ) {
+  const access = await protectApiRoute(request, {
+    name: 'macro-estimate',
+    limit: 10,
+    windowMs: 60_000,
+    dailyLimit: 100,
+  });
+  if (!access.ok) return access.response;
+
   try {
     const body =
       (

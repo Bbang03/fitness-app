@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { FOOD_DB, calcNutrition } from '@/lib/foodData';
+import { protectApiRoute } from '@/lib/apiSecurity';
 import {
   candidateIdentityKey,
   cleanVisualCandidates,
@@ -121,6 +122,14 @@ const responseSchema = {
 };
 
 export async function POST(req: Request) {
+  const access = await protectApiRoute(req, {
+    name: 'vision-recognize',
+    limit: 5,
+    windowMs: 60_000,
+    dailyLimit: 20,
+  });
+  if (!access.ok) return access.response;
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'GEMINI_API_KEY 가 설정되지 않았습니다.' }, { status: 500 });

@@ -2,7 +2,6 @@
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -506,9 +505,7 @@ export default function RoutinesPage() {
       );
 
   const weekLogs =
-    useMemo(
-      () =>
-        myLogs.filter(
+    myLogs.filter(
           (
             log,
           ) => {
@@ -537,9 +534,7 @@ export default function RoutinesPage() {
               diff <= 7
             );
           },
-        ),
-      [myLogs],
-    );
+        );
 
   const weekSets =
     weekLogs.reduce(

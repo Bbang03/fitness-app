@@ -20,6 +20,10 @@ import {
   X,
 } from 'lucide-react';
 
+import {
+  localDateKey,
+} from '@/lib/utils';
+
 const OPTIONAL_FIELDS = [
   {
     key: 'abdominal_fat_ratio',
@@ -360,9 +364,7 @@ export default function NewInbodyPage() {
   }, [user, router]);
 
   const todayKey =
-    new Date()
-      .toISOString()
-      .split('T')[0];
+    localDateKey();
 
   const [form, setForm] =
     useState<Record<FormKey, string>>(

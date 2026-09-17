@@ -81,6 +81,9 @@ export interface SetLog {
 
   exercise_name: string;
 
+  /** 운동 세션 안에서 동일한 이름의 루틴 항목을 구분한다. 서버 저장에는 사용하지 않는다. */
+  exercise_index?: number;
+
   set_number: number;
 
   // 실제 수행 무게
@@ -129,6 +132,9 @@ export interface ActiveWorkout {
   routineName: string;
 
   startedAt: string;
+
+  /** 앱에서 실제로 운동 화면을 활성화한 누적 시간(초). */
+  activeElapsedSeconds?: number;
 
   exercises: RoutineItem[];
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { protectApiRoute } from '@/lib/apiSecurity';
 import {
   nutritionEvidenceExcerpt,
   parseDuckDuckGoResults,
@@ -201,6 +202,14 @@ ${sourceText}
 }
 
 export async function GET(req: NextRequest) {
+  const access = await protectApiRoute(req, {
+    name: 'nutrition-web-estimate',
+    limit: 10,
+    windowMs: 60_000,
+    dailyLimit: 100,
+  });
+  if (!access.ok) return access.response;
+
   const query = req.nextUrl.searchParams.get('q')?.trim() ?? '';
   if (query.length < 2 || query.length > 120) {
     return NextResponse.json({ estimate: null, error: '검색어 길이가 올바르지 않습니다.' }, { status: 400 });
